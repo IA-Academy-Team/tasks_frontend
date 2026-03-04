@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { FolderKanban, CheckCircle2, Clock, Users, Filter, Calendar, CheckCircle, XCircle, ClipboardList, FolderOpen, Search } from 'lucide-react';
+import { FolderKanban, CheckCircle2, Clock, Users, Filter, Calendar, CheckCircle, XCircle, ClipboardList, FolderOpen } from 'lucide-react';
 import { getProjects, getUsers } from '../store';
 import { Task } from '../types';
+import { DateRangeFilter } from '../components/DateRangeFilter';
 
 type TaskWithMeta = Task & { projectName: string; projectId: string; columnTitle: string };
 
@@ -35,28 +36,44 @@ function getAssigneeName(assignedToId: string, users: { id: string; name: string
 export function Dashboard() {
   const projects = getProjects();
   const users = getUsers();
-  const [filterSearch, setFilterSearch] = useState<string>('');
+  const [filterTarea, setFilterTarea] = useState<string>('');
+  const [filterAsignadoA, setFilterAsignadoA] = useState<string>('');
+  const [filterProyecto, setFilterProyecto] = useState<string>('');
+  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
+  const [filterDateTo, setFilterDateTo] = useState<string>('');
+  const [filterCumplio, setFilterCumplio] = useState<string>(''); // '' | 'si' | 'no'
 
-  const totalProjects = projects.length;
   const allTasksWithMeta = getAllTasksWithMeta();
-  const totalTasks = allTasksWithMeta.length;
-  const pendingTasks = allTasksWithMeta.filter((t) => t.columnTitle !== 'Producción').length;
 
-  const searchLower = filterSearch.trim().toLowerCase();
-  const filteredTasks =
-    searchLower === ''
-      ? allTasksWithMeta
-      : allTasksWithMeta.filter((t) => {
-          const name = getAssigneeName(t.assignedTo, users);
-          return name.toLowerCase().includes(searchLower);
-        });
+  const filteredTasks = allTasksWithMeta.filter((task) => {
+    if (filterTarea.trim()) {
+      const q = filterTarea.trim().toLowerCase();
+      if (!task.description.toLowerCase().includes(q)) return false;
+    }
+    if (filterAsignadoA && task.assignedTo !== filterAsignadoA) return false;
+    if (filterProyecto && task.projectId !== filterProyecto) return false;
+    if (filterCumplio === 'si' && task.columnTitle !== 'Producción') return false;
+    if (filterCumplio === 'no' && task.columnTitle === 'Producción') return false;
+    return true;
+  });
 
-  // Mostrar las últimas 8 tareas
+  const hasAnyFilter =
+    filterTarea.trim() !== '' ||
+    filterAsignadoA !== '' ||
+    filterProyecto !== '' ||
+    filterCumplio !== '';
+
+  const statsTasks = hasAnyFilter ? filteredTasks : allTasksWithMeta;
+  const totalTasks = statsTasks.length;
+  const pendingTasks = statsTasks.filter((t) => t.columnTitle !== 'Producción').length;
+  const projectIds = new Set(statsTasks.map((t) => t.projectId));
+  const totalProjects = hasAnyFilter ? projectIds.size : projects.length;
+  const memberIds = new Set(statsTasks.map((t) => t.assignedTo));
+  const totalMembers = hasAnyFilter ? memberIds.size : users.length;
+
   const displayedTasks = [...filteredTasks]
     .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime())
     .slice(0, 8);
-
-  const hasSearch = filterSearch.trim() !== '';
 
   const formatDate = (dateStr: string) => {
     try {
@@ -85,7 +102,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats — se actualizan con los filtros activos o datos globales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 flex-shrink-0">
         <StatCard
           title="Proyectos"
@@ -104,7 +121,7 @@ export function Dashboard() {
         />
         <StatCard
           title="Miembros"
-          value={users.length}
+          value={totalMembers}
           icon={<Users className="size-6 text-primary" />}
         />
       </div>
@@ -121,22 +138,6 @@ export function Dashboard() {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <label htmlFor="filter-person" className="text-sm font-medium text-muted-foreground whitespace-nowrap sr-only">
-              Buscar por persona
-            </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" aria-hidden />
-              <input
-                id="filter-person"
-                type="search"
-                value={filterSearch}
-                onChange={(e) => setFilterSearch(e.target.value)}
-                placeholder="Buscar por nombre de persona..."
-                className="pl-9 pr-3 py-2 border border-primary/25 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-sm min-w-[220px] bg-input-background text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-          </div>
         </div>
 
         <div className="overflow-auto flex-1 min-h-0">
@@ -146,8 +147,8 @@ export function Dashboard() {
                 <ClipboardList className="size-8 text-muted-foreground/70" aria-hidden />
               </div>
               <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-                {hasSearch
-                  ? 'Ninguna tarea coincide con ese nombre. Prueba con otro.'
+                {hasAnyFilter
+                  ? 'Ninguna tarea coincide con los filtros. Prueba cambiando o quitando filtros.'
                   : 'No hay tareas en ningún proyecto. Crea un proyecto y añade tareas para verlas aquí.'}
               </p>
             </div>
@@ -165,14 +166,70 @@ export function Dashboard() {
                     Proyecto
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Fecha asignación
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Fecha compromiso
+                    Rango de fechas
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     ¿Cumplió?
                   </th>
+                </tr>
+                {/* Fila de filtros por columna */}
+                <tr className="bg-primary/5 border-b border-primary/15">
+                  <td className="px-2 py-2">
+                    <input
+                      type="text"
+                      value={filterTarea}
+                      onChange={(e) => setFilterTarea(e.target.value)}
+                      placeholder="Filtrar..."
+                      className="w-full min-w-0 px-2 py-1.5 text-sm border border-primary/25 rounded-lg bg-input-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={filterAsignadoA}
+                      onChange={(e) => setFilterAsignadoA(e.target.value)}
+                      className="w-full min-w-0 px-2 py-1.5 text-sm border border-primary/25 rounded-lg bg-input-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Todos</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={filterProyecto}
+                      onChange={(e) => setFilterProyecto(e.target.value)}
+                      className="w-full min-w-0 px-2 py-1.5 text-sm border border-primary/25 rounded-lg bg-input-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Todos</option>
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-2">
+                    <DateRangeFilter
+                      dateFrom={filterDateFrom}
+                      dateTo={filterDateTo}
+                      onDateChange={(from, to) => {
+                        setFilterDateFrom(from);
+                        setFilterDateTo(to);
+                      }}
+                      placeholder="Desde — hasta"
+                      triggerClassName="w-full min-w-0"
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={filterCumplio}
+                      onChange={(e) => setFilterCumplio(e.target.value)}
+                      className="w-full min-w-0 px-2 py-1.5 text-sm border border-primary/25 rounded-lg bg-input-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">Todos</option>
+                      <option value="si">Sí</option>
+                      <option value="no">Pendiente</option>
+                    </select>
+                  </td>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -187,12 +244,11 @@ export function Dashboard() {
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {task.projectName}
                     </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground flex items-center gap-1.5">
-                      <Calendar className="size-4 text-muted-foreground/80 flex-shrink-0" />
-                      {formatDate(task.startDate)}
-                    </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {formatDate(task.endDate)}
+                      <span className="flex items-center gap-1.5">
+                        <Calendar className="size-4 text-muted-foreground/80 flex-shrink-0" />
+                        {formatDate(task.startDate)} — {formatDate(task.endDate)}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       {isFulfilled(task.columnTitle) ? (
