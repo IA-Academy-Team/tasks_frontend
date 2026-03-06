@@ -2,13 +2,15 @@ import type { AuthRole } from "../api/auth.api";
 
 export type FrontendResource =
   | "dashboard"
+  | "areas"
+  | "employees"
   | "projects"
   | "projectBoard"
   | "profile"
   | "members";
 
 const ROLE_POLICIES: Record<AuthRole, FrontendResource[]> = {
-  admin: ["dashboard", "projects", "projectBoard", "profile", "members"],
+  admin: ["dashboard", "areas", "employees", "projects", "projectBoard", "profile", "members"],
   employee: ["dashboard", "projects", "projectBoard", "profile"],
 };
 
