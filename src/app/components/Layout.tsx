@@ -1,5 +1,7 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
 import {
+  ChevronLeft,
+  ChevronRight,
   FolderKanban,
   Users,
   LayoutDashboard,
@@ -25,14 +27,14 @@ type NavItem = {
 };
 
 const baseNavButtonClass =
-  "relative w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all";
+  "group relative w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all";
 
-const getNavButtonClass = (isActive: boolean) =>
+const getNavButtonClass = (isActive: boolean, isCollapsed = false) =>
   `${baseNavButtonClass} ${
     isActive
       ? "bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-ring/45 shadow-[0_10px_24px_rgba(2,12,24,0.24)]"
       : "text-sidebar-foreground/78 hover:text-sidebar-foreground hover:bg-sidebar-accent/72"
-  }`;
+  } ${isCollapsed ? "justify-center px-2.5" : ""}`;
 
 export function Layout() {
   const navigate = useNavigate();
@@ -42,6 +44,7 @@ export function Layout() {
   const canManageEmployees = user ? canAccessResource(user.role, "employees") : false;
   const dashboardPath = user ? getDefaultRouteForRole(user.role) : "/";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -106,18 +109,25 @@ export function Layout() {
 
   const visibleNavItems = navItems.filter((item) => item.isVisible);
 
-  const renderNav = () => (
-    <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
+  const renderNav = (isCollapsed = false) => (
+    <nav className="flex-1 overflow-y-hidden overflow-x-visible px-3 py-4 space-y-1.5">
       {visibleNavItems.map((item) => {
         const Icon = item.icon;
         return (
           <button
             key={item.key}
             onClick={() => navigateTo(item.path)}
-            className={getNavButtonClass(item.isActive)}
+            className={getNavButtonClass(item.isActive, isCollapsed)}
+            aria-label={item.label}
+            title={isCollapsed ? item.label : undefined}
           >
             <Icon className="size-4 shrink-0" />
-            <span className="flex-1 text-left">{item.label}</span>
+            {!isCollapsed && <span className="flex-1 text-left">{item.label}</span>}
+            {isCollapsed && (
+              <span className="pointer-events-none absolute left-[calc(100%+0.65rem)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg border border-sidebar-border bg-[#0b2438] px-2.5 py-1.5 text-xs text-sidebar-foreground opacity-0 shadow-xl transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 translate-x-1">
+                {item.label}
+              </span>
+            )}
           </button>
         );
       })}
@@ -125,34 +135,58 @@ export function Layout() {
   );
 
   return (
-    <div className="min-h-screen flex bg-background">
-      <aside className="hidden md:flex relative w-72 shrink-0 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] text-sidebar-foreground flex-col shadow-[20px_0_36px_rgba(8,24,43,0.18)]">
+    <div className="h-screen overflow-hidden flex bg-background">
+      <aside
+        className={`hidden md:flex h-screen relative shrink-0 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] text-sidebar-foreground flex-col shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
+          isSidebarCollapsed ? "w-20" : "w-72"
+        }`}
+      >
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,rgba(130,235,224,0.18),transparent_34%)]" />
-        <div className="relative p-5 border-b border-sidebar-border/80">
-          <div className="rounded-2xl border border-white/16 bg-white/6 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-            <div className="flex items-center gap-3">
-              <div className="size-10 rounded-xl border border-white/24 bg-white/14 text-sidebar-foreground flex items-center justify-center">
+        <div className={`relative border-b border-sidebar-border/80 ${isSidebarCollapsed ? "p-3" : "p-5"}`}>
+          <button
+            type="button"
+            onClick={() => setIsSidebarCollapsed((current) => !current)}
+            className="absolute right-2 top-2 z-20 inline-flex size-8 items-center justify-center rounded-lg border border-white/22 bg-white/10 text-sidebar-foreground hover:bg-white/20 transition-colors"
+            aria-label={isSidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+            title={isSidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+          >
+            {isSidebarCollapsed ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
+          </button>
+          <div className={`rounded-2xl border border-white/16 bg-white/6 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] ${isSidebarCollapsed ? "px-2 py-3" : "px-4 py-3"}`}>
+            <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "gap-3"}`}>
+              <div className="size-10 rounded-xl border border-white/24 bg-white/14 text-sidebar-foreground flex items-center justify-center shrink-0">
                 <FolderKanban className="size-5" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight leading-none">Tasks</h1>
-                <p className="text-xs text-sidebar-foreground/78 mt-1">Gestión de proyectos</p>
-              </div>
+              {!isSidebarCollapsed && (
+                <div>
+                  <h1 className="text-2xl font-bold tracking-tight leading-none">Tasks</h1>
+                  <p className="text-xs text-sidebar-foreground/78 mt-1">Gestión de proyectos</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {renderNav()}
+        {renderNav(isSidebarCollapsed)}
 
-        <div className="relative p-3 border-t border-sidebar-border/80">
+        <div className="relative p-3 border-t border-sidebar-border/80 mt-auto">
           <button
             onClick={() => {
               void handleLogout();
             }}
-            className={`${baseNavButtonClass} text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/72`}
+            className={`${baseNavButtonClass} text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/72 ${
+              isSidebarCollapsed ? "justify-center px-2.5" : ""
+            }`}
+            aria-label="Cerrar sesión"
+            title={isSidebarCollapsed ? "Cerrar sesión" : undefined}
           >
             <LogOut className="size-4 shrink-0" />
-            Cerrar sesión
+            {!isSidebarCollapsed && "Cerrar sesión"}
+            {isSidebarCollapsed && (
+              <span className="pointer-events-none absolute left-[calc(100%+0.65rem)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg border border-sidebar-border bg-[#0b2438] px-2.5 py-1.5 text-xs text-sidebar-foreground opacity-0 shadow-xl transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 translate-x-1">
+                Cerrar sesión
+              </span>
+            )}
           </button>
         </div>
       </aside>
@@ -176,7 +210,7 @@ export function Layout() {
                 <X className="size-5" />
               </button>
             </div>
-            <div className="pt-3">{renderNav()}</div>
+            <div className="pt-3">{renderNav(false)}</div>
             <div className="pt-4 mt-4 border-t border-sidebar-border/80">
               <button
                 onClick={() => {
@@ -192,7 +226,7 @@ export function Layout() {
         </div>
       )}
 
-      <main className="flex-1 flex flex-col min-h-0 overflow-auto">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <header className="md:hidden flex items-center justify-between border-b border-white/12 px-4 py-3 bg-[linear-gradient(118deg,#0b2f4b_0%,#105b7e_50%,#127f68_100%)] text-primary-foreground">
           <button
             type="button"
