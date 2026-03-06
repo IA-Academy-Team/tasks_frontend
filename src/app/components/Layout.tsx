@@ -5,12 +5,13 @@ import { getProjects } from '../store';
 import { Project } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { getDefaultRouteForRole } from '../../modules/auth/lib/auth-routing';
+import { canAccessResource } from '../../modules/auth/lib/access-policy';
 
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const canManageMembers = user ? canAccessResource(user.role, 'members') : false;
   const [projects, setProjects] = useState<Project[]>([]);
   const dashboardPath = user ? getDefaultRouteForRole(user.role) : '/';
 
@@ -64,7 +65,7 @@ export function Layout() {
             </span>
           </button>
 
-          {isAdmin && (
+          {canManageMembers && (
             <button
               onClick={() => navigate('/members')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${

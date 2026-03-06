@@ -3,6 +3,7 @@ import { AuthLayout } from "../layouts/AuthLayout";
 import { RoleAwareLayout } from "../layouts/RoleAwareLayout";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { RoleGuard } from "../guards/RoleGuard";
+import { ResourceGuard } from "../guards/ResourceGuard";
 import { LoginPage } from "../../modules/auth/pages/LoginPage";
 import { RegisterPage } from "../../modules/auth/pages/RegisterPage";
 import { ForgotPasswordPage } from "../../modules/auth/pages/ForgotPasswordPage";
@@ -47,14 +48,28 @@ export function AppRouter() {
               </RoleGuard>
             }
           />
-          <Route path="projects" element={<ProjectsPage />} />
-          <Route path="projects/:projectId" element={<ProjectBoardPage />} />
+          <Route
+            path="projects"
+            element={(
+              <ResourceGuard resource="projects">
+                <ProjectsPage />
+              </ResourceGuard>
+            )}
+          />
+          <Route
+            path="projects/:projectId"
+            element={(
+              <ResourceGuard resource="projectBoard">
+                <ProjectBoardPage />
+              </ResourceGuard>
+            )}
+          />
           <Route
             path="members"
             element={
-              <RoleGuard allowedRoles={["admin"]}>
+              <ResourceGuard resource="members">
                 <MembersPage />
-              </RoleGuard>
+              </ResourceGuard>
             }
           />
         </Route>
