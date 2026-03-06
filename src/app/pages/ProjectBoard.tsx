@@ -17,9 +17,11 @@ import {
 import {
   createTask,
   deleteTask,
+  getTaskHistory,
   listTasks,
   transitionTaskStatus,
   updateTask,
+  type TaskHistoryEntry,
   type TaskWorkflowStatus,
   type TaskStatusFilter,
   type TaskSummary,
@@ -45,6 +47,28 @@ const STATUS_NAME_TO_KEY: Record<string, TaskWorkflowStatus> = {
 
 const getStatusKeyFromTask = (task: TaskSummary): TaskWorkflowStatus | null =>
   STATUS_NAME_TO_KEY[task.status] ?? null;
+
+const formatMinutes = (minutes: number): string => {
+  if (minutes <= 0) return "0 min";
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours === 0) return `${remainingMinutes} min`;
+  if (remainingMinutes === 0) return `${hours}h`;
+  return `${hours}h ${remainingMinutes}m`;
+};
+
+const getComplianceBadge = (task: TaskSummary): { label: string; className: string } => {
+  if (task.isDateOverdue) {
+    return { label: "Atraso por fecha", className: "text-destructive" };
+  }
+
+  if (task.isEstimateDelayed === true) {
+    return { label: "Atraso estimado", className: "text-warning" };
+  }
+
+  return { label: "En tiempo", className: "text-success" };
+};
 
 export function ProjectBoard() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -75,6 +99,9 @@ export function ProjectBoard() {
   const [taskAssigneeMembershipId, setTaskAssigneeMembershipId] = useState("");
   const [taskPriorityId, setTaskPriorityId] = useState("2");
   const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
+  const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
 
   const numericProjectId = Number(projectId);
 
@@ -166,6 +193,19 @@ export function ProjectBoard() {
     void loadTasks();
   }, [taskStatusFilter, projectId]);
 
+  useEffect(() => {
+    if (selectedTaskId === null) {
+      setTaskHistory([]);
+      return;
+    }
+
+    const selectedStillExists = tasks.some((task) => task.id === selectedTaskId);
+    if (!selectedStillExists) {
+      setSelectedTaskId(null);
+      setTaskHistory([]);
+    }
+  }, [selectedTaskId, tasks]);
+
   const assignableEmployees = useMemo(() => {
     if (!project) return [];
     return employees.filter((employee) => employee.currentAreaId === project.areaId);
@@ -192,6 +232,34 @@ export function ProjectBoard() {
 
     return grouped;
   }, [tasks]);
+
+  const selectedTask = useMemo(
+    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
+    [selectedTaskId, tasks],
+  );
+
+  const loadTaskHistory = async (taskId: number) => {
+    setIsLoadingTaskHistory(true);
+    try {
+      const response = await getTaskHistory(taskId);
+      setTaskHistory(response?.data ?? []);
+    } catch (incomingError) {
+      setTaskHistory([]);
+      if (incomingError instanceof ApiError) {
+        setError(incomingError.message);
+      } else {
+        setError("No fue posible cargar el historial de estados.");
+      }
+    } finally {
+      setIsLoadingTaskHistory(false);
+    }
+  };
+
+  const handleSelectTask = (taskId: number) => {
+    setError("");
+    setSelectedTaskId(taskId);
+    void loadTaskHistory(taskId);
+  };
 
   const handleAssign = async () => {
     const employeeId = Number(assignEmployeeId);
@@ -278,6 +346,8 @@ export function ProjectBoard() {
   };
 
   const startTaskEdit = (task: TaskSummary) => {
+    setSelectedTaskId(task.id);
+    void loadTaskHistory(task.id);
     setEditingTaskId(task.id);
     setTaskTitle(task.title);
     setTaskDescription(task.description ?? "");
@@ -440,6 +510,9 @@ export function ProjectBoard() {
 
         return nextTasks;
       });
+      if (selectedTaskId === taskId) {
+        void loadTaskHistory(taskId);
+      }
       setSuccess(`Tarea movida a ${WORKFLOW_LABELS[toStatus]}.`);
     } catch (incomingError) {
       setTasks(previousTasks);
@@ -816,11 +889,14 @@ export function ProjectBoard() {
                         <article
                           key={task.id}
                           draggable={movingTaskId === null}
+                          onClick={() => handleSelectTask(task.id)}
                           onDragStart={(event) => {
                             event.dataTransfer.setData("application/task-id", String(task.id));
                             event.dataTransfer.effectAllowed = "move";
                           }}
-                          className={`rounded-lg border border-border bg-card p-3 shadow-sm transition-opacity ${
+                          className={`rounded-lg border bg-card p-3 shadow-sm transition-opacity ${
+                            selectedTaskId === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
+                          } ${
                             movingTaskId === task.id ? "opacity-50" : ""
                           }`}
                         >
@@ -832,6 +908,12 @@ export function ProjectBoard() {
                           </p>
                           <p className="text-xs text-muted-foreground mt-1">
                             Limite: {task.dueDate}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Real: {formatMinutes(task.actualMinutes)}
+                          </p>
+                          <p className={`text-xs mt-1 ${getComplianceBadge(task).className}`}>
+                            {getComplianceBadge(task).label}
                           </p>
                         </article>
                       ))
@@ -855,12 +937,20 @@ export function ProjectBoard() {
                     <th className="px-4 py-3 text-left">Asignado</th>
                     <th className="px-4 py-3 text-left">Fechas</th>
                     <th className="px-4 py-3 text-left">Estimado</th>
+                    <th className="px-4 py-3 text-left">Real</th>
+                    <th className="px-4 py-3 text-left">Cumplimiento</th>
                     {isAdmin && <th className="px-4 py-3 text-left">Acciones</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {tasks.map((task) => (
-                    <tr key={task.id} className="border-t border-border">
+                    <tr
+                      key={task.id}
+                      className={`border-t border-border cursor-pointer ${
+                        selectedTaskId === task.id ? "bg-primary/5" : ""
+                      }`}
+                      onClick={() => handleSelectTask(task.id)}
+                    >
                       <td className="px-4 py-3">
                         <p className="font-medium">{task.title}</p>
                         <p className="text-muted-foreground">{task.description ?? "Sin descripcion"}</p>
@@ -876,6 +966,17 @@ export function ProjectBoard() {
                       </td>
                       <td className="px-4 py-3">
                         {task.estimatedMinutes ? `${task.estimatedMinutes} min` : "-"}
+                      </td>
+                      <td className="px-4 py-3">{formatMinutes(task.actualMinutes)}</td>
+                      <td className="px-4 py-3">
+                        <span className={getComplianceBadge(task).className}>
+                          {getComplianceBadge(task).label}
+                        </span>
+                        {task.deviationMinutes !== null && (
+                          <p className="text-xs text-muted-foreground">
+                            Desvio: {task.deviationMinutes > 0 ? "+" : ""}{task.deviationMinutes} min
+                          </p>
+                        )}
                       </td>
                       {isAdmin && (
                         <td className="px-4 py-3">
@@ -905,6 +1006,40 @@ export function ProjectBoard() {
               </table>
             </div>
           )}
+
+          <div className="p-5 border-t border-border bg-secondary/10">
+            <h4 className="font-medium text-foreground mb-2">Historial de estados</h4>
+            {!selectedTask ? (
+              <p className="text-sm text-muted-foreground">
+                Selecciona una tarea en la tabla o en el Kanban para consultar su historial.
+              </p>
+            ) : isLoadingTaskHistory ? (
+              <p className="text-sm text-muted-foreground">Cargando historial de "{selectedTask.title}"...</p>
+            ) : taskHistory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                La tarea "{selectedTask.title}" no tiene eventos de estado.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {taskHistory.map((entry) => (
+                  <article
+                    key={entry.id}
+                    className="rounded-lg border border-border bg-background p-3"
+                  >
+                    <p className="text-sm font-medium text-foreground">
+                      {entry.fromStatus ?? "Inicio"} → {entry.toStatus}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {new Date(entry.changedAt).toLocaleString()} · {entry.changedByName} ({entry.changedByEmail})
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Nota: {entry.notes ?? "Sin nota"}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
         </section>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
