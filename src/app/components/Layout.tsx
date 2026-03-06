@@ -110,7 +110,7 @@ export function Layout() {
   const visibleNavItems = navItems.filter((item) => item.isVisible);
 
   const renderNav = (isCollapsed = false) => (
-    <nav className="flex-1 overflow-y-hidden overflow-x-visible px-3 py-4 space-y-1.5">
+    <nav className="flex-1 overflow-hidden px-3 py-4 space-y-1.5">
       {visibleNavItems.map((item) => {
         const Icon = item.icon;
         return (
@@ -123,11 +123,6 @@ export function Layout() {
           >
             <Icon className="size-4 shrink-0" />
             {!isCollapsed && <span className="flex-1 text-left">{item.label}</span>}
-            {isCollapsed && (
-              <span className="pointer-events-none absolute left-[calc(100%+0.65rem)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg border border-sidebar-border bg-[#0b2438] px-2.5 py-1.5 text-xs text-sidebar-foreground opacity-0 shadow-xl transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 translate-x-1">
-                {item.label}
-              </span>
-            )}
           </button>
         );
       })}
@@ -137,8 +132,8 @@ export function Layout() {
   return (
     <div className="h-screen overflow-hidden flex bg-background">
       <aside
-        className={`hidden md:flex h-screen relative shrink-0 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] text-sidebar-foreground flex-col shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
-          isSidebarCollapsed ? "w-20" : "w-72"
+        className={`hidden md:flex h-screen relative shrink-0 overflow-hidden border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] text-sidebar-foreground flex-col shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
+          isSidebarCollapsed ? "w-20" : "w-64"
         }`}
       >
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,rgba(130,235,224,0.18),transparent_34%)]" />
@@ -177,11 +172,6 @@ export function Layout() {
           >
             <LogOut className="size-4 shrink-0" />
             {!isSidebarCollapsed && "Cerrar sesión"}
-            {isSidebarCollapsed && (
-              <span className="pointer-events-none absolute left-[calc(100%+0.65rem)] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-lg border border-sidebar-border bg-[#0b2438] px-2.5 py-1.5 text-xs text-sidebar-foreground opacity-0 shadow-xl transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 translate-x-1">
-                Cerrar sesión
-              </span>
-            )}
           </button>
         </div>
       </aside>
