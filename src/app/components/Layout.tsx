@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router';
-import { FolderKanban, Users, LayoutDashboard, LogOut } from 'lucide-react';
+import { FolderKanban, Users, LayoutDashboard, LogOut, UserCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getProjects } from '../store';
 import { Project } from '../types';
@@ -27,6 +27,7 @@ export function Layout() {
   const isActive = (path: string) => location.pathname === path;
   const isProjectsActive = location.pathname === '/projects' || location.pathname.startsWith('/projects/');
   const isDashboardActive = location.pathname === dashboardPath;
+  const isProfileActive = isActive('/profile');
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -63,6 +64,18 @@ export function Layout() {
             <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full text-sidebar-foreground font-medium">
               {projects.length}
             </span>
+          </button>
+
+          <button
+            onClick={() => navigate('/profile')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+              isProfileActive
+                ? 'bg-sidebar-accent text-sidebar-foreground'
+                : 'text-sidebar-foreground/90 hover:bg-sidebar-accent'
+            }`}
+          >
+            <UserCircle2 className="size-4 shrink-0" />
+            Mi perfil
           </button>
 
           {canManageMembers && (
