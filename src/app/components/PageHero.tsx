@@ -12,7 +12,6 @@ type PageHeroProps = {
 export function PageHero({
   title,
   subtitle,
-  icon,
   actions,
   className,
 }: PageHeroProps) {
@@ -20,13 +19,12 @@ export function PageHero({
     <header className={cn("app-hero", className)}>
       <div className="h-full flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          {icon && <div className="app-icon-pill text-primary-foreground">{icon}</div>}
           <div className="min-w-0">
-            <h1 className="app-title text-primary-foreground">{title}</h1>
-            <p className="app-subtitle text-primary-foreground/85 truncate">{subtitle}</p>
+            <h1 className="app-title text-foreground">{title}</h1>
+            <p className="app-subtitle text-muted-foreground truncate">{subtitle}</p>
           </div>
         </div>
-        {actions && <div className="shrink-0 text-primary-foreground">{actions}</div>}
+        {actions && <div className="shrink-0 text-foreground">{actions}</div>}
       </div>
     </header>
   );

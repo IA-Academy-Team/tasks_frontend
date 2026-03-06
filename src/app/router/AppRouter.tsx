@@ -13,7 +13,6 @@ import { DashboardPage } from "../../modules/dashboard/pages/DashboardPage";
 import { ProjectsPage } from "../../modules/projects/pages/ProjectsPage";
 import { ProjectBoardPage } from "../../modules/projects/pages/ProjectBoardPage";
 import { EmployeesPage } from "../../modules/employees/pages/EmployeesPage";
-import { ProfilePage } from "../../modules/users/pages/ProfilePage";
 
 export function AppRouter() {
   return (
@@ -82,14 +81,7 @@ export function AppRouter() {
               </ResourceGuard>
             )}
           />
-          <Route
-            path="profile"
-            element={(
-              <ResourceGuard resource="profile">
-                <ProfilePage />
-              </ResourceGuard>
-            )}
-          />
+          <Route path="profile" element={<Navigate to="/" replace />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
