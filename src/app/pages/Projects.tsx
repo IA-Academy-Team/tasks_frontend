@@ -4,6 +4,7 @@ import { FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
+import { PageHero } from "../components/PageHero";
 import {
   createProject,
   deleteProject,
@@ -191,32 +192,26 @@ export function Projects() {
   };
 
   return (
-    <div className="size-full flex flex-col bg-background">
-      <div className="bg-primary border-b border-primary/30 px-8 py-6 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-white/15">
-            <FolderKanban className="size-6 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-primary-foreground">Proyectos</h2>
-            <p className="text-sm text-white/90 mt-0.5">Gestion de proyectos por area</p>
-          </div>
-        </div>
-      </div>
+    <div className="app-shell">
+      <PageHero
+        title="Proyectos"
+        subtitle="Gestion de proyectos por area"
+        icon={<FolderKanban className="size-5" />}
+      />
 
-      <div className="p-6 md:p-8 flex-1 overflow-auto space-y-6">
+      <div className="app-content">
         {isAdmin && (
-          <section className="bg-card rounded-2xl border border-primary/25 p-5 shadow-[0_8px_24px_rgba(2,106,167,0.12)]">
+          <section className="app-panel app-panel-pad">
             <h3 className="text-lg font-semibold text-foreground mb-4">
               {editingProjectId ? "Editar proyecto" : "Crear proyecto"}
             </h3>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Area</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Area</label>
                 <select
                   value={areaId}
                   onChange={(event) => setAreaId(event.target.value)}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl bg-input-background"
+                  className="app-control"
                 >
                   <option value="">Selecciona un area</option>
                   {areas.filter((area) => area.isActive).map((area) => (
@@ -227,60 +222,60 @@ export function Projects() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Nombre</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl bg-input-background"
+                  className="app-control"
                   placeholder="Nombre del proyecto"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-foreground mb-1">Descripcion</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Descripcion</label>
                 <input
                   type="text"
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl bg-input-background"
+                  className="app-control"
                   placeholder="Descripcion"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Inicio</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(event) => setStartDate(event.target.value)}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl bg-input-background"
+                  className="app-control"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Fin</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl bg-input-background"
+                  className="app-control"
                 />
               </div>
               <div className="md:col-span-2 flex flex-wrap items-center gap-3">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover disabled:opacity-70"
+                  className="app-btn-primary"
                 >
                   <Plus className="size-4" />
                   {isSubmitting ? "Guardando..." : editingProjectId ? "Actualizar" : "Crear"}
                 </button>
                 {editingProjectId && (
-                  <button
-                    type="button"
-                    onClick={resetForm}
-                    className="px-4 py-2.5 border border-border rounded-xl hover:bg-secondary"
-                  >
-                    Cancelar edicion
-                  </button>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="app-btn-secondary"
+                >
+                  Cancelar edicion
+                </button>
                 )}
               </div>
             </form>
@@ -289,14 +284,14 @@ export function Projects() {
           </section>
         )}
 
-        <section className="bg-card rounded-2xl border border-primary/25 overflow-hidden shadow-[0_8px_24px_rgba(2,106,167,0.12)]">
-          <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-primary">Listado de proyectos</h3>
+        <section className="app-panel overflow-hidden">
+          <div className="app-panel-header">
+            <h3 className="text-lg font-semibold text-foreground">Listado de proyectos</h3>
             <div className="flex items-center gap-2">
               <select
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value as ProjectStatusFilter)}
-                className="px-3 py-2 border border-border rounded-xl bg-input-background"
+                className="app-control h-9 min-w-36"
               >
                 <option value="all">Todos</option>
                 <option value="active">Activos</option>
@@ -306,7 +301,7 @@ export function Projects() {
               <select
                 value={areaFilter}
                 onChange={(event) => setAreaFilter(event.target.value)}
-                className="px-3 py-2 border border-border rounded-xl bg-input-background"
+                className="app-control h-9 min-w-44"
               >
                 <option value="all">Todas las areas</option>
                 {areas.map((area) => (
@@ -326,39 +321,39 @@ export function Projects() {
             <div className="p-6 text-sm text-muted-foreground">No hay proyectos para este filtro.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/40">
+              <table className="app-table">
+                <thead className="app-table-head">
                   <tr>
-                    <th className="px-4 py-3 text-left">Proyecto</th>
-                    <th className="px-4 py-3 text-left">Area</th>
-                    <th className="px-4 py-3 text-left">Estado</th>
-                    <th className="px-4 py-3 text-left">Miembros</th>
-                    <th className="px-4 py-3 text-left">Tareas</th>
-                    <th className="px-4 py-3 text-left">Fechas</th>
-                    <th className="px-4 py-3 text-left">Acciones</th>
+                    <th className="app-th">Proyecto</th>
+                    <th className="app-th">Area</th>
+                    <th className="app-th">Estado</th>
+                    <th className="app-th">Miembros</th>
+                    <th className="app-th">Tareas</th>
+                    <th className="app-th">Fechas</th>
+                    <th className="app-th">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {projects.map((project) => (
-                    <tr key={project.id} className="border-t border-border">
-                      <td className="px-4 py-3">
+                    <tr key={project.id} className="app-row">
+                      <td className="app-td">
                         <p className="font-medium">{project.name}</p>
                         <p className="text-muted-foreground">{project.description ?? "Sin descripcion"}</p>
                       </td>
-                      <td className="px-4 py-3">{project.areaName}</td>
-                      <td className="px-4 py-3">{project.status}</td>
-                      <td className="px-4 py-3">{project.activeMemberCount}</td>
-                      <td className="px-4 py-3">{project.totalTaskCount}</td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">{project.areaName}</td>
+                      <td className="app-td">{project.status}</td>
+                      <td className="app-td">{project.activeMemberCount}</td>
+                      <td className="app-td">{project.totalTaskCount}</td>
+                      <td className="app-td">
                         <p>Inicio: {project.startDate ?? "-"}</p>
                         <p>Fin: {project.endDate ?? "-"}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">
                         <div className="flex flex-wrap items-center gap-3">
                           <button
                             type="button"
                             onClick={() => navigate(`/projects/${project.id}`)}
-                            className="text-primary hover:underline"
+                            className="app-action-link"
                           >
                             Ver detalle
                           </button>
@@ -367,7 +362,7 @@ export function Projects() {
                               <button
                                 type="button"
                                 onClick={() => startEdit(project)}
-                                className="inline-flex items-center gap-1 text-primary hover:underline"
+                                className="app-action-link inline-flex items-center gap-1"
                               >
                                 <Pencil className="size-4" />
                                 Editar
@@ -377,7 +372,7 @@ export function Projects() {
                                 onClick={() => {
                                   void handleDelete(project);
                                 }}
-                                className="inline-flex items-center gap-1 text-destructive hover:underline"
+                                className="app-action-link-danger inline-flex items-center gap-1"
                               >
                                 <Trash2 className="size-4" />
                                 Eliminar
@@ -387,7 +382,7 @@ export function Projects() {
                                 onClick={() => {
                                   void handleStatusUpdate(project, "closed");
                                 }}
-                                className="text-warning hover:underline"
+                                className="app-action-link"
                               >
                                 Cerrar
                               </button>
@@ -396,7 +391,7 @@ export function Projects() {
                                 onClick={() => {
                                   void handleStatusUpdate(project, "cancelled");
                                 }}
-                                className="text-destructive hover:underline"
+                                className="app-action-link-danger"
                               >
                                 Cancelar
                               </button>
@@ -405,7 +400,7 @@ export function Projects() {
                                 onClick={() => {
                                   void handleStatusUpdate(project, "active");
                                 }}
-                                className="text-success hover:underline"
+                                className="app-action-link"
                               >
                                 Activar
                               </button>

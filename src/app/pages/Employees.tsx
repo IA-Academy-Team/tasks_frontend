@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Users2 } from "lucide-react";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { ApiError } from "../../shared/api/api";
+import { PageHero } from "../components/PageHero";
 import {
   assignEmployeeArea,
   createEmployee,
@@ -260,74 +262,73 @@ export function Employees() {
     : null;
 
   return (
-    <div className="size-full flex flex-col bg-background">
-      <div className="bg-primary border-b border-primary/30 px-8 py-6 shadow-md">
-        <h2 className="text-2xl font-bold text-primary-foreground">Empleados</h2>
-        <p className="text-sm text-white/90 mt-0.5">
-          Gestion de empleados y estado operativo
-        </p>
-      </div>
+    <div className="app-shell">
+      <PageHero
+        title="Empleados"
+        subtitle="Gestion de empleados y estado operativo"
+        icon={<Users2 className="size-5" />}
+      />
 
-      <div className="p-6 md:p-8 flex-1 overflow-auto space-y-6">
-        <section className="bg-card rounded-2xl border border-primary/25 p-5 shadow-[0_8px_24px_rgba(2,106,167,0.12)]">
+      <div className="app-content">
+        <section className="app-panel app-panel-pad">
           <h3 className="text-lg font-semibold text-foreground mb-4">
             {editingEmployeeId ? "Editar empleado" : "Crear empleado"}
           </h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Nombre</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
               <input
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                className="app-control"
                 placeholder="Nombre del empleado"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Correo</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Correo</label>
               <input
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 disabled={Boolean(editingEmployeeId)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background disabled:bg-muted"
+                className="app-control disabled:bg-muted"
                 placeholder="empleado@taskapp.local"
               />
             </div>
 
             {!editingEmployeeId && (
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Contrasena</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Contrasena</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                  className="app-control"
                   placeholder="Minimo 8 caracteres"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Telefono</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Telefono</label>
               <input
                 type="text"
                 value={phoneNumber}
                 onChange={(event) => setPhoneNumber(event.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                className="app-control"
                 placeholder="+573001234567"
               />
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-foreground mb-1">Imagen (URL)</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen (URL)</label>
               <input
                 type="url"
                 value={image}
                 onChange={(event) => setImage(event.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                className="app-control"
                 placeholder="https://..."
               />
             </div>
@@ -355,7 +356,7 @@ export function Employees() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="px-4 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover disabled:opacity-70"
+                className="app-btn-primary"
               >
                 {isSubmitting ? "Guardando..." : editingEmployeeId ? "Actualizar" : "Crear"}
               </button>
@@ -363,7 +364,7 @@ export function Employees() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-4 py-2.5 border border-border rounded-xl hover:bg-secondary"
+                  className="app-btn-secondary"
                 >
                   Cancelar edicion
                 </button>
@@ -374,13 +375,13 @@ export function Employees() {
           {success && <p className="mt-4 text-sm text-success">{success}</p>}
         </section>
 
-        <section className="bg-card rounded-2xl border border-primary/25 overflow-hidden shadow-[0_8px_24px_rgba(2,106,167,0.12)]">
-          <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-primary">Listado de empleados</h3>
+        <section className="app-panel overflow-hidden">
+          <div className="app-panel-header">
+            <h3 className="text-lg font-semibold text-foreground">Listado de empleados</h3>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as EmployeeStatusFilter)}
-              className="px-3 py-2 border border-border rounded-xl bg-input-background"
+              className="app-control h-9 min-w-40"
             >
               <option value="all">Todos</option>
               <option value="active">Activos</option>
@@ -394,34 +395,34 @@ export function Employees() {
             <div className="p-6 text-sm text-muted-foreground">No hay empleados para este filtro.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/40">
+              <table className="app-table">
+                <thead className="app-table-head">
                   <tr>
-                    <th className="px-4 py-3 text-left">Empleado</th>
-                    <th className="px-4 py-3 text-left">Area actual</th>
-                    <th className="px-4 py-3 text-left">Estado</th>
-                    <th className="px-4 py-3 text-left">Acciones</th>
+                    <th className="app-th">Empleado</th>
+                    <th className="app-th">Area actual</th>
+                    <th className="app-th">Estado</th>
+                    <th className="app-th">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employees.map((employee) => (
-                    <tr key={employee.id} className="border-t border-border">
-                      <td className="px-4 py-3">
+                    <tr key={employee.id} className="app-row">
+                      <td className="app-td">
                         <p className="font-medium">{employee.name}</p>
                         <p className="text-muted-foreground">{employee.email}</p>
                       </td>
-                      <td className="px-4 py-3">{employee.currentAreaName ?? "Sin area activa"}</td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">{employee.currentAreaName ?? "Sin area activa"}</td>
+                      <td className="app-td">
                         <span className={employee.isActive ? "text-success" : "text-warning"}>
                           {employee.isActive ? "Activo" : "Inactivo"}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">
                         <div className="flex items-center gap-3">
                           <button
                             type="button"
                             onClick={() => startEdit(employee)}
-                            className="text-primary hover:underline"
+                            className="app-action-link"
                           >
                             Editar
                           </button>
@@ -431,7 +432,7 @@ export function Employees() {
                               onClick={() => {
                                 void handleStatusChange(employee, false);
                               }}
-                              className="text-destructive hover:underline"
+                              className="app-action-link-danger"
                             >
                               Desactivar
                             </button>
@@ -441,7 +442,7 @@ export function Employees() {
                               onClick={() => {
                                 void handleStatusChange(employee, true);
                               }}
-                              className="text-success hover:underline"
+                              className="app-action-link"
                             >
                               Activar
                             </button>
@@ -451,7 +452,7 @@ export function Employees() {
                             onClick={() => {
                               void handleOpenAssignments(employee);
                             }}
-                            className="text-primary hover:underline"
+                            className="app-action-link"
                           >
                             Asignaciones
                           </button>
@@ -465,7 +466,7 @@ export function Employees() {
           )}
         </section>
 
-        <section className="bg-card rounded-2xl border border-primary/25 p-5 shadow-[0_8px_24px_rgba(2,106,167,0.12)]">
+        <section className="app-panel app-panel-pad">
           <h3 className="text-lg font-semibold text-foreground mb-4">Asignaciones por empleado</h3>
           {!selectedEmployee ? (
             <p className="text-sm text-muted-foreground">
@@ -490,7 +491,7 @@ export function Employees() {
                     <select
                       value={assignmentAreaId}
                       onChange={(event) => setAssignmentAreaId(event.target.value)}
-                      className="px-3 py-2 border border-border rounded-xl bg-input-background min-w-[220px]"
+                      className="app-control min-w-[220px]"
                     >
                       <option value="">Selecciona area</option>
                       {areas.map((area) => (
@@ -505,7 +506,7 @@ export function Employees() {
                       onClick={() => {
                         void handleAssignArea();
                       }}
-                      className="px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-70"
+                      className="app-btn-primary"
                     >
                       Reasignar
                     </button>

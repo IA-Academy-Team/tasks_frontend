@@ -107,17 +107,15 @@ export function DateRangeFilter({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className={`inline-flex h-9 items-center gap-2 rounded-lg border px-2.5 text-left text-sm font-normal min-w-0 truncate transition-colors w-full ${triggerClassName} ${
-          !dateFrom && !dateTo
-            ? 'border-primary/25 text-muted-foreground bg-input-background hover:border-primary/50'
-            : 'border-primary/25 text-foreground bg-input-background hover:border-primary/50'
+        className={`app-control inline-flex h-10 items-center gap-2 rounded-xl px-2.5 text-left min-w-0 truncate w-full ${triggerClassName} ${
+          !dateFrom && !dateTo ? "text-muted-foreground" : "text-foreground"
         }`}
       >
         <CalendarIcon className="size-4 shrink-0 text-primary" />
         <span className="truncate">{label}</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-[100] mt-2 rounded-xl border border-primary/25 bg-card shadow-xl p-2">
+        <div className="absolute left-0 top-full z-[100] mt-2 rounded-xl border border-border/80 bg-card shadow-2xl p-2">
           <DatePicker
             selectsRange
             startDate={startDate}

@@ -569,7 +569,7 @@ export function ProjectBoard() {
         <button
           type="button"
           onClick={() => navigate("/projects")}
-          className="px-4 py-2 rounded-xl border border-border hover:bg-secondary"
+          className="app-btn-secondary"
         >
           Volver
         </button>
@@ -578,13 +578,13 @@ export function ProjectBoard() {
   }
 
   return (
-    <div className="size-full flex flex-col bg-background">
-      <div className="bg-primary border-b border-primary/30 px-6 py-4 shadow-md flex-shrink-0">
+    <div className="app-shell">
+      <div className="app-hero flex-shrink-0">
         <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => navigate("/projects")}
-            className="p-2 hover:bg-white/15 rounded-xl transition-colors"
+            className="p-2 hover:bg-white/15 rounded-xl transition-colors text-primary-foreground"
           >
             <ArrowLeft className="size-5 text-primary-foreground" />
           </button>
@@ -597,8 +597,8 @@ export function ProjectBoard() {
         </div>
       </div>
 
-      <div className="p-6 md:p-8 flex-1 overflow-auto space-y-6">
-        <section className="bg-card rounded-2xl border border-primary/25 p-5">
+      <div className="app-content">
+        <section className="app-panel app-panel-pad">
           <h3 className="text-lg font-semibold text-foreground mb-3">Detalle basico</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <p><span className="font-medium">Descripcion:</span> {project.description ?? "Sin descripcion"}</p>
@@ -611,7 +611,7 @@ export function ProjectBoard() {
         </section>
 
         {isAdmin && (
-          <section className="bg-card rounded-2xl border border-primary/25 p-5 space-y-4">
+          <section className="app-panel app-panel-pad space-y-4">
             <h3 className="text-lg font-semibold text-foreground">Asignaciones del proyecto</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -620,7 +620,7 @@ export function ProjectBoard() {
                   <select
                     value={assignEmployeeId}
                     onChange={(event) => setAssignEmployeeId(event.target.value)}
-                    className="px-3 py-2 border border-border rounded-xl bg-input-background min-w-[220px]"
+                    className="app-control min-w-[220px]"
                   >
                     <option value="">Selecciona empleado</option>
                     {assignableEmployees.map((employee) => (
@@ -635,7 +635,7 @@ export function ProjectBoard() {
                     onClick={() => {
                       void handleAssign();
                     }}
-                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-70"
+                    className="app-btn-primary"
                   >
                     Asignar
                   </button>
@@ -651,7 +651,7 @@ export function ProjectBoard() {
                   <select
                     value={reassignMembershipId}
                     onChange={(event) => setReassignMembershipId(event.target.value)}
-                    className="px-3 py-2 border border-border rounded-xl bg-input-background min-w-[220px]"
+                    className="app-control min-w-[220px]"
                   >
                     <option value="">Selecciona membresia</option>
                     {activeMemberships.map((membership) => (
@@ -663,7 +663,7 @@ export function ProjectBoard() {
                   <select
                     value={reassignEmployeeId}
                     onChange={(event) => setReassignEmployeeId(event.target.value)}
-                    className="px-3 py-2 border border-border rounded-xl bg-input-background min-w-[220px]"
+                    className="app-control min-w-[220px]"
                   >
                     <option value="">Empleado destino</option>
                     {assignableEmployees.map((employee) => (
@@ -678,7 +678,7 @@ export function ProjectBoard() {
                     onClick={() => {
                       void handleReassign();
                     }}
-                    className="px-4 py-2 rounded-xl border border-border hover:bg-secondary disabled:opacity-70"
+                    className="app-btn-secondary disabled:opacity-70"
                   >
                     Reasignar
                   </button>
@@ -688,13 +688,13 @@ export function ProjectBoard() {
           </section>
         )}
 
-        <section className="bg-card rounded-2xl border border-primary/25 overflow-hidden">
-          <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-primary">Miembros del proyecto</h3>
+        <section className="app-panel overflow-hidden">
+          <div className="app-panel-header">
+            <h3 className="text-lg font-semibold text-foreground">Miembros del proyecto</h3>
             <select
               value={membershipStatusFilter}
               onChange={(event) => setMembershipStatusFilter(event.target.value as MembershipStatusFilter)}
-              className="px-3 py-2 border border-border rounded-xl bg-input-background"
+              className="app-control h-9 min-w-36"
             >
               <option value="all">Todos</option>
               <option value="active">Activos</option>
@@ -706,38 +706,38 @@ export function ProjectBoard() {
             <div className="p-6 text-sm text-muted-foreground">No hay membresias para este filtro.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/40">
+              <table className="app-table">
+                <thead className="app-table-head">
                   <tr>
-                    <th className="px-4 py-3 text-left">Empleado</th>
-                    <th className="px-4 py-3 text-left">Area actual</th>
-                    <th className="px-4 py-3 text-left">Estado</th>
-                    <th className="px-4 py-3 text-left">Asignado</th>
-                    <th className="px-4 py-3 text-left">Desasignado</th>
-                    {isAdmin && <th className="px-4 py-3 text-left">Acciones</th>}
+                    <th className="app-th">Empleado</th>
+                    <th className="app-th">Area actual</th>
+                    <th className="app-th">Estado</th>
+                    <th className="app-th">Asignado</th>
+                    <th className="app-th">Desasignado</th>
+                    {isAdmin && <th className="app-th">Acciones</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {memberships.map((membership) => (
-                    <tr key={membership.id} className="border-t border-border">
-                      <td className="px-4 py-3">
+                    <tr key={membership.id} className="app-row">
+                      <td className="app-td">
                         <p className="font-medium">{membership.employeeName}</p>
                         <p className="text-muted-foreground">{membership.employeeEmail}</p>
                       </td>
-                      <td className="px-4 py-3">{membership.currentAreaName ?? "Sin area activa"}</td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">{membership.currentAreaName ?? "Sin area activa"}</td>
+                      <td className="app-td">
                         <span className={membership.isActive ? "text-success" : "text-warning"}>
                           {membership.isActive ? "Activa" : "Finalizada"}
                         </span>
                       </td>
-                      <td className="px-4 py-3">{new Date(membership.assignedAt).toLocaleString()}</td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">{new Date(membership.assignedAt).toLocaleString()}</td>
+                      <td className="app-td">
                         {membership.unassignedAt
                           ? new Date(membership.unassignedAt).toLocaleString()
                           : "-"}
                       </td>
                       {isAdmin && (
-                        <td className="px-4 py-3">
+                        <td className="app-td">
                           {membership.isActive ? (
                             <button
                               type="button"
@@ -745,7 +745,7 @@ export function ProjectBoard() {
                               onClick={() => {
                                 void handleUnassign(membership);
                               }}
-                              className="text-destructive hover:underline disabled:opacity-70"
+                              className="app-action-link-danger disabled:opacity-70"
                             >
                               Desasignar
                             </button>
@@ -762,13 +762,13 @@ export function ProjectBoard() {
           )}
         </section>
 
-        <section className="bg-card rounded-2xl border border-primary/25 overflow-hidden">
-          <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-primary">Tareas del proyecto</h3>
+        <section className="app-panel overflow-hidden">
+          <div className="app-panel-header">
+            <h3 className="text-lg font-semibold text-foreground">Tareas del proyecto</h3>
             <select
               value={taskStatusFilter}
               onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatusFilter)}
-              className="px-3 py-2 border border-border rounded-xl bg-input-background"
+              className="app-control h-9 min-w-40"
             >
               <option value="all">Todas</option>
               <option value="assigned">Asignadas</option>
@@ -789,7 +789,7 @@ export function ProjectBoard() {
                     type="text"
                     value={taskTitle}
                     onChange={(event) => setTaskTitle(event.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-xl bg-input-background"
+                    className="app-control"
                     placeholder="Titulo de la tarea"
                   />
                 </div>
@@ -798,7 +798,7 @@ export function ProjectBoard() {
                   <textarea
                     value={taskDescription}
                     onChange={(event) => setTaskDescription(event.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-xl bg-input-background"
+                    className="app-control min-h-24"
                     rows={3}
                     placeholder="Descripcion breve"
                   />
@@ -809,7 +809,7 @@ export function ProjectBoard() {
                     type="date"
                     value={taskPlannedStartDate}
                     onChange={(event) => setTaskPlannedStartDate(event.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-xl bg-input-background"
+                    className="app-control"
                   />
                 </div>
                 <div>
@@ -818,7 +818,7 @@ export function ProjectBoard() {
                     type="date"
                     value={taskDueDate}
                     onChange={(event) => setTaskDueDate(event.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-xl bg-input-background"
+                    className="app-control"
                   />
                 </div>
                 <div>
@@ -826,7 +826,7 @@ export function ProjectBoard() {
                   <select
                     value={taskPriorityId}
                     onChange={(event) => setTaskPriorityId(event.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-xl bg-input-background"
+                    className="app-control"
                   >
                     <option value="1">Baja</option>
                     <option value="2">Media</option>
@@ -838,7 +838,7 @@ export function ProjectBoard() {
                   <select
                     value={taskAssigneeMembershipId}
                     onChange={(event) => setTaskAssigneeMembershipId(event.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-xl bg-input-background"
+                    className="app-control"
                   >
                     <option value="">Sin asignar</option>
                     {activeMemberships.map((membership) => (
@@ -855,7 +855,7 @@ export function ProjectBoard() {
                     min={1}
                     value={taskEstimatedMinutes}
                     onChange={(event) => setTaskEstimatedMinutes(event.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-xl bg-input-background"
+                    className="app-control"
                     placeholder="Ejemplo: 90"
                   />
                 </div>
@@ -863,7 +863,7 @@ export function ProjectBoard() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-70"
+                    className="app-btn-primary"
                   >
                     {editingTaskId ? "Actualizar tarea" : "Crear tarea"}
                   </button>
@@ -871,7 +871,7 @@ export function ProjectBoard() {
                     <button
                       type="button"
                       onClick={resetTaskForm}
-                      className="px-4 py-2 rounded-xl border border-border hover:bg-secondary"
+                      className="app-btn-secondary"
                     >
                       Cancelar edicion
                     </button>
@@ -949,47 +949,47 @@ export function ProjectBoard() {
             <div className="p-6 text-sm text-muted-foreground">No hay tareas para este filtro.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/40">
+              <table className="app-table">
+                <thead className="app-table-head">
                   <tr>
-                    <th className="px-4 py-3 text-left">Tarea</th>
-                    <th className="px-4 py-3 text-left">Estado</th>
-                    <th className="px-4 py-3 text-left">Prioridad</th>
-                    <th className="px-4 py-3 text-left">Asignado</th>
-                    <th className="px-4 py-3 text-left">Fechas</th>
-                    <th className="px-4 py-3 text-left">Estimado</th>
-                    <th className="px-4 py-3 text-left">Real</th>
-                    <th className="px-4 py-3 text-left">Cumplimiento</th>
-                    {isAdmin && <th className="px-4 py-3 text-left">Acciones</th>}
+                    <th className="app-th">Tarea</th>
+                    <th className="app-th">Estado</th>
+                    <th className="app-th">Prioridad</th>
+                    <th className="app-th">Asignado</th>
+                    <th className="app-th">Fechas</th>
+                    <th className="app-th">Estimado</th>
+                    <th className="app-th">Real</th>
+                    <th className="app-th">Cumplimiento</th>
+                    {isAdmin && <th className="app-th">Acciones</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {tasks.map((task) => (
                     <tr
                       key={task.id}
-                      className={`border-t border-border cursor-pointer ${
+                      className={`app-row cursor-pointer ${
                         selectedTaskId === task.id ? "bg-primary/5" : ""
                       }`}
                       onClick={() => handleSelectTask(task.id)}
                     >
-                      <td className="px-4 py-3">
+                      <td className="app-td">
                         <p className="font-medium">{task.title}</p>
                         <p className="text-muted-foreground">{task.description ?? "Sin descripcion"}</p>
                       </td>
-                      <td className="px-4 py-3">{task.status}</td>
-                      <td className="px-4 py-3">{task.priority}</td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">{task.status}</td>
+                      <td className="app-td">{task.priority}</td>
+                      <td className="app-td">
                         {task.assigneeName ? `${task.assigneeName} (${task.assigneeEmail})` : "Sin asignar"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">
                         <p>Inicio: {task.plannedStartDate}</p>
                         <p>Limite: {task.dueDate}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">
                         {task.estimatedMinutes ? `${task.estimatedMinutes} min` : "-"}
                       </td>
-                      <td className="px-4 py-3">{formatMinutes(task.actualMinutes)}</td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">{formatMinutes(task.actualMinutes)}</td>
+                      <td className="app-td">
                         <span className={getComplianceBadge(task).className}>
                           {getComplianceBadge(task).label}
                         </span>
@@ -1000,12 +1000,12 @@ export function ProjectBoard() {
                         )}
                       </td>
                       {isAdmin && (
-                        <td className="px-4 py-3">
+                        <td className="app-td">
                           <div className="flex items-center gap-3">
                             <button
                               type="button"
                               onClick={() => startTaskEdit(task)}
-                              className="text-primary hover:underline"
+                              className="app-action-link"
                             >
                               Editar
                             </button>
@@ -1014,7 +1014,7 @@ export function ProjectBoard() {
                               onClick={() => {
                                 void handleDeleteTask(task);
                               }}
-                              className="text-destructive hover:underline"
+                              className="app-action-link-danger"
                             >
                               Eliminar
                             </button>

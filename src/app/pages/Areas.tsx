@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
 import { ApiError } from "../../shared/api/api";
+import { PageHero } from "../components/PageHero";
 import {
   createArea,
   deleteArea,
@@ -132,44 +133,36 @@ export function Areas() {
   };
 
   return (
-    <div className="size-full flex flex-col bg-background">
-      <div className="bg-primary border-b border-primary/30 px-8 py-6 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-white/15">
-            <Building2 className="size-6 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-primary-foreground">Areas</h2>
-            <p className="text-sm text-white/90 mt-0.5">
-              Gestion de areas operativas
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="app-shell">
+      <PageHero
+        title="Areas"
+        subtitle="Gestion de areas operativas"
+        icon={<Building2 className="size-5" />}
+      />
 
-      <div className="p-6 md:p-8 flex-1 overflow-auto space-y-6">
-        <section className="bg-card rounded-2xl border border-primary/25 p-5 shadow-[0_8px_24px_rgba(2,106,167,0.12)]">
+      <div className="app-content">
+        <section className="app-panel app-panel-pad">
           <h3 className="text-lg font-semibold text-foreground mb-4">
             {editingAreaId ? "Editar area" : "Crear area"}
           </h3>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Nombre</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
               <input
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                className="app-control"
                 placeholder="Nombre del area"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Descripcion</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Descripcion</label>
               <input
                 type="text"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                className="app-control"
                 placeholder="Descripcion breve"
               />
             </div>
@@ -188,7 +181,7 @@ export function Areas() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover disabled:opacity-70"
+                className="app-btn-primary"
               >
                 <Plus className="size-4" />
                 {isSubmitting ? "Guardando..." : editingAreaId ? "Actualizar" : "Crear"}
@@ -197,7 +190,7 @@ export function Areas() {
                 <button
                   type="button"
                   onClick={resetForm}
-                  className="px-4 py-2.5 border border-border rounded-xl hover:bg-secondary"
+                  className="app-btn-secondary"
                 >
                   Cancelar edicion
                 </button>
@@ -208,13 +201,13 @@ export function Areas() {
           {success && <p className="mt-4 text-sm text-success">{success}</p>}
         </section>
 
-        <section className="bg-card rounded-2xl border border-primary/25 overflow-hidden shadow-[0_8px_24px_rgba(2,106,167,0.12)]">
-          <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-primary">Listado de areas</h3>
+        <section className="app-panel overflow-hidden">
+          <div className="app-panel-header">
+            <h3 className="text-lg font-semibold text-foreground">Listado de areas</h3>
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value as AreaStatusFilter)}
-              className="px-3 py-2 border border-border rounded-xl bg-input-background"
+              className="app-control h-9 min-w-40"
             >
               <option value="all">Todas</option>
               <option value="active">Activas</option>
@@ -228,36 +221,36 @@ export function Areas() {
             <div className="p-6 text-sm text-muted-foreground">No hay areas para este filtro.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/40">
+              <table className="app-table">
+                <thead className="app-table-head">
                   <tr>
-                    <th className="px-4 py-3 text-left">Nombre</th>
-                    <th className="px-4 py-3 text-left">Estado</th>
-                    <th className="px-4 py-3 text-left">Miembros activos</th>
-                    <th className="px-4 py-3 text-left">Proyectos activos</th>
-                    <th className="px-4 py-3 text-left">Acciones</th>
+                    <th className="app-th">Nombre</th>
+                    <th className="app-th">Estado</th>
+                    <th className="app-th">Miembros activos</th>
+                    <th className="app-th">Proyectos activos</th>
+                    <th className="app-th">Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {areas.map((area) => (
-                    <tr key={area.id} className="border-t border-border">
-                      <td className="px-4 py-3">
+                    <tr key={area.id} className="app-row">
+                      <td className="app-td">
                         <p className="font-medium">{area.name}</p>
                         <p className="text-muted-foreground">{area.description ?? "Sin descripcion"}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">
                         <span className={area.isActive ? "text-success" : "text-warning"}>
                           {area.isActive ? "Activa" : "Inactiva"}
                         </span>
                       </td>
-                      <td className="px-4 py-3">{area.activeMemberCount}</td>
-                      <td className="px-4 py-3">{area.activeProjectCount}</td>
-                      <td className="px-4 py-3">
+                      <td className="app-td">{area.activeMemberCount}</td>
+                      <td className="app-td">{area.activeProjectCount}</td>
+                      <td className="app-td">
                         <div className="flex items-center gap-3">
                           <button
                             type="button"
                             onClick={() => startEdit(area)}
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                            className="app-action-link inline-flex items-center gap-1"
                           >
                             <Pencil className="size-4" />
                             Editar
@@ -267,7 +260,7 @@ export function Areas() {
                             onClick={() => {
                               void handleDelete(area);
                             }}
-                            className="inline-flex items-center gap-1 text-destructive hover:underline"
+                            className="app-action-link-danger inline-flex items-center gap-1"
                           >
                             <Trash2 className="size-4" />
                             Eliminar
@@ -285,4 +278,3 @@ export function Areas() {
     </div>
   );
 }
-

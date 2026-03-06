@@ -32,20 +32,20 @@ export function Register() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10 pointer-events-none" />
-      <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_5%,rgba(15,118,110,0.14),transparent_30%),radial-gradient(circle_at_95%_20%,rgba(11,110,168,0.14),transparent_34%)] pointer-events-none" />
+      <div className="absolute top-[-80px] right-[-60px] w-[320px] h-[320px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-80px] left-[-30px] w-[280px] h-[280px] rounded-full bg-accent/10 blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-sm relative z-10">
-        <div className="bg-card rounded-2xl shadow-xl border border-primary/20 overflow-hidden">
-          <div className="bg-primary px-8 py-6 text-center">
+        <div className="app-panel overflow-hidden">
+          <div className="px-8 py-6 text-center border-b border-border/60 bg-[linear-gradient(130deg,#0d4663_0%,#0f766e_58%,#1f3c67_100%)]">
             <h1 className="text-2xl font-bold text-primary-foreground">Crear cuenta</h1>
-            <p className="text-sm text-white/90 mt-1">Regístrate para usar Tasks</p>
+            <p className="text-sm text-primary-foreground/90 mt-1">Regístrate para usar Tasks</p>
           </div>
           <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="reg-name" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="reg-name" className="block text-sm font-semibold text-foreground mb-1.5">
                   Nombre completo *
                 </label>
                 <input
@@ -53,14 +53,14 @@ export function Register() {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                  className="app-control"
                   placeholder="Tu nombre"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="reg-username" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="reg-username" className="block text-sm font-semibold text-foreground mb-1.5">
                   Usuario *
                 </label>
                 <input
@@ -68,14 +68,14 @@ export function Register() {
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                  className="app-control"
                   placeholder="nombreusuario"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="reg-email" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="reg-email" className="block text-sm font-semibold text-foreground mb-1.5">
                   Correo electrónico *
                 </label>
                 <input
@@ -83,14 +83,14 @@ export function Register() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                  className="app-control"
                   placeholder="tu@email.com"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="reg-password" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="reg-password" className="block text-sm font-semibold text-foreground mb-1.5">
                   Contraseña * (mín. 6 caracteres)
                 </label>
                 <input
@@ -98,7 +98,7 @@ export function Register() {
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                  className="app-control"
                   placeholder="••••••••"
                   required
                   minLength={6}
@@ -106,7 +106,7 @@ export function Register() {
               </div>
 
               <div>
-                <label htmlFor="reg-confirm" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="reg-confirm" className="block text-sm font-semibold text-foreground mb-1.5">
                   Confirmar contraseña *
                 </label>
                 <input
@@ -114,7 +114,7 @@ export function Register() {
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                  className="app-control"
                   placeholder="••••••••"
                   required
                 />
@@ -126,7 +126,7 @@ export function Register() {
 
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover font-medium transition-colors shadow-md"
+                className="app-btn-primary w-full py-3"
               >
                 <UserPlus className="size-4" />
                 Regístrarme

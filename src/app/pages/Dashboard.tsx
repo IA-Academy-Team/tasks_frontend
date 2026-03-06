@@ -78,13 +78,13 @@ function StatCard(props: {
   icon: ReactNode;
 }) {
   return (
-    <article className="rounded-2xl border border-primary/25 bg-card p-4 shadow-[0_4px_14px_rgba(2,106,167,0.1)]">
+    <article className="app-panel p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{props.title}</p>
           <p className="mt-2 text-2xl font-semibold text-foreground">{props.value}</p>
         </div>
-        <div className="rounded-xl bg-primary/10 p-2 text-primary">{props.icon}</div>
+        <div className="rounded-xl bg-primary/12 p-2 text-primary">{props.icon}</div>
       </div>
     </article>
   );
@@ -216,7 +216,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="p-6 md:p-8 space-y-6">
+    <div className="app-content">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
@@ -262,9 +262,9 @@ export function Dashboard() {
             />
           </section>
 
-          <section className="rounded-2xl border border-primary/25 bg-card overflow-hidden">
-            <div className="px-5 py-4 bg-primary/10 border-b border-primary/20">
-              <h2 className="text-lg font-semibold text-primary">Tareas proximas a vencerse</h2>
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
+              <h2 className="text-lg font-semibold text-foreground">Tareas proximas a vencerse</h2>
             </div>
             {employeeDashboard.upcomingTasks.length === 0 ? (
               <div className="px-5 py-6 text-sm text-muted-foreground">
@@ -272,30 +272,30 @@ export function Dashboard() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary/40">
+                <table className="app-table">
+                  <thead className="app-table-head">
                     <tr>
-                      <th className="px-4 py-3 text-left">Tarea</th>
-                      <th className="px-4 py-3 text-left">Proyecto</th>
-                      <th className="px-4 py-3 text-left">Estado</th>
-                      <th className="px-4 py-3 text-left">Prioridad</th>
-                      <th className="px-4 py-3 text-left">Vence</th>
-                      <th className="px-4 py-3 text-left">Estimado</th>
-                      <th className="px-4 py-3 text-left">Real</th>
+                      <th className="app-th">Tarea</th>
+                      <th className="app-th">Proyecto</th>
+                      <th className="app-th">Estado</th>
+                      <th className="app-th">Prioridad</th>
+                      <th className="app-th">Vence</th>
+                      <th className="app-th">Estimado</th>
+                      <th className="app-th">Real</th>
                     </tr>
                   </thead>
                   <tbody>
                     {employeeDashboard.upcomingTasks.map((task) => (
-                      <tr key={task.id} className="border-t border-border">
-                        <td className="px-4 py-3">{task.title}</td>
-                        <td className="px-4 py-3">{task.projectName}</td>
-                        <td className="px-4 py-3">{task.status}</td>
-                        <td className="px-4 py-3">{task.priority}</td>
-                        <td className="px-4 py-3">{formatDate(task.dueDate)}</td>
-                        <td className="px-4 py-3">
+                      <tr key={task.id} className="app-row">
+                        <td className="app-td">{task.title}</td>
+                        <td className="app-td">{task.projectName}</td>
+                        <td className="app-td">{task.status}</td>
+                        <td className="app-td">{task.priority}</td>
+                        <td className="app-td">{formatDate(task.dueDate)}</td>
+                        <td className="app-td">
                           {task.estimatedMinutes === null ? "-" : formatMinutes(task.estimatedMinutes)}
                         </td>
-                        <td className="px-4 py-3">{formatMinutes(task.actualMinutes)}</td>
+                        <td className="app-td">{formatMinutes(task.actualMinutes)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -308,7 +308,7 @@ export function Dashboard() {
 
       {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && (
         <>
-          <section className="rounded-2xl border border-primary/25 bg-card p-4 space-y-4">
+          <section className="app-panel app-panel-pad space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <h2 className="text-lg font-semibold text-foreground">Filtros globales</h2>
               <button
@@ -321,7 +321,7 @@ export function Dashboard() {
                   setEmployeeIdFilter("");
                   setComplianceFilter("all");
                 }}
-                className="px-3 py-2 text-sm rounded-xl border border-border hover:bg-secondary"
+                className="app-btn-secondary"
               >
                 Limpiar filtros
               </button>
@@ -339,7 +339,7 @@ export function Dashboard() {
               <select
                 value={projectIdFilter}
                 onChange={(event) => setProjectIdFilter(event.target.value)}
-                className="px-3 py-2 border border-border rounded-xl bg-input-background"
+                className="app-control"
               >
                 <option value="">Proyecto: todos</option>
                 {projects.map((project) => (
@@ -351,7 +351,7 @@ export function Dashboard() {
               <select
                 value={areaIdFilter}
                 onChange={(event) => setAreaIdFilter(event.target.value)}
-                className="px-3 py-2 border border-border rounded-xl bg-input-background"
+                className="app-control"
               >
                 <option value="">Area: todas</option>
                 {areas.map((area) => (
@@ -363,7 +363,7 @@ export function Dashboard() {
               <select
                 value={employeeIdFilter}
                 onChange={(event) => setEmployeeIdFilter(event.target.value)}
-                className="px-3 py-2 border border-border rounded-xl bg-input-background"
+                className="app-control"
               >
                 <option value="">Empleado: todos</option>
                 {employees.map((employee) => (
@@ -375,7 +375,7 @@ export function Dashboard() {
               <select
                 value={complianceFilter}
                 onChange={(event) => setComplianceFilter(event.target.value as ComplianceFilter)}
-                className="px-3 py-2 border border-border rounded-xl bg-input-background"
+                className="app-control"
               >
                 <option value="all">Cumplimiento: todos</option>
                 <option value="on_time">En tiempo</option>
@@ -411,16 +411,16 @@ export function Dashboard() {
             />
           </section>
 
-          <section className="rounded-2xl border border-primary/25 bg-card overflow-hidden">
-            <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3">
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
               <div>
-                <h2 className="text-lg font-semibold text-primary">Alertas activas de atraso</h2>
-                <p className="text-xs text-primary/80">
+                <h2 className="text-lg font-semibold text-foreground">Alertas activas de atraso</h2>
+                <p className="text-xs text-muted-foreground">
                   Generado: {formatDateTime(overdueAlerts.generatedAt)}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-semibold text-primary">{overdueAlerts.counters.totalAlerts}</p>
+                <p className="text-2xl font-semibold text-foreground">{overdueAlerts.counters.totalAlerts}</p>
                 <p className="text-xs text-muted-foreground">alertas activas</p>
               </div>
             </div>
@@ -460,7 +460,7 @@ export function Dashboard() {
                     <button
                       type="button"
                       onClick={() => navigate(`/projects/${alert.projectId}?taskId=${alert.taskId}`)}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border hover:bg-secondary text-sm"
+                      className="app-btn-secondary"
                     >
                       Ver tarea
                       <ExternalLink className="size-4" />
@@ -471,11 +471,11 @@ export function Dashboard() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-primary/25 bg-card overflow-hidden">
-            <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3">
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
               <div>
-                <h2 className="text-lg font-semibold text-primary">Reporte de cumplimiento</h2>
-                <p className="text-xs text-primary/80">
+                <h2 className="text-lg font-semibold text-foreground">Reporte de cumplimiento</h2>
+                <p className="text-xs text-muted-foreground">
                   Fila resaltada cuando existe atraso por fecha o por estimacion.
                 </p>
               </div>
@@ -493,26 +493,26 @@ export function Dashboard() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary/40">
+                <table className="app-table">
+                  <thead className="app-table-head">
                     <tr>
-                      <th className="px-4 py-3 text-left">Tarea</th>
-                      <th className="px-4 py-3 text-left">Proyecto</th>
-                      <th className="px-4 py-3 text-left">Responsable</th>
-                      <th className="px-4 py-3 text-left">Estado</th>
-                      <th className="px-4 py-3 text-left">Vence</th>
-                      <th className="px-4 py-3 text-left">Estimado</th>
-                      <th className="px-4 py-3 text-left">Real</th>
-                      <th className="px-4 py-3 text-left">Desvio</th>
-                      <th className="px-4 py-3 text-left">Cumplimiento</th>
-                      <th className="px-4 py-3 text-left">Accion</th>
+                      <th className="app-th">Tarea</th>
+                      <th className="app-th">Proyecto</th>
+                      <th className="app-th">Responsable</th>
+                      <th className="app-th">Estado</th>
+                      <th className="app-th">Vence</th>
+                      <th className="app-th">Estimado</th>
+                      <th className="app-th">Real</th>
+                      <th className="app-th">Desvio</th>
+                      <th className="app-th">Cumplimiento</th>
+                      <th className="app-th">Accion</th>
                     </tr>
                   </thead>
                   <tbody>
                     {taskComplianceReport.rows.map((row) => (
                       <tr
                         key={row.taskId}
-                        className={`border-t border-border ${
+                        className={`app-row ${
                           row.complianceStatus === "date_overdue"
                             ? "bg-destructive/5"
                             : row.complianceStatus === "estimate_delayed"
@@ -520,15 +520,15 @@ export function Dashboard() {
                               : ""
                         }`}
                       >
-                        <td className="px-4 py-3">
+                        <td className="app-td">
                           <p>{row.title}</p>
                           <p className="text-xs text-muted-foreground">{row.priority}</p>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="app-td">
                           <p>{row.projectName}</p>
                           <p className="text-xs text-muted-foreground">{row.areaName}</p>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="app-td">
                           {row.assigneeName ? (
                             <>
                               <p>{row.assigneeName}</p>
@@ -538,28 +538,28 @@ export function Dashboard() {
                             <span className="text-muted-foreground">Sin asignar</span>
                           )}
                         </td>
-                        <td className="px-4 py-3">{row.status}</td>
-                        <td className="px-4 py-3">
+                        <td className="app-td">{row.status}</td>
+                        <td className="app-td">
                           <p>{formatDate(row.dueDate)}</p>
                           <p className="text-xs text-muted-foreground">
                             {row.completedAt ? `Cierre: ${formatDateTime(row.completedAt)}` : "Sin cierre"}
                           </p>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="app-td">
                           {row.estimatedMinutes === null ? "-" : formatMinutes(row.estimatedMinutes)}
                         </td>
-                        <td className="px-4 py-3">{formatMinutes(row.actualMinutes)}</td>
-                        <td className="px-4 py-3">
+                        <td className="app-td">{formatMinutes(row.actualMinutes)}</td>
+                        <td className="app-td">
                           {row.deviationMinutes === null ? "-" : `${row.deviationMinutes > 0 ? "+" : ""}${row.deviationMinutes} min`}
                         </td>
-                        <td className={`px-4 py-3 font-medium ${getComplianceBadgeClass(row.complianceStatus)}`}>
+                        <td className={`app-td font-medium ${getComplianceBadgeClass(row.complianceStatus)}`}>
                           {row.complianceLabel}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="app-td">
                           <button
                             type="button"
                             onClick={() => navigate(`/projects/${row.projectId}?taskId=${row.taskId}`)}
-                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                            className="app-action-link inline-flex items-center gap-1"
                           >
                             Ver
                             <ExternalLink className="size-4" />
@@ -573,9 +573,9 @@ export function Dashboard() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-primary/25 bg-card overflow-hidden">
-            <div className="px-5 py-4 bg-primary/10 border-b border-primary/20">
-              <h2 className="text-lg font-semibold text-primary">Productividad por empleado</h2>
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
+              <h2 className="text-lg font-semibold text-foreground">Productividad por empleado</h2>
             </div>
             {adminDashboard.employeeProductivity.length === 0 ? (
               <div className="px-5 py-6 text-sm text-muted-foreground">
@@ -583,31 +583,31 @@ export function Dashboard() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary/40">
+                <table className="app-table">
+                  <thead className="app-table-head">
                     <tr>
-                      <th className="px-4 py-3 text-left">Empleado</th>
-                      <th className="px-4 py-3 text-left">Tareas</th>
-                      <th className="px-4 py-3 text-left">Terminadas</th>
-                      <th className="px-4 py-3 text-left">Cumplimiento</th>
-                      <th className="px-4 py-3 text-left">Estimado</th>
-                      <th className="px-4 py-3 text-left">Real</th>
-                      <th className="px-4 py-3 text-left">Desvio</th>
+                      <th className="app-th">Empleado</th>
+                      <th className="app-th">Tareas</th>
+                      <th className="app-th">Terminadas</th>
+                      <th className="app-th">Cumplimiento</th>
+                      <th className="app-th">Estimado</th>
+                      <th className="app-th">Real</th>
+                      <th className="app-th">Desvio</th>
                     </tr>
                   </thead>
                   <tbody>
                     {adminDashboard.employeeProductivity.map((item) => (
-                      <tr key={item.employeeId} className="border-t border-border">
-                        <td className="px-4 py-3">
+                      <tr key={item.employeeId} className="app-row">
+                        <td className="app-td">
                           <p>{item.employeeName}</p>
                           <p className="text-xs text-muted-foreground">{item.employeeEmail}</p>
                         </td>
-                        <td className="px-4 py-3">{item.totalTasks}</td>
-                        <td className="px-4 py-3">{item.doneTasks}</td>
-                        <td className="px-4 py-3">{item.completionRate}%</td>
-                        <td className="px-4 py-3">{formatMinutes(item.totalEstimatedMinutes)}</td>
-                        <td className="px-4 py-3">{formatMinutes(item.totalActualMinutes)}</td>
-                        <td className="px-4 py-3">
+                        <td className="app-td">{item.totalTasks}</td>
+                        <td className="app-td">{item.doneTasks}</td>
+                        <td className="app-td">{item.completionRate}%</td>
+                        <td className="app-td">{formatMinutes(item.totalEstimatedMinutes)}</td>
+                        <td className="app-td">{formatMinutes(item.totalActualMinutes)}</td>
+                        <td className="app-td">
                           {item.totalDeviationMinutes > 0 ? "+" : ""}{item.totalDeviationMinutes} min
                         </td>
                       </tr>
@@ -618,9 +618,9 @@ export function Dashboard() {
             )}
           </section>
 
-          <section className="rounded-2xl border border-primary/25 bg-card overflow-hidden">
-            <div className="px-5 py-4 bg-primary/10 border-b border-primary/20">
-              <h2 className="text-lg font-semibold text-primary">Productividad por area</h2>
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
+              <h2 className="text-lg font-semibold text-foreground">Productividad por area</h2>
             </div>
             {adminDashboard.areaProductivity.length === 0 ? (
               <div className="px-5 py-6 text-sm text-muted-foreground">
@@ -628,29 +628,29 @@ export function Dashboard() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary/40">
+                <table className="app-table">
+                  <thead className="app-table-head">
                     <tr>
-                      <th className="px-4 py-3 text-left">Area</th>
-                      <th className="px-4 py-3 text-left">Tareas</th>
-                      <th className="px-4 py-3 text-left">Asignadas</th>
-                      <th className="px-4 py-3 text-left">En proceso</th>
-                      <th className="px-4 py-3 text-left">Terminadas</th>
-                      <th className="px-4 py-3 text-left">Cumplimiento</th>
+                      <th className="app-th">Area</th>
+                      <th className="app-th">Tareas</th>
+                      <th className="app-th">Asignadas</th>
+                      <th className="app-th">En proceso</th>
+                      <th className="app-th">Terminadas</th>
+                      <th className="app-th">Cumplimiento</th>
                     </tr>
                   </thead>
                   <tbody>
                     {adminDashboard.areaProductivity.map((item) => (
-                      <tr key={item.areaId} className="border-t border-border">
-                        <td className="px-4 py-3 flex items-center gap-2">
+                      <tr key={item.areaId} className="app-row">
+                        <td className="app-td flex items-center gap-2">
                           <Users className="size-4 text-primary" />
                           {item.areaName}
                         </td>
-                        <td className="px-4 py-3">{item.totalTasks}</td>
-                        <td className="px-4 py-3">{item.assignedTasks}</td>
-                        <td className="px-4 py-3">{item.inProgressTasks}</td>
-                        <td className="px-4 py-3">{item.doneTasks}</td>
-                        <td className="px-4 py-3">{item.completionRate}%</td>
+                        <td className="app-td">{item.totalTasks}</td>
+                        <td className="app-td">{item.assignedTasks}</td>
+                        <td className="app-td">{item.inProgressTasks}</td>
+                        <td className="app-td">{item.doneTasks}</td>
+                        <td className="app-td">{item.completionRate}%</td>
                       </tr>
                     ))}
                   </tbody>

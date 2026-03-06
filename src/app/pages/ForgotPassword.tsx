@@ -13,17 +13,17 @@ export function ForgotPassword() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10 pointer-events-none" />
-      <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_5%,rgba(15,118,110,0.14),transparent_30%),radial-gradient(circle_at_95%_20%,rgba(11,110,168,0.14),transparent_34%)] pointer-events-none" />
+      <div className="absolute top-[-80px] right-[-60px] w-[320px] h-[320px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-sm relative z-10">
-        <div className="bg-card rounded-2xl shadow-xl border border-primary/20 overflow-hidden">
-          <div className="bg-primary px-8 py-6 text-center">
+        <div className="app-panel overflow-hidden">
+          <div className="px-8 py-6 text-center border-b border-border/60 bg-[linear-gradient(130deg,#0d4663_0%,#0f766e_58%,#1f3c67_100%)]">
             <div className="inline-flex p-3 rounded-full bg-white/20 mb-3">
               <Mail className="size-8 text-primary-foreground" />
             </div>
             <h1 className="text-xl font-bold text-primary-foreground">Recuperar contraseña</h1>
-            <p className="text-sm text-white/90 mt-1">
+            <p className="text-sm text-primary-foreground/90 mt-1">
               {sent
                 ? 'Si existe una cuenta con ese correo, recibirás instrucciones.'
                 : 'Ingresa tu correo y te enviaremos un enlace.'}
@@ -33,7 +33,7 @@ export function ForgotPassword() {
             {!sent ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="forgot-email" className="block text-sm font-medium text-foreground mb-1">
+                  <label htmlFor="forgot-email" className="block text-sm font-semibold text-foreground mb-1.5">
                     Correo electrónico
                   </label>
                   <input
@@ -41,14 +41,14 @@ export function ForgotPassword() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                    className="app-control"
                     placeholder="tu@email.com"
                     required
                   />
                 </div>
                 <button
                   type="submit"
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover font-medium transition-colors shadow-md"
+                  className="app-btn-primary w-full py-3"
                 >
                   Enviar enlace
                 </button>
