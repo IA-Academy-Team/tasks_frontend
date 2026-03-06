@@ -16,6 +16,12 @@ export interface TaskSummary {
   plannedStartDate: string;
   dueDate: string;
   estimatedMinutes: number | null;
+  actualMinutes: number;
+  deviationMinutes: number | null;
+  isEstimateDelayed: boolean | null;
+  isDateOverdue: boolean;
+  completedAt: string | null;
+  hasOpenWorkSession: boolean;
   assigneeMembershipId: number | null;
   assigneeEmployeeId: number | null;
   assigneeName: string | null;
@@ -61,6 +67,22 @@ export interface TransitionTaskStatusResponse {
     task: TaskSummary;
     transition: TaskStatusTransition;
   };
+}
+
+export interface TaskHistoryEntry {
+  id: number;
+  taskId: number;
+  fromStatus: string | null;
+  toStatus: string;
+  changedAt: string;
+  changedByUserId: number;
+  changedByName: string;
+  changedByEmail: string;
+  notes: string | null;
+}
+
+export interface TaskHistoryResponse {
+  data: TaskHistoryEntry[];
 }
 
 export interface CreateTaskPayload {
@@ -155,3 +177,6 @@ export const transitionTaskStatus = (
   toStatus: payload.toStatus,
   notes: payload.notes ?? null,
 });
+
+export const getTaskHistory = (taskId: number) =>
+  api.get<TaskHistoryResponse>(`${API_PREFIX}/tasks/${taskId}/history`);
