@@ -1,8 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router';
 import { FolderKanban, Users, LayoutDashboard, LogOut, UserCircle2, Building2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { getProjects } from '../store';
-import { Project } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { getDefaultRouteForRole } from '../../modules/auth/lib/auth-routing';
 import { canAccessResource } from '../../modules/auth/lib/access-policy';
@@ -13,17 +10,12 @@ export function Layout() {
   const { user, logout } = useAuth();
   const canManageAreas = user ? canAccessResource(user.role, 'areas') : false;
   const canManageEmployees = user ? canAccessResource(user.role, 'employees') : false;
-  const [projects, setProjects] = useState<Project[]>([]);
   const dashboardPath = user ? getDefaultRouteForRole(user.role) : '/';
 
   const handleLogout = async () => {
     await logout();
     navigate('/login', { replace: true });
   };
-
-  useEffect(() => {
-    setProjects(getProjects());
-  }, [location.pathname]);
 
   const isActive = (path: string) => location.pathname === path;
   const isProjectsActive = location.pathname === '/projects' || location.pathname.startsWith('/projects/');
@@ -64,9 +56,6 @@ export function Layout() {
           >
             <FolderKanban className="size-4 shrink-0" />
             <span className="flex-1 text-left">Proyectos</span>
-            <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full text-sidebar-foreground font-medium">
-              {projects.length}
-            </span>
           </button>
 
           <button

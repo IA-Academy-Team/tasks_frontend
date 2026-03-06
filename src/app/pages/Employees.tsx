@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { ApiError } from "../../shared/api/api";
 import {
+  assignEmployeeArea,
   createEmployee,
+  listEmployeeAreaAssignments,
   listEmployees,
+  listEmployeeProjectMemberships,
   updateEmployee,
   updateEmployeeStatus,
+  type EmployeeAreaAssignment,
+  type EmployeeProjectMembership,
   type EmployeeStatusFilter,
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
@@ -25,6 +31,12 @@ export function Employees() {
   const [image, setImage] = useState("");
   const [emailVerified, setEmailVerified] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [areas, setAreas] = useState<AreaSummary[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
+  const [assignmentAreaId, setAssignmentAreaId] = useState("");
+  const [employeeAreaAssignments, setEmployeeAreaAssignments] = useState<EmployeeAreaAssignment[]>([]);
+  const [employeeProjectMemberships, setEmployeeProjectMemberships] = useState<EmployeeProjectMembership[]>([]);
+  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
 
   const resetForm = () => {
     setEditingEmployeeId(null);
@@ -53,9 +65,45 @@ export function Employees() {
     }
   };
 
+  const loadAreas = async () => {
+    try {
+      const response = await listAreas("active");
+      setAreas(response?.data ?? []);
+    } catch {
+      setAreas([]);
+    }
+  };
+
+  const loadEmployeeAssignments = async (employeeId: number) => {
+    setIsLoadingAssignments(true);
+    try {
+      const [areaAssignmentsResponse, membershipsResponse] = await Promise.all([
+        listEmployeeAreaAssignments(employeeId, "all"),
+        listEmployeeProjectMemberships(employeeId, "all"),
+      ]);
+
+      setEmployeeAreaAssignments(areaAssignmentsResponse?.data ?? []);
+      setEmployeeProjectMemberships(membershipsResponse?.data ?? []);
+    } catch (incomingError) {
+      if (incomingError instanceof ApiError) {
+        setError(incomingError.message);
+      } else {
+        setError("No fue posible cargar las asignaciones del empleado.");
+      }
+      setEmployeeAreaAssignments([]);
+      setEmployeeProjectMemberships([]);
+    } finally {
+      setIsLoadingAssignments(false);
+    }
+  };
+
   useEffect(() => {
     void loadEmployees();
   }, [statusFilter]);
+
+  useEffect(() => {
+    void loadAreas();
+  }, []);
 
   const startEdit = (employee: EmployeeSummary) => {
     setEditingEmployeeId(employee.id);
@@ -70,7 +118,7 @@ export function Employees() {
     setSuccess("");
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
     setSuccess("");
@@ -164,6 +212,52 @@ export function Employees() {
       }
     }
   };
+
+  const handleOpenAssignments = async (employee: EmployeeSummary) => {
+    setSelectedEmployeeId(employee.id);
+    setAssignmentAreaId("");
+    setError("");
+    setSuccess("");
+    await loadEmployeeAssignments(employee.id);
+  };
+
+  const handleAssignArea = async () => {
+    if (!selectedEmployeeId) {
+      setError("Selecciona primero un empleado.");
+      return;
+    }
+
+    const numericAreaId = Number(assignmentAreaId);
+    if (!Number.isInteger(numericAreaId) || numericAreaId <= 0) {
+      setError("Selecciona un area valida para reasignar.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      await assignEmployeeArea(selectedEmployeeId, { areaId: numericAreaId });
+      setSuccess("Area reasignada correctamente.");
+      setAssignmentAreaId("");
+      await Promise.all([
+        loadEmployees(),
+        loadEmployeeAssignments(selectedEmployeeId),
+      ]);
+    } catch (incomingError) {
+      if (incomingError instanceof ApiError) {
+        setError(incomingError.message);
+      } else {
+        setError("No fue posible reasignar el area.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const selectedEmployee = selectedEmployeeId
+    ? employees.find((employee) => employee.id === selectedEmployeeId) ?? null
+    : null;
 
   return (
     <div className="size-full flex flex-col bg-background">
@@ -352,6 +446,15 @@ export function Employees() {
                               Activar
                             </button>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleOpenAssignments(employee);
+                            }}
+                            className="text-primary hover:underline"
+                          >
+                            Asignaciones
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -361,8 +464,101 @@ export function Employees() {
             </div>
           )}
         </section>
+
+        <section className="bg-card rounded-2xl border border-primary/25 p-5 shadow-[0_8px_24px_rgba(2,106,167,0.12)]">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Asignaciones por empleado</h3>
+          {!selectedEmployee ? (
+            <p className="text-sm text-muted-foreground">
+              Selecciona un empleado desde la tabla para gestionar su area y revisar historial.
+            </p>
+          ) : (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm">
+                    <span className="font-medium">Empleado:</span> {selectedEmployee.name}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{selectedEmployee.email}</p>
+                  <p className="text-sm mt-1">
+                    <span className="font-medium">Area actual:</span>{" "}
+                    {selectedEmployee.currentAreaName ?? "Sin area activa"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-2">Reasignar area</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={assignmentAreaId}
+                      onChange={(event) => setAssignmentAreaId(event.target.value)}
+                      className="px-3 py-2 border border-border rounded-xl bg-input-background min-w-[220px]"
+                    >
+                      <option value="">Selecciona area</option>
+                      {areas.map((area) => (
+                        <option key={area.id} value={area.id}>
+                          {area.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        void handleAssignArea();
+                      }}
+                      className="px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-70"
+                    >
+                      Reasignar
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {isLoadingAssignments ? (
+                <p className="text-sm text-muted-foreground">Cargando historial...</p>
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="border border-border rounded-xl p-4">
+                    <h4 className="font-medium mb-3">Historial de areas</h4>
+                    {employeeAreaAssignments.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Sin asignaciones de area.</p>
+                    ) : (
+                      <ul className="space-y-2 text-sm">
+                        {employeeAreaAssignments.map((assignment) => (
+                          <li key={assignment.id} className="border border-border rounded-lg p-2">
+                            <p className="font-medium">{assignment.areaName}</p>
+                            <p className="text-muted-foreground">
+                              {assignment.isActive ? "Activa" : "Finalizada"} ·{" "}
+                              {new Date(assignment.assignedAt).toLocaleString()}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="border border-border rounded-xl p-4">
+                    <h4 className="font-medium mb-3">Historial de proyectos</h4>
+                    {employeeProjectMemberships.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Sin membresias de proyecto.</p>
+                    ) : (
+                      <ul className="space-y-2 text-sm">
+                        {employeeProjectMemberships.map((membership) => (
+                          <li key={membership.id} className="border border-border rounded-lg p-2">
+                            <p className="font-medium">{membership.projectName}</p>
+                            <p className="text-muted-foreground">
+                              {membership.isActive ? "Activa" : "Finalizada"} · {membership.projectStatus}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );
 }
-
