@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router";
 import {
+  AlertTriangle,
   BarChart3,
   CalendarClock,
   CheckCircle2,
   Clock3,
+  ExternalLink,
+  FileText,
   FolderKanban,
   Gauge,
   Timer,
@@ -18,9 +22,14 @@ import { listProjects, type ProjectSummary } from "../../modules/projects/api/pr
 import {
   getAdminDashboard,
   getEmployeeDashboard,
+  getOverdueAlerts,
+  getTaskComplianceReport,
   type AdminDashboardData,
   type AdminDashboardQuery,
+  type ComplianceFilter,
   type EmployeeDashboardData,
+  type OverdueAlertsData,
+  type TaskComplianceReportData,
 } from "../../modules/dashboard/api/dashboard.api";
 
 const formatMinutes = (minutes: number) => {
@@ -39,10 +48,34 @@ const formatDate = (value: string) =>
     year: "numeric",
   });
 
+const formatDateTime = (value: string) =>
+  new Date(value).toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+const getComplianceBadgeClass = (complianceStatus: "on_time" | "estimate_delayed" | "date_overdue") => {
+  if (complianceStatus === "date_overdue") {
+    return "text-destructive";
+  }
+
+  if (complianceStatus === "estimate_delayed") {
+    return "text-warning";
+  }
+
+  return "text-success";
+};
+
+const getAlertReasonClass = (reason: "DATE_OVERDUE" | "ESTIMATE_OVERDUE") =>
+  reason === "DATE_OVERDUE" ? "text-destructive" : "text-warning";
+
 function StatCard(props: {
   title: string;
   value: string | number;
-  icon: React.ReactNode;
+  icon: ReactNode;
 }) {
   return (
     <article className="rounded-2xl border border-primary/25 bg-card p-4 shadow-[0_4px_14px_rgba(2,106,167,0.1)]">
@@ -58,6 +91,7 @@ function StatCard(props: {
 }
 
 export function Dashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isEmployee = user?.role === "employee";
@@ -68,6 +102,8 @@ export function Dashboard() {
 
   const [employeeDashboard, setEmployeeDashboard] = useState<EmployeeDashboardData | null>(null);
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboardData | null>(null);
+  const [taskComplianceReport, setTaskComplianceReport] = useState<TaskComplianceReportData | null>(null);
+  const [overdueAlerts, setOverdueAlerts] = useState<OverdueAlertsData | null>(null);
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [areas, setAreas] = useState<AreaSummary[]>([]);
@@ -78,6 +114,7 @@ export function Dashboard() {
   const [projectIdFilter, setProjectIdFilter] = useState("");
   const [areaIdFilter, setAreaIdFilter] = useState("");
   const [employeeIdFilter, setEmployeeIdFilter] = useState("");
+  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
 
   const adminQuery: AdminDashboardQuery = useMemo(() => ({
     dateFrom: dateFrom || undefined,
@@ -86,6 +123,12 @@ export function Dashboard() {
     areaId: areaIdFilter ? Number(areaIdFilter) : undefined,
     employeeId: employeeIdFilter ? Number(employeeIdFilter) : undefined,
   }), [areaIdFilter, dateFrom, dateTo, employeeIdFilter, projectIdFilter]);
+
+  const reportQuery = useMemo(() => ({
+    ...adminQuery,
+    compliance: complianceFilter,
+    limit: 300,
+  }), [adminQuery, complianceFilter]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -124,13 +167,23 @@ export function Dashboard() {
           const response = await getEmployeeDashboard();
           setEmployeeDashboard(response?.data ?? null);
           setAdminDashboard(null);
+          setTaskComplianceReport(null);
+          setOverdueAlerts(null);
         } else if (isAdmin) {
-          const response = await getAdminDashboard(adminQuery);
-          setAdminDashboard(response?.data ?? null);
+          const [adminResponse, reportResponse, alertsResponse] = await Promise.all([
+            getAdminDashboard(adminQuery),
+            getTaskComplianceReport(reportQuery),
+            getOverdueAlerts({ ...adminQuery, limit: 25 }),
+          ]);
+          setAdminDashboard(adminResponse?.data ?? null);
+          setTaskComplianceReport(reportResponse?.data ?? null);
+          setOverdueAlerts(alertsResponse?.data ?? null);
           setEmployeeDashboard(null);
         } else {
           setEmployeeDashboard(null);
           setAdminDashboard(null);
+          setTaskComplianceReport(null);
+          setOverdueAlerts(null);
         }
       } catch (incomingError) {
         if (incomingError instanceof ApiError) {
@@ -144,7 +197,7 @@ export function Dashboard() {
     };
 
     void loadDashboard();
-  }, [adminQuery, isAdmin, isEmployee, user]);
+  }, [adminQuery, isAdmin, isEmployee, reportQuery, user]);
 
   if (!user) {
     return (
@@ -168,7 +221,7 @@ export function Dashboard() {
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
         <p className="text-sm text-muted-foreground">
           {isAdmin
-            ? "Productividad consolidada por equipo, empleado y area."
+            ? "Productividad consolidada, reporte de cumplimiento y alertas activas."
             : "Resumen operativo de tus tareas y tiempos de ejecucion."}
         </p>
       </header>
@@ -253,11 +306,11 @@ export function Dashboard() {
         </>
       )}
 
-      {isAdmin && adminDashboard && (
+      {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && (
         <>
           <section className="rounded-2xl border border-primary/25 bg-card p-4 space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h2 className="text-lg font-semibold text-foreground">Filtros de productividad</h2>
+              <h2 className="text-lg font-semibold text-foreground">Filtros globales</h2>
               <button
                 type="button"
                 onClick={() => {
@@ -266,13 +319,14 @@ export function Dashboard() {
                   setProjectIdFilter("");
                   setAreaIdFilter("");
                   setEmployeeIdFilter("");
+                  setComplianceFilter("all");
                 }}
                 className="px-3 py-2 text-sm rounded-xl border border-border hover:bg-secondary"
               >
                 Limpiar filtros
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
               <DateRangeFilter
                 dateFrom={dateFrom}
                 dateTo={dateTo}
@@ -280,7 +334,7 @@ export function Dashboard() {
                   setDateFrom(from);
                   setDateTo(to);
                 }}
-                placeholder="Rango por inicio planificado"
+                placeholder="Rango por fecha limite"
               />
               <select
                 value={projectIdFilter}
@@ -318,8 +372,18 @@ export function Dashboard() {
                   </option>
                 ))}
               </select>
+              <select
+                value={complianceFilter}
+                onChange={(event) => setComplianceFilter(event.target.value as ComplianceFilter)}
+                className="px-3 py-2 border border-border rounded-xl bg-input-background"
+              >
+                <option value="all">Cumplimiento: todos</option>
+                <option value="on_time">En tiempo</option>
+                <option value="estimate_delayed">Atraso estimado</option>
+                <option value="date_overdue">Atraso por fecha</option>
+              </select>
               <div className="px-3 py-2 rounded-xl border border-border bg-secondary/30 text-xs text-muted-foreground flex items-center">
-                {isLoadingFilters ? "Cargando opciones..." : "Filtros aplicados en tiempo real"}
+                {isLoadingFilters ? "Cargando opciones..." : "Filtros aplicados desde backend"}
               </div>
             </div>
           </section>
@@ -345,6 +409,168 @@ export function Dashboard() {
               value={formatMinutes(adminDashboard.teamSummary.totalActualMinutes)}
               icon={<Timer className="size-5" />}
             />
+          </section>
+
+          <section className="rounded-2xl border border-primary/25 bg-card overflow-hidden">
+            <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-primary">Alertas activas de atraso</h2>
+                <p className="text-xs text-primary/80">
+                  Generado: {formatDateTime(overdueAlerts.generatedAt)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-semibold text-primary">{overdueAlerts.counters.totalAlerts}</p>
+                <p className="text-xs text-muted-foreground">alertas activas</p>
+              </div>
+            </div>
+            <div className="px-5 py-3 bg-secondary/20 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
+              <span>Fecha: {overdueAlerts.counters.dateOverdueAlerts}</span>
+              <span>Estimacion: {overdueAlerts.counters.estimateOverdueAlerts}</span>
+            </div>
+            {overdueAlerts.alerts.length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">
+                No hay tareas con alertas activas para los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {overdueAlerts.alerts.map((alert) => (
+                  <div key={alert.taskId} className="px-5 py-4 flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className={`size-4 ${getAlertReasonClass(alert.reason)}`} />
+                        <p className="font-medium text-foreground">{alert.title}</p>
+                        <span className={`text-xs font-medium ${getAlertReasonClass(alert.reason)}`}>
+                          {alert.reasonLabel}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {alert.projectName} · {alert.areaName} · Estado: {alert.status}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Vence: {formatDate(alert.dueDate)} · Estimado: {alert.estimatedMinutes === null ? "-" : formatMinutes(alert.estimatedMinutes)}
+                        {" · "}
+                        Real: {formatMinutes(alert.actualMinutes)}
+                        {alert.daysOverdue ? ` · ${alert.daysOverdue} dia(s) de atraso` : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Responsable: {alert.assigneeName ?? "Sin asignar"}{alert.assigneeEmail ? ` (${alert.assigneeEmail})` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/projects/${alert.projectId}?taskId=${alert.taskId}`)}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border hover:bg-secondary text-sm"
+                    >
+                      Ver tarea
+                      <ExternalLink className="size-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-primary/25 bg-card overflow-hidden">
+            <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-primary">Reporte de cumplimiento</h2>
+                <p className="text-xs text-primary/80">
+                  Fila resaltada cuando existe atraso por fecha o por estimacion.
+                </p>
+              </div>
+              <FileText className="size-5 text-primary" />
+            </div>
+            <div className="px-5 py-3 bg-secondary/20 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
+              <span>Total: {taskComplianceReport.summary.totalTasks}</span>
+              <span>En tiempo: {taskComplianceReport.summary.onTimeTasks}</span>
+              <span>Atraso estimado: {taskComplianceReport.summary.estimateDelayedTasks}</span>
+              <span>Atraso por fecha: {taskComplianceReport.summary.dateOverdueTasks}</span>
+            </div>
+            {taskComplianceReport.rows.length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">
+                No hay tareas en el reporte para los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-secondary/40">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Tarea</th>
+                      <th className="px-4 py-3 text-left">Proyecto</th>
+                      <th className="px-4 py-3 text-left">Responsable</th>
+                      <th className="px-4 py-3 text-left">Estado</th>
+                      <th className="px-4 py-3 text-left">Vence</th>
+                      <th className="px-4 py-3 text-left">Estimado</th>
+                      <th className="px-4 py-3 text-left">Real</th>
+                      <th className="px-4 py-3 text-left">Desvio</th>
+                      <th className="px-4 py-3 text-left">Cumplimiento</th>
+                      <th className="px-4 py-3 text-left">Accion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {taskComplianceReport.rows.map((row) => (
+                      <tr
+                        key={row.taskId}
+                        className={`border-t border-border ${
+                          row.complianceStatus === "date_overdue"
+                            ? "bg-destructive/5"
+                            : row.complianceStatus === "estimate_delayed"
+                              ? "bg-warning/10"
+                              : ""
+                        }`}
+                      >
+                        <td className="px-4 py-3">
+                          <p>{row.title}</p>
+                          <p className="text-xs text-muted-foreground">{row.priority}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p>{row.projectName}</p>
+                          <p className="text-xs text-muted-foreground">{row.areaName}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          {row.assigneeName ? (
+                            <>
+                              <p>{row.assigneeName}</p>
+                              <p className="text-xs text-muted-foreground">{row.assigneeEmail}</p>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">Sin asignar</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">{row.status}</td>
+                        <td className="px-4 py-3">
+                          <p>{formatDate(row.dueDate)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {row.completedAt ? `Cierre: ${formatDateTime(row.completedAt)}` : "Sin cierre"}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3">
+                          {row.estimatedMinutes === null ? "-" : formatMinutes(row.estimatedMinutes)}
+                        </td>
+                        <td className="px-4 py-3">{formatMinutes(row.actualMinutes)}</td>
+                        <td className="px-4 py-3">
+                          {row.deviationMinutes === null ? "-" : `${row.deviationMinutes > 0 ? "+" : ""}${row.deviationMinutes} min`}
+                        </td>
+                        <td className={`px-4 py-3 font-medium ${getComplianceBadgeClass(row.complianceStatus)}`}>
+                          {row.complianceLabel}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/projects/${row.projectId}?taskId=${row.taskId}`)}
+                            className="inline-flex items-center gap-1 text-primary hover:underline"
+                          >
+                            Ver
+                            <ExternalLink className="size-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
           <section className="rounded-2xl border border-primary/25 bg-card overflow-hidden">

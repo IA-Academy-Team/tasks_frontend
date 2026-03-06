@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
@@ -72,6 +72,7 @@ const getComplianceBadge = (task: TaskSummary): { label: string; className: stri
 
 export function ProjectBoard() {
   const { projectId } = useParams<{ projectId: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -260,6 +261,26 @@ export function ProjectBoard() {
     setSelectedTaskId(taskId);
     void loadTaskHistory(taskId);
   };
+
+  useEffect(() => {
+    const rawTaskId = searchParams.get("taskId");
+    if (!rawTaskId) {
+      return;
+    }
+
+    const taskIdFromQuery = Number(rawTaskId);
+    if (!Number.isInteger(taskIdFromQuery) || taskIdFromQuery <= 0) {
+      return;
+    }
+
+    const taskExistsInBoard = tasks.some((task) => task.id === taskIdFromQuery);
+    if (!taskExistsInBoard || selectedTaskId === taskIdFromQuery) {
+      return;
+    }
+
+    setSelectedTaskId(taskIdFromQuery);
+    void loadTaskHistory(taskIdFromQuery);
+  }, [searchParams, selectedTaskId, tasks]);
 
   const handleAssign = async () => {
     const employeeId = Number(assignEmployeeId);
