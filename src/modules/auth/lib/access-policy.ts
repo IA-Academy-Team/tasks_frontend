@@ -6,11 +6,10 @@ export type FrontendResource =
   | "employees"
   | "projects"
   | "projectBoard"
-  | "profile"
-  | "members";
+  | "profile";
 
 const ROLE_POLICIES: Record<AuthRole, FrontendResource[]> = {
-  admin: ["dashboard", "areas", "employees", "projects", "projectBoard", "profile", "members"],
+  admin: ["dashboard", "areas", "employees", "projects", "projectBoard", "profile"],
   employee: ["dashboard", "projects", "projectBoard", "profile"],
 };
 

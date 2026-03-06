@@ -15,7 +15,11 @@ export function ResourceGuard({ resource, children }: ResourceGuardProps) {
   const { user, isReady } = useAuth();
 
   if (!isReady) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Validando permisos...</p>
+      </div>
+    );
   }
 
   if (!user) {
@@ -28,4 +32,3 @@ export function ResourceGuard({ resource, children }: ResourceGuardProps) {
 
   return <>{children}</>;
 }
-

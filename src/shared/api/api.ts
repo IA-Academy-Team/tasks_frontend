@@ -72,11 +72,6 @@ export const apiFetch = async <T = unknown>(endpoint: string, options: RequestOp
     const response = await fetch(`${API_URL}${endpoint}`, config);
 
     if (!response.ok) {
-        if (response.status === 401) {
-            // Evita sesiones fantasma luego de reseeds/reinicios de backend.
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-        }
         const parsedError = await response.json().catch(() => ({}));
         const errorData = isRecord(parsedError) ? parsedError : {};
         throw new ApiError({

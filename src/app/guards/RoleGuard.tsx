@@ -11,7 +11,11 @@ export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
   const { user, isReady } = useAuth();
 
   if (!isReady) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Validando acceso...</p>
+      </div>
+    );
   }
 
   if (!user || !allowedRoles.includes(user.role)) {
