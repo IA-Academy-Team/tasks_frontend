@@ -1,8 +1,22 @@
 import { useEffect, useState } from "react";
-import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import {
   createArea,
   deleteArea,
@@ -17,6 +31,7 @@ export function Areas() {
   const [statusFilter, setStatusFilter] = useState<AreaStatusFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
@@ -59,6 +74,7 @@ export function Areas() {
     setIsActive(area.isActive);
     setSuccess("");
     setError("");
+    setIsAreaModalOpen(true);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -93,6 +109,7 @@ export function Areas() {
       }
 
       resetForm();
+      setIsAreaModalOpen(false);
       await loadAreas();
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -135,69 +152,25 @@ export function Areas() {
         title="Areas"
         subtitle="Gestion de areas operativas"
         icon={<Building2 className="size-5" />}
+        actions={(
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setError("");
+              setSuccess("");
+              setIsAreaModalOpen(true);
+            }}
+            className="app-btn-primary h-10 w-10 p-0"
+            aria-label="Crear area"
+            title="Crear area"
+          >
+            <Plus className="size-5" />
+          </button>
+        )}
       />
 
       <div className="app-content">
-        <section className="app-panel app-panel-pad">
-          <h3 className="text-lg font-semibold text-foreground mb-4">
-            {editingAreaId ? "Editar area" : "Crear area"}
-          </h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                className="app-control"
-                placeholder="Nombre del area"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Descripcion</label>
-              <input
-                type="text"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                className="app-control"
-                placeholder="Descripcion breve"
-              />
-            </div>
-            <div className="md:col-span-2 flex items-center gap-2">
-              <input
-                id="area-is-active"
-                type="checkbox"
-                checked={isActive}
-                onChange={(event) => setIsActive(event.target.checked)}
-              />
-              <label htmlFor="area-is-active" className="text-sm text-foreground">
-                Area activa
-              </label>
-            </div>
-            <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="app-btn-primary"
-              >
-                <Plus className="size-4" />
-                {isSubmitting ? "Guardando..." : editingAreaId ? "Actualizar" : "Crear"}
-              </button>
-              {editingAreaId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="app-btn-secondary"
-                >
-                  Cancelar edicion
-                </button>
-              )}
-            </div>
-          </form>
-          {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
-          {success && <p className="mt-4 text-sm text-success">{success}</p>}
-        </section>
-
         <section className="app-panel overflow-hidden">
           <div className="app-panel-header">
             <h3 className="text-lg font-semibold text-foreground">Listado de areas</h3>
@@ -211,6 +184,8 @@ export function Areas() {
               <option value="inactive">Inactivas</option>
             </select>
           </div>
+          {error && <p className="p-4 text-sm text-destructive">{error}</p>}
+          {success && <p className="p-4 text-sm text-success">{success}</p>}
 
           {isLoading ? (
             <div className="p-6 text-sm text-muted-foreground">Cargando areas...</div>
@@ -243,23 +218,32 @@ export function Areas() {
                       <td className="app-td">{area.activeMemberCount}</td>
                       <td className="app-td">{area.activeProjectCount}</td>
                       <td className="app-td">
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(area)}
-                            className="app-action-link inline-flex items-center gap-1"
-                          >
-                            <Pencil className="size-4" />
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPendingDeleteArea(area)}
-                            className="app-action-link-danger inline-flex items-center gap-1"
-                          >
-                            <Trash2 className="size-4" />
-                            Eliminar
-                          </button>
+                        <div className="flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                                aria-label={`Acciones de ${area.name}`}
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => startEdit(area)}>
+                                <Pencil className="size-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setPendingDeleteArea(area)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="size-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
@@ -270,6 +254,89 @@ export function Areas() {
           )}
         </section>
       </div>
+
+      <Dialog
+        open={isAreaModalOpen}
+        onOpenChange={(open) => {
+          setIsAreaModalOpen(open);
+          if (!open && !isSubmitting) {
+            resetForm();
+            setError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingAreaId ? "Editar area" : "Crear area"}</DialogTitle>
+            <DialogDescription>
+              Define la informacion principal del area operativa.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="app-control"
+                placeholder="Nombre del area"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Descripcion</label>
+              <input
+                type="text"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="app-control"
+                placeholder="Descripcion breve"
+              />
+            </div>
+            <div className="md:col-span-2 flex items-center gap-2">
+              <input
+                id="area-modal-is-active"
+                type="checkbox"
+                checked={isActive}
+                onChange={(event) => setIsActive(event.target.checked)}
+              />
+              <label htmlFor="area-modal-is-active" className="text-sm text-foreground">
+                Area activa
+              </label>
+            </div>
+
+            {error && (
+              <p className="md:col-span-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">
+                {error}
+              </p>
+            )}
+
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
+              {editingAreaId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    setIsAreaModalOpen(false);
+                  }}
+                  className="app-btn-secondary"
+                >
+                  Cancelar edicion
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="app-btn-primary"
+              >
+                <Plus className="size-4" />
+                {isSubmitting ? "Guardando..." : editingAreaId ? "Actualizar" : "Crear"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmActionDialog
         open={pendingDeleteArea !== null}

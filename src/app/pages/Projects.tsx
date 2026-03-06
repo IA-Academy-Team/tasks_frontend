@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
-import { FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
+import { FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
@@ -13,6 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import {
   createProject,
   deleteProject,
@@ -295,54 +302,49 @@ export function Projects() {
                         <p>Fin: {project.endDate ?? "-"}</p>
                       </td>
                       <td className="app-td">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/projects/${project.id}`)}
-                            className="app-action-link"
-                          >
-                            Ver detalle
-                          </button>
-                          {isAdmin && (
-                            <>
+                        <div className="flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
                               <button
                                 type="button"
-                                onClick={() => startEdit(project)}
-                                className="app-action-link inline-flex items-center gap-1"
+                                className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                                aria-label={`Acciones de ${project.name}`}
                               >
-                                <Pencil className="size-4" />
+                                <MoreHorizontal className="size-4" />
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingDeleteProject(project)}
-                                className="app-action-link-danger inline-flex items-center gap-1"
-                              >
-                                <Trash2 className="size-4" />
-                                Eliminar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingStatusUpdate({ project, status: "closed" })}
-                                className="app-action-link"
-                              >
-                                Cerrar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}
-                                className="app-action-link-danger"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingStatusUpdate({ project, status: "active" })}
-                                className="app-action-link"
-                              >
-                                Activar
-                              </button>
-                            </>
-                          )}
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                                Ver detalle
+                              </DropdownMenuItem>
+                              {isAdmin && (
+                                <>
+                                  <DropdownMenuItem onClick={() => startEdit(project)}>
+                                    <Pencil className="size-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
+                                    Cerrar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
+                                    Cancelar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
+                                    Activar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setPendingDeleteProject(project)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="size-4" />
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>

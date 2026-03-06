@@ -1,9 +1,23 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Users2 } from "lucide-react";
+import { MoreHorizontal, Plus, Users2 } from "lucide-react";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import {
   assignEmployeeArea,
   createEmployee,
@@ -23,6 +37,7 @@ export function Employees() {
   const [statusFilter, setStatusFilter] = useState<EmployeeStatusFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null);
@@ -123,6 +138,7 @@ export function Employees() {
     setIsActive(employee.isActive);
     setError("");
     setSuccess("");
+    setIsEmployeeModalOpen(true);
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -181,6 +197,7 @@ export function Employees() {
       }
 
       resetForm();
+      setIsEmployeeModalOpen(false);
       await loadEmployees();
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -262,114 +279,25 @@ export function Employees() {
         title="Empleados"
         subtitle="Gestion de empleados y estado operativo"
         icon={<Users2 className="size-5" />}
+        actions={(
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setError("");
+              setSuccess("");
+              setIsEmployeeModalOpen(true);
+            }}
+            className="app-btn-primary h-10 w-10 p-0"
+            aria-label="Crear empleado"
+            title="Crear empleado"
+          >
+            <Plus className="size-5" />
+          </button>
+        )}
       />
 
       <div className="app-content">
-        <section className="app-panel app-panel-pad">
-          <h3 className="text-lg font-semibold text-foreground mb-4">
-            {editingEmployeeId ? "Editar empleado" : "Crear empleado"}
-          </h3>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                className="app-control"
-                placeholder="Nombre del empleado"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Correo</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                disabled={Boolean(editingEmployeeId)}
-                className="app-control disabled:bg-muted"
-                placeholder="empleado@taskapp.local"
-              />
-            </div>
-
-            {!editingEmployeeId && (
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Contrasena</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="app-control"
-                  placeholder="Minimo 8 caracteres"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Telefono</label>
-              <input
-                type="text"
-                value={phoneNumber}
-                onChange={(event) => setPhoneNumber(event.target.value)}
-                className="app-control"
-                placeholder="+573001234567"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen (URL)</label>
-              <input
-                type="url"
-                value={image}
-                onChange={(event) => setImage(event.target.value)}
-                className="app-control"
-                placeholder="https://..."
-              />
-            </div>
-
-            <div className="md:col-span-2 flex flex-wrap items-center gap-4">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={emailVerified}
-                  onChange={(event) => setEmailVerified(event.target.checked)}
-                />
-                <span className="text-sm text-foreground">Correo verificado</span>
-              </label>
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(event) => setIsActive(event.target.checked)}
-                />
-                <span className="text-sm text-foreground">Empleado activo</span>
-              </label>
-            </div>
-
-            <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="app-btn-primary"
-              >
-                {isSubmitting ? "Guardando..." : editingEmployeeId ? "Actualizar" : "Crear"}
-              </button>
-              {editingEmployeeId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="app-btn-secondary"
-                >
-                  Cancelar edicion
-                </button>
-              )}
-            </div>
-          </form>
-          {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
-          {success && <p className="mt-4 text-sm text-success">{success}</p>}
-        </section>
-
         <section className="app-panel overflow-hidden">
           <div className="app-panel-header">
             <h3 className="text-lg font-semibold text-foreground">Listado de empleados</h3>
@@ -383,6 +311,8 @@ export function Employees() {
               <option value="inactive">Inactivos</option>
             </select>
           </div>
+          {error && <p className="p-4 text-sm text-destructive">{error}</p>}
+          {success && <p className="p-4 text-sm text-success">{success}</p>}
 
           {isLoading ? (
             <div className="p-6 text-sm text-muted-foreground">Cargando empleados...</div>
@@ -413,40 +343,43 @@ export function Employees() {
                         </span>
                       </td>
                       <td className="app-td">
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(employee)}
-                            className="app-action-link"
-                          >
-                            Editar
-                          </button>
-                          {employee.isActive ? (
-                            <button
-                              type="button"
-                              onClick={() => setPendingStatusChange({ employee, nextIsActive: false })}
-                              className="app-action-link-danger"
-                            >
-                              Desactivar
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setPendingStatusChange({ employee, nextIsActive: true })}
-                              className="app-action-link"
-                            >
-                              Activar
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void handleOpenAssignments(employee);
-                            }}
-                            className="app-action-link"
-                          >
-                            Asignaciones
-                          </button>
+                        <div className="flex justify-end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                                aria-label={`Acciones de ${employee.name}`}
+                              >
+                                <MoreHorizontal className="size-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuItem onClick={() => startEdit(employee)}>
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  void handleOpenAssignments(employee);
+                                }}
+                              >
+                                Asignaciones
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {employee.isActive ? (
+                                <DropdownMenuItem
+                                  onClick={() => setPendingStatusChange({ employee, nextIsActive: false })}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  Desactivar
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => setPendingStatusChange({ employee, nextIsActive: true })}>
+                                  Activar
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
@@ -551,6 +484,133 @@ export function Employees() {
           )}
         </section>
       </div>
+
+      <Dialog
+        open={isEmployeeModalOpen}
+        onOpenChange={(open) => {
+          setIsEmployeeModalOpen(open);
+          if (!open && !isSubmitting) {
+            resetForm();
+            setError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editingEmployeeId ? "Editar empleado" : "Crear empleado"}</DialogTitle>
+            <DialogDescription>
+              Gestiona los datos base y estado operativo del empleado.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="app-control"
+                placeholder="Nombre del empleado"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Correo</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                disabled={Boolean(editingEmployeeId)}
+                className="app-control disabled:bg-muted"
+                placeholder="empleado@taskapp.local"
+              />
+            </div>
+
+            {!editingEmployeeId && (
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Contrasena</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="app-control"
+                  placeholder="Minimo 8 caracteres"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Telefono</label>
+              <input
+                type="text"
+                value={phoneNumber}
+                onChange={(event) => setPhoneNumber(event.target.value)}
+                className="app-control"
+                placeholder="+573001234567"
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen (URL)</label>
+              <input
+                type="url"
+                value={image}
+                onChange={(event) => setImage(event.target.value)}
+                className="app-control"
+                placeholder="https://..."
+              />
+            </div>
+
+            <div className="md:col-span-2 flex flex-wrap items-center gap-4">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={emailVerified}
+                  onChange={(event) => setEmailVerified(event.target.checked)}
+                />
+                <span className="text-sm text-foreground">Correo verificado</span>
+              </label>
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={isActive}
+                  onChange={(event) => setIsActive(event.target.checked)}
+                />
+                <span className="text-sm text-foreground">Empleado activo</span>
+              </label>
+            </div>
+
+            {error && (
+              <p className="md:col-span-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">
+                {error}
+              </p>
+            )}
+
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
+              {editingEmployeeId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    setIsEmployeeModalOpen(false);
+                  }}
+                  className="app-btn-secondary"
+                >
+                  Cancelar edicion
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="app-btn-primary"
+              >
+                {isSubmitting ? "Guardando..." : editingEmployeeId ? "Actualizar" : "Crear"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmActionDialog
         open={pendingStatusChange !== null}
