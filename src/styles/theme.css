@@ -149,6 +149,11 @@
     min-height: 100vh;
   }
 
+  .dark body {
+    background-image: radial-gradient(circle at 12% 8%, rgba(20, 184, 166, 0.15), transparent 34%),
+      radial-gradient(circle at 84% 18%, rgba(56, 189, 248, 0.12), transparent 40%);
+  }
+
   /**
   * Default typography styles for HTML elements (h1-h4, p, label, button, input).
   * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.

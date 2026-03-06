@@ -582,13 +582,13 @@ export function ProjectBoard() {
           <button
             type="button"
             onClick={() => navigate("/projects")}
-            className="p-2 hover:bg-white/15 rounded-xl transition-colors text-primary-foreground"
+            className="p-2 hover:bg-secondary rounded-xl transition-colors text-foreground"
           >
-            <ArrowLeft className="size-5 text-primary-foreground" />
+            <ArrowLeft className="size-5 text-foreground" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-primary-foreground">{project.name}</h1>
-            <p className="text-sm text-white/90">
+            <h1 className="text-xl font-bold text-foreground">{project.name}</h1>
+            <p className="text-sm text-muted-foreground">
               Area: {project.areaName} · Estado: {project.status}
             </p>
           </div>

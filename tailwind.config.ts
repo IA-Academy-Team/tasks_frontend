@@ -17,9 +17,8 @@ const appComponents = plugin(({ addComponents }) => {
       borderBottom: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
       minHeight: "5.4rem",
       padding: "1rem clamp(1.25rem, 2.2vw, 2rem)",
-      boxShadow: "0 1px 0 rgba(16, 36, 58, 0.06)",
-      background:
-        "radial-gradient(circle at 14% 18%, rgba(141, 236, 227, 0.22), transparent 36%), linear-gradient(118deg, #0b2f4b 0%, #105b7e 52%, #127f68 100%)",
+      boxShadow: "0 6px 16px rgba(16, 36, 58, 0.06)",
+      backgroundColor: "var(--card)",
     },
     ".app-content": {
       flex: "1 1 auto",

@@ -171,14 +171,14 @@ export function Layout() {
 
       {isUserMenuOpen && (
         <div
-          className={`absolute z-50 rounded-xl border border-sidebar-border bg-[#0b2438] p-1 shadow-2xl ${
+          className={`absolute z-50 rounded-xl border border-border bg-card p-1 shadow-2xl ${
             isCollapsed ? "left-[calc(100%+0.6rem)] bottom-0 w-44" : "left-0 right-0 bottom-[calc(100%+0.5rem)]"
           }`}
         >
           <button
             type="button"
             onClick={handleOpenProfileModal}
-            className="w-full inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground hover:bg-white/10 transition-colors"
+            className="w-full inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
           >
             <Pencil className="size-4" />
             Editar perfil
@@ -189,7 +189,7 @@ export function Layout() {
               setIsUserMenuOpen(false);
               void handleLogout();
             }}
-            className="w-full inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-sidebar-foreground hover:bg-white/10 transition-colors"
+            className="w-full inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
           >
             <LogOut className="size-4" />
             Cerrar sesión
@@ -262,18 +262,18 @@ export function Layout() {
       )}
 
       <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        <header className="md:hidden flex items-center justify-between border-b border-white/12 px-4 py-3 bg-[linear-gradient(118deg,#0b2f4b_0%,#105b7e_50%,#127f68_100%)] text-primary-foreground">
+        <header className="md:hidden flex items-center justify-between border-b border-border/70 px-4 py-3 bg-card/95 backdrop-blur-sm">
           <button
             type="button"
-            className="p-2 rounded-lg border border-white/26 hover:bg-white/16 transition-colors"
+            className="p-2 rounded-lg border border-border hover:bg-secondary transition-colors"
             onClick={() => setIsMobileMenuOpen(true)}
           >
             <Menu className="size-5" />
           </button>
-          <p className="text-sm font-semibold tracking-tight text-primary-foreground">TaskApp</p>
+          <p className="text-sm font-semibold tracking-tight text-foreground">TaskApp</p>
           <button
             type="button"
-            className="p-2 rounded-lg border border-white/26 hover:bg-white/16 transition-colors"
+            className="p-2 rounded-lg border border-border hover:bg-secondary transition-colors"
             onClick={() => {
               void handleLogout();
             }}
