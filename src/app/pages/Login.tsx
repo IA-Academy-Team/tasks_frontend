@@ -62,21 +62,20 @@ export function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 relative overflow-hidden">
-      {/* Fondo con gradiente azul suave */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-background to-accent/10 pointer-events-none" />
-      <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 left-0 w-80 h-80 rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_5%,rgba(15,118,110,0.14),transparent_30%),radial-gradient(circle_at_95%_20%,rgba(11,110,168,0.14),transparent_34%)] pointer-events-none" />
+      <div className="absolute top-[-80px] right-[-60px] w-[320px] h-[320px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-80px] left-[-30px] w-[280px] h-[280px] rounded-full bg-accent/10 blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-sm relative z-10">
-        <div className="bg-card rounded-2xl shadow-xl border border-primary/20 overflow-hidden">
-          <div className="bg-primary px-8 py-6 text-center">
+        <div className="app-panel overflow-hidden">
+          <div className="px-8 py-6 text-center border-b border-border/60 bg-[linear-gradient(130deg,#0d4663_0%,#0f766e_58%,#1f3c67_100%)]">
             <h1 className="text-2xl font-bold text-primary-foreground">Tasks</h1>
-            <p className="text-sm text-white/90 mt-1">Inicia sesión en tu cuenta</p>
+            <p className="text-sm text-primary-foreground/90 mt-1">Inicia sesión en tu cuenta</p>
           </div>
           <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="login-user" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="login-user" className="block text-sm font-semibold text-foreground mb-1.5">
                   Correo electrónico
                 </label>
                 <input
@@ -84,14 +83,14 @@ export function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                  className="app-control"
                   placeholder="tu@correo.com"
                   autoComplete="email"
                 />
               </div>
 
               <div>
-                <label htmlFor="login-password" className="block text-sm font-medium text-foreground mb-1">
+                <label htmlFor="login-password" className="block text-sm font-semibold text-foreground mb-1.5">
                   Contraseña
                 </label>
                 <input
@@ -99,7 +98,7 @@ export function Login() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                  className="app-control"
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
@@ -112,7 +111,7 @@ export function Login() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover font-medium transition-colors shadow-md"
+                className="app-btn-primary w-full py-3"
               >
                 <LogIn className="size-4" />
                 {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
@@ -123,14 +122,14 @@ export function Login() {
               <p>
                 <Link
                   to="/recuperar-contraseña"
-                  className="text-primary hover:text-primary-hover font-medium"
+                  className="app-auth-link"
                 >
                   Recuperar contraseña
                 </Link>
               </p>
               <p className="text-muted-foreground">
                 ¿No tienes cuenta?{' '}
-                <Link to="/registro" className="text-primary hover:text-primary-hover font-medium">
+                <Link to="/registro" className="app-auth-link">
                   Regístrate
                 </Link>
               </p>

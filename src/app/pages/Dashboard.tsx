@@ -1,334 +1,665 @@
-import { useState } from 'react';
-import { FolderKanban, CheckCircle2, Clock, Users, Filter, Calendar, CheckCircle, XCircle, ClipboardList, FolderOpen } from 'lucide-react';
-import { getProjects, getUsers } from '../store';
-import { Task } from '../types';
-import { DateRangeFilter } from '../components/DateRangeFilter';
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router";
+import {
+  AlertTriangle,
+  BarChart3,
+  CalendarClock,
+  CheckCircle2,
+  Clock3,
+  ExternalLink,
+  FileText,
+  FolderKanban,
+  Gauge,
+  Timer,
+  Users,
+} from "lucide-react";
+import { ApiError } from "../../shared/api/api";
+import { useAuth } from "../context/AuthContext";
+import { DateRangeFilter } from "../components/DateRangeFilter";
+import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
+import { listEmployees, type EmployeeSummary } from "../../modules/employees/api/employees.api";
+import { listProjects, type ProjectSummary } from "../../modules/projects/api/projects.api";
+import {
+  getAdminDashboard,
+  getEmployeeDashboard,
+  getOverdueAlerts,
+  getTaskComplianceReport,
+  type AdminDashboardData,
+  type AdminDashboardQuery,
+  type ComplianceFilter,
+  type EmployeeDashboardData,
+  type OverdueAlertsData,
+  type TaskComplianceReportData,
+} from "../../modules/dashboard/api/dashboard.api";
 
-type TaskWithMeta = Task & { projectName: string; projectId: string; columnTitle: string };
+const formatMinutes = (minutes: number) => {
+  if (minutes <= 0) return "0 min";
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours === 0) return `${remainingMinutes} min`;
+  if (remainingMinutes === 0) return `${hours}h`;
+  return `${hours}h ${remainingMinutes}m`;
+};
 
-function getAllTasksWithMeta(): TaskWithMeta[] {
-  const projects = getProjects();
-  const result: TaskWithMeta[] = [];
-  for (const project of projects) {
-    for (const column of project.columns) {
-      for (const task of column.tasks) {
-        result.push({
-          ...task,
-          projectName: project.name,
-          projectId: project.id,
-          columnTitle: column.title,
-        });
-      }
-    }
-  }
-  return result;
-}
-
-function getProjectTaskCount(project: { columns: { tasks: unknown[] }[] }): number {
-  return project.columns.reduce((acc, col) => acc + col.tasks.length, 0);
-}
-
-function getAssigneeName(assignedToId: string, users: { id: string; name: string }[]): string {
-  const user = users.find((u) => u.id === assignedToId);
-  return user?.name ?? '—';
-}
-
-export function Dashboard() {
-  const projects = getProjects();
-  const users = getUsers();
-  const [filterTarea, setFilterTarea] = useState<string>('');
-  const [filterAsignadoA, setFilterAsignadoA] = useState<string>('');
-  const [filterProyecto, setFilterProyecto] = useState<string>('');
-  const [filterDateFrom, setFilterDateFrom] = useState<string>('');
-  const [filterDateTo, setFilterDateTo] = useState<string>('');
-  const [filterCumplio, setFilterCumplio] = useState<string>(''); // '' | 'si' | 'no'
-
-  const allTasksWithMeta = getAllTasksWithMeta();
-
-  const filteredTasks = allTasksWithMeta.filter((task) => {
-    if (filterTarea.trim()) {
-      const q = filterTarea.trim().toLowerCase();
-      if (!task.description.toLowerCase().includes(q)) return false;
-    }
-    if (filterAsignadoA && task.assignedTo !== filterAsignadoA) return false;
-    if (filterProyecto && task.projectId !== filterProyecto) return false;
-    if (filterCumplio === 'si' && task.columnTitle !== 'Producción') return false;
-    if (filterCumplio === 'no' && task.columnTitle === 'Producción') return false;
-    return true;
+const formatDate = (value: string) =>
+  new Date(value).toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
   });
 
-  const hasAnyFilter =
-    filterTarea.trim() !== '' ||
-    filterAsignadoA !== '' ||
-    filterProyecto !== '' ||
-    filterCumplio !== '';
+const formatDateTime = (value: string) =>
+  new Date(value).toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-  const statsTasks = hasAnyFilter ? filteredTasks : allTasksWithMeta;
-  const totalTasks = statsTasks.length;
-  const pendingTasks = statsTasks.filter((t) => t.columnTitle !== 'Producción').length;
-  const projectIds = new Set(statsTasks.map((t) => t.projectId));
-  const totalProjects = hasAnyFilter ? projectIds.size : projects.length;
-  const memberIds = new Set(statsTasks.map((t) => t.assignedTo));
-  const totalMembers = hasAnyFilter ? memberIds.size : users.length;
+const getComplianceBadgeClass = (complianceStatus: "on_time" | "estimate_delayed" | "date_overdue") => {
+  if (complianceStatus === "date_overdue") {
+    return "text-destructive";
+  }
 
-  const displayedTasks = [...filteredTasks]
-    .sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime())
-    .slice(0, 8);
+  if (complianceStatus === "estimate_delayed") {
+    return "text-warning";
+  }
 
-  const formatDate = (dateStr: string) => {
-    try {
-      return new Date(dateStr).toLocaleDateString('es-ES', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+  return "text-success";
+};
 
-  const isFulfilled = (columnTitle: string) => columnTitle === 'Producción';
+const getAlertReasonClass = (reason: "DATE_OVERDUE" | "ESTIMATE_OVERDUE") =>
+  reason === "DATE_OVERDUE" ? "text-destructive" : "text-warning";
 
+function StatCard(props: {
+  title: string;
+  value: string | number;
+  icon: ReactNode;
+}) {
   return (
-    <div className="p-5 md:p-6 w-full min-h-full flex flex-col gap-5">
-      {/* Header con acento azul */}
-      <div className="flex-shrink-0 flex items-center gap-4">
-        <div className="h-10 w-1 rounded-full bg-primary shrink-0" />
+    <article className="app-panel p-4">
+      <div className="flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Resumen general de tus proyectos y tareas
-          </p>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">{props.title}</p>
+          <p className="mt-2 text-2xl font-semibold text-foreground">{props.value}</p>
         </div>
+        <div className="rounded-xl bg-primary/12 p-2 text-primary">{props.icon}</div>
       </div>
-
-      {/* Stats — se actualizan con los filtros activos o datos globales */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 flex-shrink-0">
-        <StatCard
-          title="Proyectos"
-          value={totalProjects}
-          icon={<FolderKanban className="size-6 text-primary" />}
-        />
-        <StatCard
-          title="Tareas totales"
-          value={totalTasks}
-          icon={<CheckCircle2 className="size-6 text-success" />}
-        />
-        <StatCard
-          title="Pendientes"
-          value={pendingTasks}
-          icon={<Clock className="size-6 text-warning" />}
-        />
-        <StatCard
-          title="Miembros"
-          value={totalMembers}
-          icon={<Users className="size-6 text-primary" />}
-        />
-      </div>
-
-      {/* Card 1: Tareas por persona */}
-      <div className="bg-card border border-primary/25 rounded-2xl shadow-[0_4px_14px_rgba(2,106,167,0.12)] overflow-hidden flex-1 min-h-0 flex flex-col">
-        <div className="px-5 py-4 bg-primary/10 border-b border-primary/20 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <Filter className="size-5 text-primary" aria-hidden />
-            <div>
-              <h2 className="text-lg font-semibold text-primary">Tareas por persona</h2>
-              {filteredTasks.length > 8 && (
-                <p className="text-xs text-muted-foreground">Mostrando las 8 más recientes</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-auto flex-1 min-h-0">
-          {displayedTasks.length === 0 ? (
-            <div className="px-5 py-8 flex flex-col items-center justify-center text-center flex-1 min-h-0">
-              <div className="p-3 rounded-xl bg-secondary/50 mb-3">
-                <ClipboardList className="size-8 text-muted-foreground/70" aria-hidden />
-              </div>
-              <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-                {hasAnyFilter
-                  ? 'Ninguna tarea coincide con los filtros. Prueba cambiando o quitando filtros.'
-                  : 'No hay tareas en ningún proyecto. Crea un proyecto y añade tareas para verlas aquí.'}
-              </p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-primary/10 border-b border-primary/20">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Tarea
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Asignado a
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Proyecto
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Rango de fechas
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    ¿Cumplió?
-                  </th>
-                </tr>
-                {/* Fila de filtros por columna */}
-                <tr className="bg-primary/5 border-b border-primary/15">
-                  <td className="px-2 py-2">
-                    <input
-                      type="text"
-                      value={filterTarea}
-                      onChange={(e) => setFilterTarea(e.target.value)}
-                      placeholder="Filtrar..."
-                      className="w-full min-w-0 px-2 py-1.5 text-sm border border-primary/25 rounded-lg bg-input-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </td>
-                  <td className="px-2 py-2">
-                    <select
-                      value={filterAsignadoA}
-                      onChange={(e) => setFilterAsignadoA(e.target.value)}
-                      className="w-full min-w-0 px-2 py-1.5 text-sm border border-primary/25 rounded-lg bg-input-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="">Todos</option>
-                      {users.map((u) => (
-                        <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-2">
-                    <select
-                      value={filterProyecto}
-                      onChange={(e) => setFilterProyecto(e.target.value)}
-                      className="w-full min-w-0 px-2 py-1.5 text-sm border border-primary/25 rounded-lg bg-input-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="">Todos</option>
-                      {projects.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-2">
-                    <DateRangeFilter
-                      dateFrom={filterDateFrom}
-                      dateTo={filterDateTo}
-                      onDateChange={(from, to) => {
-                        setFilterDateFrom(from);
-                        setFilterDateTo(to);
-                      }}
-                      placeholder="Desde — hasta"
-                      triggerClassName="w-full min-w-0"
-                    />
-                  </td>
-                  <td className="px-2 py-2">
-                    <select
-                      value={filterCumplio}
-                      onChange={(e) => setFilterCumplio(e.target.value)}
-                      className="w-full min-w-0 px-2 py-1.5 text-sm border border-primary/25 rounded-lg bg-input-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="">Todos</option>
-                      <option value="si">Sí</option>
-                      <option value="no">Pendiente</option>
-                    </select>
-                  </td>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {displayedTasks.map((task) => (
-                  <tr key={`${task.projectId}-${task.id}`} className="hover:bg-secondary/30 transition-colors">
-                    <td className="px-4 py-3 text-sm text-foreground max-w-[200px] truncate">
-                      {task.description}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {getAssigneeName(task.assignedTo, users)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {task.projectName}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1.5">
-                        <Calendar className="size-4 text-muted-foreground/80 flex-shrink-0" />
-                        {formatDate(task.startDate)} — {formatDate(task.endDate)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      {isFulfilled(task.columnTitle) ? (
-                        <span className="inline-flex items-center gap-1 text-success bg-success/10 px-2 py-1 rounded text-xs font-medium">
-                          <CheckCircle className="size-4" />
-                          Sí
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-warning bg-warning/15 px-2 py-1 rounded text-xs font-medium">
-                          <XCircle className="size-4" />
-                          Pendiente
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      {/* Card 2: Proyectos recientes */}
-      <div className="bg-card border border-primary/25 rounded-2xl shadow-[0_4px_14px_rgba(2,106,167,0.12)] overflow-hidden flex-shrink-0">
-        <div className="px-5 py-4 bg-primary/10 border-b border-primary/20">
-          <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
-            <FolderOpen className="size-5 text-primary" aria-hidden />
-            Proyectos recientes
-          </h2>
-        </div>
-
-        <div className="p-5">
-          {projects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-center py-6">
-              <div className="p-3 rounded-xl bg-secondary/50 mb-3">
-                <FolderKanban className="size-8 text-muted-foreground/70" aria-hidden />
-              </div>
-              <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
-                No hay proyectos creados aún. Crea tu primer proyecto desde la sección Proyectos para verlo aquí.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {projects.map((project) => (
-                <div
-                  key={project.id}
-                  className="p-4 rounded-xl border border-primary/20 bg-input-background/50 hover:bg-primary/5 hover:border-primary/30 transition-colors"
-                >
-                  <p className="font-medium text-foreground text-base">{project.name}</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {getProjectTaskCount(project)} tareas
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
+    </article>
   );
 }
 
-/* ---------- Components ---------- */
+export function Dashboard() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const isEmployee = user?.role === "employee";
 
-function StatCard({
-  title,
-  value,
-  icon,
-}: {
-  title: string;
-  value: number | string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="bg-card border border-primary/25 rounded-2xl p-4 flex items-center gap-4 shadow-[0_4px_14px_rgba(2,106,167,0.12)]">
-      <div className="p-2.5 rounded-xl bg-primary/15">{icon}</div>
-      <div className="min-w-0">
-        <p className="text-sm text-muted-foreground">{title}</p>
-        <p className="text-xl font-bold text-foreground leading-tight">{value}</p>
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingFilters, setIsLoadingFilters] = useState(false);
+  const [error, setError] = useState("");
+
+  const [employeeDashboard, setEmployeeDashboard] = useState<EmployeeDashboardData | null>(null);
+  const [adminDashboard, setAdminDashboard] = useState<AdminDashboardData | null>(null);
+  const [taskComplianceReport, setTaskComplianceReport] = useState<TaskComplianceReportData | null>(null);
+  const [overdueAlerts, setOverdueAlerts] = useState<OverdueAlertsData | null>(null);
+
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [areas, setAreas] = useState<AreaSummary[]>([]);
+  const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
+
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [projectIdFilter, setProjectIdFilter] = useState("");
+  const [areaIdFilter, setAreaIdFilter] = useState("");
+  const [employeeIdFilter, setEmployeeIdFilter] = useState("");
+  const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
+
+  const adminQuery: AdminDashboardQuery = useMemo(() => ({
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
+    projectId: projectIdFilter ? Number(projectIdFilter) : undefined,
+    areaId: areaIdFilter ? Number(areaIdFilter) : undefined,
+    employeeId: employeeIdFilter ? Number(employeeIdFilter) : undefined,
+  }), [areaIdFilter, dateFrom, dateTo, employeeIdFilter, projectIdFilter]);
+
+  const reportQuery = useMemo(() => ({
+    ...adminQuery,
+    compliance: complianceFilter,
+    limit: 300,
+  }), [adminQuery, complianceFilter]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const loadFilters = async () => {
+      setIsLoadingFilters(true);
+      try {
+        const [projectsResponse, areasResponse, employeesResponse] = await Promise.all([
+          listProjects({ status: "all" }),
+          listAreas("all"),
+          listEmployees("active"),
+        ]);
+        setProjects(projectsResponse?.data ?? []);
+        setAreas(areasResponse?.data ?? []);
+        setEmployees((employeesResponse?.data ?? []).filter((employee) => employee.role === "employee"));
+      } catch {
+        setProjects([]);
+        setAreas([]);
+        setEmployees([]);
+      } finally {
+        setIsLoadingFilters(false);
+      }
+    };
+
+    void loadFilters();
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const loadDashboard = async () => {
+      setIsLoading(true);
+      setError("");
+      try {
+        if (isEmployee) {
+          const response = await getEmployeeDashboard();
+          setEmployeeDashboard(response?.data ?? null);
+          setAdminDashboard(null);
+          setTaskComplianceReport(null);
+          setOverdueAlerts(null);
+        } else if (isAdmin) {
+          const [adminResponse, reportResponse, alertsResponse] = await Promise.all([
+            getAdminDashboard(adminQuery),
+            getTaskComplianceReport(reportQuery),
+            getOverdueAlerts({ ...adminQuery, limit: 25 }),
+          ]);
+          setAdminDashboard(adminResponse?.data ?? null);
+          setTaskComplianceReport(reportResponse?.data ?? null);
+          setOverdueAlerts(alertsResponse?.data ?? null);
+          setEmployeeDashboard(null);
+        } else {
+          setEmployeeDashboard(null);
+          setAdminDashboard(null);
+          setTaskComplianceReport(null);
+          setOverdueAlerts(null);
+        }
+      } catch (incomingError) {
+        if (incomingError instanceof ApiError) {
+          setError(incomingError.message);
+        } else {
+          setError("No fue posible cargar el dashboard.");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadDashboard();
+  }, [adminQuery, isAdmin, isEmployee, reportQuery, user]);
+
+  if (!user) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">
+        Sesion no disponible.
       </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="size-full flex items-center justify-center text-muted-foreground">
+        Cargando dashboard...
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-content">
+      <header className="space-y-1">
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">
+          {isAdmin
+            ? "Productividad consolidada, reporte de cumplimiento y alertas activas."
+            : "Resumen operativo de tus tareas y tiempos de ejecucion."}
+        </p>
+      </header>
+
+      {error && (
+        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error}
+        </p>
+      )}
+
+      {isEmployee && employeeDashboard && (
+        <>
+          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+            <StatCard
+              title="Asignadas"
+              value={employeeDashboard.summary.assignedTasks}
+              icon={<FolderKanban className="size-5" />}
+            />
+            <StatCard
+              title="En proceso"
+              value={employeeDashboard.summary.inProgressTasks}
+              icon={<Clock3 className="size-5" />}
+            />
+            <StatCard
+              title="Terminadas"
+              value={employeeDashboard.summary.doneTasks}
+              icon={<CheckCircle2 className="size-5" />}
+            />
+            <StatCard
+              title="Proximas a vencer"
+              value={employeeDashboard.summary.upcomingTasks}
+              icon={<CalendarClock className="size-5" />}
+            />
+            <StatCard
+              title="Tiempo activo"
+              value={formatMinutes(employeeDashboard.summary.activeTasksAccumulatedMinutes)}
+              icon={<Timer className="size-5" />}
+            />
+          </section>
+
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
+              <h2 className="text-lg font-semibold text-foreground">Tareas proximas a vencerse</h2>
+            </div>
+            {employeeDashboard.upcomingTasks.length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">
+                No tienes tareas proximas a vencerse en los siguientes 7 dias.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="app-table">
+                  <thead className="app-table-head">
+                    <tr>
+                      <th className="app-th">Tarea</th>
+                      <th className="app-th">Proyecto</th>
+                      <th className="app-th">Estado</th>
+                      <th className="app-th">Prioridad</th>
+                      <th className="app-th">Vence</th>
+                      <th className="app-th">Estimado</th>
+                      <th className="app-th">Real</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employeeDashboard.upcomingTasks.map((task) => (
+                      <tr key={task.id} className="app-row">
+                        <td className="app-td">{task.title}</td>
+                        <td className="app-td">{task.projectName}</td>
+                        <td className="app-td">{task.status}</td>
+                        <td className="app-td">{task.priority}</td>
+                        <td className="app-td">{formatDate(task.dueDate)}</td>
+                        <td className="app-td">
+                          {task.estimatedMinutes === null ? "-" : formatMinutes(task.estimatedMinutes)}
+                        </td>
+                        <td className="app-td">{formatMinutes(task.actualMinutes)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
+      )}
+
+      {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && (
+        <>
+          <section className="app-panel app-panel-pad space-y-4">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h2 className="text-lg font-semibold text-foreground">Filtros globales</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                  setProjectIdFilter("");
+                  setAreaIdFilter("");
+                  setEmployeeIdFilter("");
+                  setComplianceFilter("all");
+                }}
+                className="app-btn-secondary"
+              >
+                Limpiar filtros
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+              <DateRangeFilter
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onDateChange={(from, to) => {
+                  setDateFrom(from);
+                  setDateTo(to);
+                }}
+                placeholder="Rango por fecha limite"
+              />
+              <select
+                value={projectIdFilter}
+                onChange={(event) => setProjectIdFilter(event.target.value)}
+                className="app-control"
+              >
+                <option value="">Proyecto: todos</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={areaIdFilter}
+                onChange={(event) => setAreaIdFilter(event.target.value)}
+                className="app-control"
+              >
+                <option value="">Area: todas</option>
+                {areas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={employeeIdFilter}
+                onChange={(event) => setEmployeeIdFilter(event.target.value)}
+                className="app-control"
+              >
+                <option value="">Empleado: todos</option>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={complianceFilter}
+                onChange={(event) => setComplianceFilter(event.target.value as ComplianceFilter)}
+                className="app-control"
+              >
+                <option value="all">Cumplimiento: todos</option>
+                <option value="on_time">En tiempo</option>
+                <option value="estimate_delayed">Atraso estimado</option>
+                <option value="date_overdue">Atraso por fecha</option>
+              </select>
+              <div className="px-3 py-2 rounded-xl border border-border bg-secondary/30 text-xs text-muted-foreground flex items-center">
+                {isLoadingFilters ? "Cargando opciones..." : "Filtros aplicados desde backend"}
+              </div>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCard
+              title="Tareas totales"
+              value={adminDashboard.teamSummary.totalTasks}
+              icon={<BarChart3 className="size-5" />}
+            />
+            <StatCard
+              title="Cumplimiento"
+              value={`${adminDashboard.teamSummary.completionRate}%`}
+              icon={<Gauge className="size-5" />}
+            />
+            <StatCard
+              title="Tiempo estimado"
+              value={formatMinutes(adminDashboard.teamSummary.totalEstimatedMinutes)}
+              icon={<Clock3 className="size-5" />}
+            />
+            <StatCard
+              title="Tiempo real"
+              value={formatMinutes(adminDashboard.teamSummary.totalActualMinutes)}
+              icon={<Timer className="size-5" />}
+            />
+          </section>
+
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Alertas activas de atraso</h2>
+                <p className="text-xs text-muted-foreground">
+                  Generado: {formatDateTime(overdueAlerts.generatedAt)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-semibold text-foreground">{overdueAlerts.counters.totalAlerts}</p>
+                <p className="text-xs text-muted-foreground">alertas activas</p>
+              </div>
+            </div>
+            <div className="px-5 py-3 bg-secondary/20 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
+              <span>Fecha: {overdueAlerts.counters.dateOverdueAlerts}</span>
+              <span>Estimacion: {overdueAlerts.counters.estimateOverdueAlerts}</span>
+            </div>
+            {overdueAlerts.alerts.length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">
+                No hay tareas con alertas activas para los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {overdueAlerts.alerts.map((alert) => (
+                  <div key={alert.taskId} className="px-5 py-4 flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className={`size-4 ${getAlertReasonClass(alert.reason)}`} />
+                        <p className="font-medium text-foreground">{alert.title}</p>
+                        <span className={`text-xs font-medium ${getAlertReasonClass(alert.reason)}`}>
+                          {alert.reasonLabel}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {alert.projectName} · {alert.areaName} · Estado: {alert.status}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Vence: {formatDate(alert.dueDate)} · Estimado: {alert.estimatedMinutes === null ? "-" : formatMinutes(alert.estimatedMinutes)}
+                        {" · "}
+                        Real: {formatMinutes(alert.actualMinutes)}
+                        {alert.daysOverdue ? ` · ${alert.daysOverdue} dia(s) de atraso` : ""}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Responsable: {alert.assigneeName ?? "Sin asignar"}{alert.assigneeEmail ? ` (${alert.assigneeEmail})` : ""}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/projects/${alert.projectId}?taskId=${alert.taskId}`)}
+                      className="app-btn-secondary"
+                    >
+                      Ver tarea
+                      <ExternalLink className="size-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Reporte de cumplimiento</h2>
+                <p className="text-xs text-muted-foreground">
+                  Fila resaltada cuando existe atraso por fecha o por estimacion.
+                </p>
+              </div>
+              <FileText className="size-5 text-primary" />
+            </div>
+            <div className="px-5 py-3 bg-secondary/20 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
+              <span>Total: {taskComplianceReport.summary.totalTasks}</span>
+              <span>En tiempo: {taskComplianceReport.summary.onTimeTasks}</span>
+              <span>Atraso estimado: {taskComplianceReport.summary.estimateDelayedTasks}</span>
+              <span>Atraso por fecha: {taskComplianceReport.summary.dateOverdueTasks}</span>
+            </div>
+            {taskComplianceReport.rows.length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">
+                No hay tareas en el reporte para los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="app-table">
+                  <thead className="app-table-head">
+                    <tr>
+                      <th className="app-th">Tarea</th>
+                      <th className="app-th">Proyecto</th>
+                      <th className="app-th">Responsable</th>
+                      <th className="app-th">Estado</th>
+                      <th className="app-th">Vence</th>
+                      <th className="app-th">Estimado</th>
+                      <th className="app-th">Real</th>
+                      <th className="app-th">Desvio</th>
+                      <th className="app-th">Cumplimiento</th>
+                      <th className="app-th">Accion</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {taskComplianceReport.rows.map((row) => (
+                      <tr
+                        key={row.taskId}
+                        className={`app-row ${
+                          row.complianceStatus === "date_overdue"
+                            ? "bg-destructive/5"
+                            : row.complianceStatus === "estimate_delayed"
+                              ? "bg-warning/10"
+                              : ""
+                        }`}
+                      >
+                        <td className="app-td">
+                          <p>{row.title}</p>
+                          <p className="text-xs text-muted-foreground">{row.priority}</p>
+                        </td>
+                        <td className="app-td">
+                          <p>{row.projectName}</p>
+                          <p className="text-xs text-muted-foreground">{row.areaName}</p>
+                        </td>
+                        <td className="app-td">
+                          {row.assigneeName ? (
+                            <>
+                              <p>{row.assigneeName}</p>
+                              <p className="text-xs text-muted-foreground">{row.assigneeEmail}</p>
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">Sin asignar</span>
+                          )}
+                        </td>
+                        <td className="app-td">{row.status}</td>
+                        <td className="app-td">
+                          <p>{formatDate(row.dueDate)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {row.completedAt ? `Cierre: ${formatDateTime(row.completedAt)}` : "Sin cierre"}
+                          </p>
+                        </td>
+                        <td className="app-td">
+                          {row.estimatedMinutes === null ? "-" : formatMinutes(row.estimatedMinutes)}
+                        </td>
+                        <td className="app-td">{formatMinutes(row.actualMinutes)}</td>
+                        <td className="app-td">
+                          {row.deviationMinutes === null ? "-" : `${row.deviationMinutes > 0 ? "+" : ""}${row.deviationMinutes} min`}
+                        </td>
+                        <td className={`app-td font-medium ${getComplianceBadgeClass(row.complianceStatus)}`}>
+                          {row.complianceLabel}
+                        </td>
+                        <td className="app-td">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/projects/${row.projectId}?taskId=${row.taskId}`)}
+                            className="app-action-link inline-flex items-center gap-1"
+                          >
+                            Ver
+                            <ExternalLink className="size-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
+              <h2 className="text-lg font-semibold text-foreground">Productividad por empleado</h2>
+            </div>
+            {adminDashboard.employeeProductivity.length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">
+                Sin datos para los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="app-table">
+                  <thead className="app-table-head">
+                    <tr>
+                      <th className="app-th">Empleado</th>
+                      <th className="app-th">Tareas</th>
+                      <th className="app-th">Terminadas</th>
+                      <th className="app-th">Cumplimiento</th>
+                      <th className="app-th">Estimado</th>
+                      <th className="app-th">Real</th>
+                      <th className="app-th">Desvio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminDashboard.employeeProductivity.map((item) => (
+                      <tr key={item.employeeId} className="app-row">
+                        <td className="app-td">
+                          <p>{item.employeeName}</p>
+                          <p className="text-xs text-muted-foreground">{item.employeeEmail}</p>
+                        </td>
+                        <td className="app-td">{item.totalTasks}</td>
+                        <td className="app-td">{item.doneTasks}</td>
+                        <td className="app-td">{item.completionRate}%</td>
+                        <td className="app-td">{formatMinutes(item.totalEstimatedMinutes)}</td>
+                        <td className="app-td">{formatMinutes(item.totalActualMinutes)}</td>
+                        <td className="app-td">
+                          {item.totalDeviationMinutes > 0 ? "+" : ""}{item.totalDeviationMinutes} min
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="app-panel overflow-hidden">
+            <div className="app-panel-header">
+              <h2 className="text-lg font-semibold text-foreground">Productividad por area</h2>
+            </div>
+            {adminDashboard.areaProductivity.length === 0 ? (
+              <div className="px-5 py-6 text-sm text-muted-foreground">
+                Sin datos para los filtros seleccionados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="app-table">
+                  <thead className="app-table-head">
+                    <tr>
+                      <th className="app-th">Area</th>
+                      <th className="app-th">Tareas</th>
+                      <th className="app-th">Asignadas</th>
+                      <th className="app-th">En proceso</th>
+                      <th className="app-th">Terminadas</th>
+                      <th className="app-th">Cumplimiento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminDashboard.areaProductivity.map((item) => (
+                      <tr key={item.areaId} className="app-row">
+                        <td className="app-td flex items-center gap-2">
+                          <Users className="size-4 text-primary" />
+                          {item.areaName}
+                        </td>
+                        <td className="app-td">{item.totalTasks}</td>
+                        <td className="app-td">{item.assignedTasks}</td>
+                        <td className="app-td">{item.inProgressTasks}</td>
+                        <td className="app-td">{item.doneTasks}</td>
+                        <td className="app-td">{item.completionRate}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { UserCircle2, Save } from "lucide-react";
 import { ApiError } from "../../shared/api/api";
+import { PageHero } from "../components/PageHero";
 import {
   getMyProfile,
   updateMyProfile,
@@ -92,26 +93,18 @@ export function Profile() {
   }
 
   return (
-    <div className="size-full flex flex-col bg-background">
-      <div className="bg-primary border-b border-primary/30 px-8 py-6 shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-white/15">
-            <UserCircle2 className="size-6 text-primary-foreground" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-primary-foreground">Mi perfil</h2>
-            <p className="text-sm text-white/90 mt-0.5">
-              Actualiza tu informacion basica de usuario
-            </p>
-          </div>
-        </div>
-      </div>
+    <div className="app-shell">
+      <PageHero
+        title="Mi perfil"
+        subtitle="Actualiza tu informacion basica de usuario"
+        icon={<UserCircle2 className="size-5" />}
+      />
 
-      <div className="p-6 md:p-8">
-        <div className="max-w-2xl bg-card rounded-2xl border border-primary/25 shadow-[0_8px_24px_rgba(2,106,167,0.12)] p-6">
+      <div className="app-content">
+        <div className="max-w-2xl app-panel app-panel-pad">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="profile-name" className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="profile-name" className="block text-sm font-semibold text-foreground mb-1.5">
                 Nombre
               </label>
               <input
@@ -119,7 +112,7 @@ export function Profile() {
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                className="app-control"
                 placeholder="Tu nombre"
               />
             </div>
@@ -133,7 +126,7 @@ export function Profile() {
                   type="text"
                   value={profile?.email ?? ""}
                   disabled
-                  className="w-full px-3 py-2.5 border border-border rounded-xl bg-muted text-muted-foreground"
+                  className="app-control bg-muted text-muted-foreground"
                 />
               </div>
               <div>
@@ -144,13 +137,13 @@ export function Profile() {
                   type="text"
                   value={profile?.role === "admin" ? "Administrador" : "Empleado"}
                   disabled
-                  className="w-full px-3 py-2.5 border border-border rounded-xl bg-muted text-muted-foreground"
+                  className="app-control bg-muted text-muted-foreground"
                 />
               </div>
             </div>
 
             <div>
-              <label htmlFor="profile-phone" className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="profile-phone" className="block text-sm font-semibold text-foreground mb-1.5">
                 Telefono
               </label>
               <input
@@ -158,13 +151,13 @@ export function Profile() {
                 type="text"
                 value={phoneNumber}
                 onChange={(event) => setPhoneNumber(event.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                className="app-control"
                 placeholder="+573001234567"
               />
             </div>
 
             <div>
-              <label htmlFor="profile-image" className="block text-sm font-medium text-foreground mb-1">
+              <label htmlFor="profile-image" className="block text-sm font-semibold text-foreground mb-1.5">
                 URL de imagen
               </label>
               <input
@@ -172,7 +165,7 @@ export function Profile() {
                 type="url"
                 value={image}
                 onChange={(event) => setImage(event.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
+                className="app-control"
                 placeholder="https://..."
               />
             </div>
@@ -191,7 +184,7 @@ export function Profile() {
             <button
               type="submit"
               disabled={isSaving}
-              className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover font-medium transition-colors shadow-md disabled:opacity-70"
+              className="app-btn-primary w-full md:w-auto px-5"
             >
               <Save className="size-4" />
               {isSaving ? "Guardando..." : "Guardar cambios"}
@@ -202,4 +195,3 @@ export function Profile() {
     </div>
   );
 }
-

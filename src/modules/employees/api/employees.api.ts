@@ -1,0 +1,135 @@
+import { api, API_PREFIX } from "../../../shared/api/api";
+
+export type EmployeeStatusFilter = "all" | "active" | "inactive";
+
+export interface EmployeeSummary {
+  id: number;
+  userId: number;
+  name: string;
+  email: string;
+  role: "admin" | "employee";
+  roleId: number;
+  isActive: boolean;
+  emailVerified: boolean;
+  phoneNumber: string | null;
+  image: string | null;
+  employeeStatusId: number;
+  employeeStatus: string;
+  deactivatedAt: string | null;
+  currentAreaId: number | null;
+  currentAreaName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeResponse {
+  data: EmployeeSummary;
+}
+
+export interface EmployeesResponse {
+  data: EmployeeSummary[];
+}
+
+export interface EmployeeAreaAssignment {
+  id: number;
+  employeeId: number;
+  areaId: number;
+  areaName: string;
+  assignedByUserId: number;
+  endedByUserId: number | null;
+  assignedAt: string;
+  endedAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeProjectMembership {
+  id: number;
+  employeeId: number;
+  projectId: number;
+  projectName: string;
+  projectStatus: string;
+  projectAreaId: number;
+  projectAreaName: string;
+  assignedByUserId: number;
+  endedByUserId: number | null;
+  assignedAt: string;
+  unassignedAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeAreaAssignmentsResponse {
+  data: EmployeeAreaAssignment[];
+}
+
+export interface EmployeeAreaAssignmentResponse {
+  data: EmployeeAreaAssignment;
+}
+
+export interface EmployeeProjectMembershipsResponse {
+  data: EmployeeProjectMembership[];
+}
+
+export interface CreateEmployeePayload {
+  name: string;
+  email: string;
+  password: string;
+  phoneNumber?: string | null;
+  image?: string | null;
+  emailVerified?: boolean;
+  isActive?: boolean;
+}
+
+export interface UpdateEmployeePayload {
+  name?: string;
+  phoneNumber?: string | null;
+  image?: string | null;
+  emailVerified?: boolean;
+}
+
+export interface UpdateEmployeeStatusPayload {
+  isActive: boolean;
+}
+
+export interface AssignEmployeeAreaPayload {
+  areaId: number;
+}
+
+export const listEmployees = (status: EmployeeStatusFilter) =>
+  api.get<EmployeesResponse>(`${API_PREFIX}/employees?status=${status}`);
+
+export const createEmployee = (payload: CreateEmployeePayload) =>
+  api.post<EmployeeResponse>(`${API_PREFIX}/employees`, payload);
+
+export const updateEmployee = (employeeId: number, payload: UpdateEmployeePayload) =>
+  api.patch<EmployeeResponse>(`${API_PREFIX}/employees/${employeeId}`, payload);
+
+export const updateEmployeeStatus = (
+  employeeId: number,
+  payload: UpdateEmployeeStatusPayload,
+) => api.patch<EmployeeResponse>(`${API_PREFIX}/employees/${employeeId}/status`, payload);
+
+export const listEmployeeAreaAssignments = (
+  employeeId: number,
+  status: EmployeeStatusFilter = "all",
+) => api.get<EmployeeAreaAssignmentsResponse>(
+  `${API_PREFIX}/employees/${employeeId}/area-assignments?status=${status}`,
+);
+
+export const assignEmployeeArea = (
+  employeeId: number,
+  payload: AssignEmployeeAreaPayload,
+) => api.post<EmployeeAreaAssignmentResponse>(
+  `${API_PREFIX}/employees/${employeeId}/area-assignments`,
+  payload,
+);
+
+export const listEmployeeProjectMemberships = (
+  employeeId: number,
+  status: EmployeeStatusFilter = "all",
+) => api.get<EmployeeProjectMembershipsResponse>(
+  `${API_PREFIX}/employees/${employeeId}/project-memberships?status=${status}`,
+);
