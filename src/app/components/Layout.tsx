@@ -165,8 +165,14 @@ export function Layout() {
           )}
         </span>
         {!isCollapsed && (
-          <span className="flex-1 text-left truncate">{user?.name ?? "Usuario"}</span>
+          <span className="flex-1 min-w-0 text-left">
+            <span className="block truncate">{user?.name ?? "Usuario"}</span>
+            <span className="block truncate text-[11px] leading-4 text-sidebar-foreground/62">
+              {user?.email ?? "Sin correo"}
+            </span>
+          </span>
         )}
+        {!isCollapsed && <LogOut className="size-4 shrink-0 text-sidebar-foreground/72" aria-hidden="true" />}
       </button>
 
       {isUserMenuOpen && (
@@ -202,11 +208,11 @@ export function Layout() {
   return (
     <div className="h-screen overflow-hidden flex bg-background">
       <aside
-        className={`hidden md:flex h-screen relative shrink-0 overflow-hidden border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] text-sidebar-foreground flex-col shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
+        className={`hidden md:flex h-screen relative shrink-0 overflow-hidden border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground flex-col shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
           isSidebarCollapsed ? "w-20" : "w-64"
         }`}
       >
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,rgba(130,235,224,0.18),transparent_34%)]" />
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,rgba(130,235,224,0.18),transparent_34%)] dark:bg-[radial-gradient(circle_at_18%_12%,rgba(34,211,238,0.14),transparent_36%)]" />
         <div
           className={`relative border-b border-sidebar-border/80 ${
             isSidebarCollapsed ? "px-0 py-3 flex items-center justify-center" : "px-5 py-6"
@@ -237,7 +243,7 @@ export function Layout() {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/45" onClick={closeMobileMenu}>
           <aside
-            className="h-full w-72 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] text-sidebar-foreground shadow-2xl p-4"
+            className="h-full w-72 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground shadow-2xl p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-sidebar-border/80">

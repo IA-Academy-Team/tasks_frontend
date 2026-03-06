@@ -69,8 +69,8 @@ export function Login() {
       <div className="w-full max-w-sm relative z-10">
         <div className="app-panel overflow-hidden">
           <div className="px-8 py-6 text-center border-b border-border/60 bg-[linear-gradient(130deg,#0d4663_0%,#0f766e_58%,#1f3c67_100%)]">
-            <h1 className="text-2xl font-bold text-primary-foreground">Tasks</h1>
-            <p className="text-sm text-primary-foreground/90 mt-1">Inicia sesión en tu cuenta</p>
+            <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
+            <p className="text-sm text-foreground/90 mt-1">Inicia sesión en tu cuenta</p>
           </div>
           <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-4">
