@@ -142,29 +142,24 @@ export function Layout() {
         }`}
       >
         <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,rgba(130,235,224,0.18),transparent_34%)]" />
-        <div className={`relative border-b border-sidebar-border/80 ${isSidebarCollapsed ? "p-3" : "p-5"}`}>
+        <div
+          className={`relative border-b border-sidebar-border/80 ${
+            isSidebarCollapsed ? "px-0 py-3 flex items-center justify-center" : "px-5 py-6"
+          }`}
+        >
           <button
             type="button"
             onClick={() => setIsSidebarCollapsed((current) => !current)}
-            className="absolute right-2 top-2 z-20 inline-flex size-8 items-center justify-center rounded-lg border border-white/22 bg-white/10 text-sidebar-foreground hover:bg-white/20 transition-colors"
+            className={`z-20 inline-flex items-center justify-center transition-all ${
+              isSidebarCollapsed
+                ? "size-9 rounded-xl border border-white/18 bg-white/10 text-sidebar-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] hover:border-white/28 hover:bg-white/18"
+                : "absolute right-2 top-1/2 size-10 -translate-y-1/2 text-sidebar-foreground/86 hover:rounded-lg hover:border hover:border-white/24 hover:bg-white/14 hover:text-sidebar-foreground"
+            }`}
             aria-label={isSidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
-            title={isSidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
           >
-            {isSidebarCollapsed ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
+            {isSidebarCollapsed ? <ChevronRight className="size-5" /> : <ChevronLeft className="size-6" />}
           </button>
-          <div className={`rounded-2xl border border-white/16 bg-white/6 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] ${isSidebarCollapsed ? "px-2 py-3" : "px-4 py-3"}`}>
-            <div className={`flex items-center ${isSidebarCollapsed ? "justify-center" : "gap-3"}`}>
-              <div className="size-10 rounded-xl border border-white/24 bg-white/14 text-sidebar-foreground flex items-center justify-center shrink-0">
-                <FolderKanban className="size-5" />
-              </div>
-              {!isSidebarCollapsed && (
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight leading-none">Tasks</h1>
-                  <p className="text-xs text-sidebar-foreground/78 mt-1">Gestión de proyectos</p>
-                </div>
-              )}
-            </div>
-          </div>
+          {!isSidebarCollapsed && <h1 className="pr-12 text-4xl font-bold tracking-tight leading-none">Tasks</h1>}
         </div>
 
         {renderNav(isSidebarCollapsed)}
