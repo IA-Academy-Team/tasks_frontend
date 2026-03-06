@@ -1,79 +1,54 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { User } from '../types';
-import { getUsers, createUser } from '../store';
-
-const AUTH_KEY = 'tasks-auth-user';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  type PropsWithChildren,
+} from "react";
+import {
+  signInWithEmail,
+  signOutCurrentSession,
+  type AuthenticatedUser,
+} from "../../modules/auth/api/auth.api";
+import { useSession } from "../../modules/auth/providers/SessionProvider";
 
 interface AuthContextType {
-  user: User | null;
-  login: (usernameOrEmail: string, password: string) => boolean;
-  logout: () => void;
-  register: (data: { name: string; username: string; email: string; password: string }) => User | null;
+  user: AuthenticatedUser | null;
+  login: (email: string, password: string) => Promise<AuthenticatedUser | null>;
+  logout: () => Promise<void>;
+  register: (data: {
+    name: string;
+    username: string;
+    email: string;
+    password: string;
+  }) => Promise<null>;
   isReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isReady, setIsReady] = useState(false);
+export function AuthProvider({ children }: PropsWithChildren) {
+  const { session, isHydrating, refreshSession, clearSession } = useSession();
 
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(AUTH_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved) as User;
-        const users = getUsers();
-        const found = users.find((u) => u.id === parsed.id);
-        if (found) setUser(found);
-        else setUser({ ...parsed, role: parsed.role ?? 'trabajador' });
-      }
-    } finally {
-      setIsReady(true);
-    }
-  }, []);
-
-  const login = useCallback((usernameOrEmail: string, password: string): boolean => {
-    const users = getUsers();
-    const found = users.find(
-      (u) =>
-        (u.username === usernameOrEmail || u.email === usernameOrEmail) && u.password === password
-    );
-    if (found) {
-      setUser(found);
-      localStorage.setItem(AUTH_KEY, JSON.stringify(found));
-      return true;
-    }
-    return false;
-  }, []);
-
-  const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem(AUTH_KEY);
-  }, []);
-
-  const register = useCallback(
-    (data: { name: string; username: string; email: string; password: string }): User | null => {
-      const allUsers = getUsers();
-      if (allUsers.some((u) => u.username === data.username || u.email === data.email)) {
-        return null;
-      }
-      const newUser = createUser({
-        name: data.name,
-        username: data.username,
-        email: data.email,
-        password: data.password,
-        role: 'trabajador',
-      });
-      setUser(newUser);
-      localStorage.setItem(AUTH_KEY, JSON.stringify(newUser));
-      return newUser;
+  const value = useMemo<AuthContextType>(() => ({
+    user: session?.user ?? null,
+    isReady: !isHydrating,
+    login: async (email: string, password: string) => {
+      await signInWithEmail(email, password);
+      const currentSession = await refreshSession();
+      return currentSession?.user ?? null;
     },
-    []
-  );
+    logout: async () => {
+      try {
+        await signOutCurrentSession();
+      } finally {
+        clearSession();
+      }
+    },
+    register: async () => null,
+  }), [clearSession, isHydrating, refreshSession, session]);
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, isReady }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
@@ -81,6 +56,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }

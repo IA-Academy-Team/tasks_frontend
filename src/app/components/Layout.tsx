@@ -1,19 +1,22 @@
 import { Outlet, useNavigate, useLocation } from 'react-router';
-import { FolderKanban, Users, LayoutDashboard, LogOut } from 'lucide-react';
+import { FolderKanban, Users, LayoutDashboard, LogOut, UserCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getProjects } from '../store';
 import { Project } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { getDefaultRouteForRole } from '../../modules/auth/lib/auth-routing';
+import { canAccessResource } from '../../modules/auth/lib/access-policy';
 
 export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const canManageMembers = user ? canAccessResource(user.role, 'members') : false;
   const [projects, setProjects] = useState<Project[]>([]);
+  const dashboardPath = user ? getDefaultRouteForRole(user.role) : '/';
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login', { replace: true });
   };
 
@@ -23,6 +26,8 @@ export function Layout() {
 
   const isActive = (path: string) => location.pathname === path;
   const isProjectsActive = location.pathname === '/projects' || location.pathname.startsWith('/projects/');
+  const isDashboardActive = location.pathname === dashboardPath;
+  const isProfileActive = isActive('/profile');
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -35,9 +40,9 @@ export function Layout() {
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(dashboardPath)}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-              isActive('/')
+              isDashboardActive
                 ? 'bg-sidebar-accent text-sidebar-foreground'
                 : 'text-sidebar-foreground/90 hover:bg-sidebar-accent'
             }`}
@@ -61,7 +66,19 @@ export function Layout() {
             </span>
           </button>
 
-          {isAdmin && (
+          <button
+            onClick={() => navigate('/profile')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+              isProfileActive
+                ? 'bg-sidebar-accent text-sidebar-foreground'
+                : 'text-sidebar-foreground/90 hover:bg-sidebar-accent'
+            }`}
+          >
+            <UserCircle2 className="size-4 shrink-0" />
+            Mi perfil
+          </button>
+
+          {canManageMembers && (
             <button
               onClick={() => navigate('/members')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
@@ -78,7 +95,9 @@ export function Layout() {
 
         <div className="p-3 border-t border-sidebar-border">
           <button
-            onClick={handleLogout}
+            onClick={() => {
+              void handleLogout();
+            }}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-sidebar-foreground/90 hover:bg-sidebar-accent font-medium transition-colors"
           >
             <LogOut className="size-4 shrink-0" />

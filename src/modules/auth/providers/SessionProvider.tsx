@@ -8,16 +8,17 @@ import {
   type PropsWithChildren,
 } from "react";
 import {
-  api,
   ApiError,
-  AUTH_HANDLER_BASE_PATH,
 } from "../../../shared/api/api";
-
-type UnknownRecord = Record<string, unknown>;
+import {
+  getCurrentSession,
+  type AuthenticatedSession,
+  type AuthenticatedUser,
+} from "../api/auth.api";
 
 export interface ServerSession {
-  user: UnknownRecord;
-  session: UnknownRecord;
+  user: AuthenticatedUser;
+  session: AuthenticatedSession;
 }
 
 interface SessionContextValue {
@@ -29,19 +30,6 @@ interface SessionContextValue {
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null);
-
-const isRecord = (value: unknown): value is UnknownRecord =>
-  typeof value === "object" && value !== null;
-
-const parseServerSession = (value: unknown): ServerSession | null => {
-  if (!isRecord(value)) return null;
-  if (!isRecord(value.user) || !isRecord(value.session)) return null;
-
-  return {
-    user: value.user,
-    session: value.session,
-  };
-};
 
 export function SessionProvider({ children }: PropsWithChildren) {
   const [session, setSession] = useState<ServerSession | null>(null);
@@ -55,8 +43,8 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
   const refreshSession = async () => {
     try {
-      const response = await api.get<unknown>(`${AUTH_HANDLER_BASE_PATH}/get-session`);
-      const nextSession = parseServerSession(response);
+      const response = await getCurrentSession();
+      const nextSession = response?.data ?? null;
 
       startTransition(() => {
         setSession(nextSession);
@@ -64,7 +52,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
       return nextSession;
     } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 401) {
+      if (!(error instanceof ApiError)) {
         console.error("Unable to bootstrap server session", error);
       }
 

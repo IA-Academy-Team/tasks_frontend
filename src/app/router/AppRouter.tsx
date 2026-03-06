@@ -3,13 +3,16 @@ import { AuthLayout } from "../layouts/AuthLayout";
 import { RoleAwareLayout } from "../layouts/RoleAwareLayout";
 import { ProtectedRoute } from "../components/ProtectedRoute";
 import { RoleGuard } from "../guards/RoleGuard";
+import { ResourceGuard } from "../guards/ResourceGuard";
 import { LoginPage } from "../../modules/auth/pages/LoginPage";
 import { RegisterPage } from "../../modules/auth/pages/RegisterPage";
 import { ForgotPasswordPage } from "../../modules/auth/pages/ForgotPasswordPage";
+import { AuthHomeRedirect } from "../../modules/auth/components/AuthHomeRedirect";
 import { DashboardPage } from "../../modules/dashboard/pages/DashboardPage";
 import { ProjectsPage } from "../../modules/projects/pages/ProjectsPage";
 import { ProjectBoardPage } from "../../modules/projects/pages/ProjectBoardPage";
 import { MembersPage } from "../../modules/employees/pages/MembersPage";
+import { ProfilePage } from "../../modules/users/pages/ProfilePage";
 
 export function AppRouter() {
   return (
@@ -29,15 +32,53 @@ export function AppRouter() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<DashboardPage />} />
-          <Route path="projects" element={<ProjectsPage />} />
-          <Route path="projects/:projectId" element={<ProjectBoardPage />} />
+          <Route index element={<AuthHomeRedirect />} />
+          <Route
+            path="app/admin/dashboard"
+            element={
+              <RoleGuard allowedRoles={["admin"]}>
+                <DashboardPage />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="app/employee/dashboard"
+            element={
+              <RoleGuard allowedRoles={["employee"]}>
+                <DashboardPage />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="projects"
+            element={(
+              <ResourceGuard resource="projects">
+                <ProjectsPage />
+              </ResourceGuard>
+            )}
+          />
+          <Route
+            path="projects/:projectId"
+            element={(
+              <ResourceGuard resource="projectBoard">
+                <ProjectBoardPage />
+              </ResourceGuard>
+            )}
+          />
+          <Route
+            path="profile"
+            element={(
+              <ResourceGuard resource="profile">
+                <ProfilePage />
+              </ResourceGuard>
+            )}
+          />
           <Route
             path="members"
             element={
-              <RoleGuard allowedRoles={["admin"]}>
+              <ResourceGuard resource="members">
                 <MembersPage />
-              </RoleGuard>
+              </ResourceGuard>
             }
           />
         </Route>

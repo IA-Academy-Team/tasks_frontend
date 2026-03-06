@@ -18,7 +18,7 @@ export const API_URL =
         ? runtimeEnv.VITE_API_URL_PROD
         : runtimeEnv.VITE_API_URL_DEV) ||
     runtimeEnv.VITE_API_URL ||
-    'http://localhost:3000';
+    'http://localhost:3004';
 
 interface RequestOptions extends RequestInit {
     data?: unknown;
@@ -56,13 +56,8 @@ const toStringOrUndefined = (value: unknown): string | undefined => {
 };
 
 export const apiFetch = async <T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<T | null> => {
-    const token = localStorage.getItem('token');
-
     const headers = new Headers(options.headers || {});
     headers.set('Content-Type', 'application/json');
-    if (token) {
-        headers.set('Authorization', `Bearer ${token}`);
-    }
 
     const config: RequestInit = {
         credentials: 'include',
@@ -119,11 +114,7 @@ export const api = {
         apiFetch<T>(endpoint, { ...options, method: 'DELETE' }),
 
     getBlob: async (endpoint: string, options: RequestOptions = {}) => {
-        const token = localStorage.getItem('token');
         const headers = new Headers(options.headers || {});
-        if (token) {
-            headers.set('Authorization', `Bearer ${token}`);
-        }
         const response = await fetch(`${API_URL}${endpoint}`, {
             credentials: 'include',
             ...options,
