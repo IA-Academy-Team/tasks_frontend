@@ -9,7 +9,7 @@ const getRuntimeEnv = (): RuntimeEnv => {
 const runtimeEnv = getRuntimeEnv();
 const isProd = Boolean(runtimeEnv.PROD);
 
-export const API_PREFIX = "/api/v1";
+export const API_PREFIX = "/api";
 export const AUTH_BASE_PATH = `${API_PREFIX}/auth`;
 export const AUTH_HANDLER_BASE_PATH = `${AUTH_BASE_PATH}/handler`;
 
