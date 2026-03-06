@@ -147,7 +147,7 @@ export function Layout() {
   );
 
   const renderUserMenu = (isCollapsed = false) => (
-    <div ref={userMenuRef} className="relative">
+    <div ref={userMenuRef} className="relative z-40">
       <button
         type="button"
         onClick={() => setIsUserMenuOpen((current) => !current)}
@@ -177,14 +177,16 @@ export function Layout() {
 
       {isUserMenuOpen && (
         <div
-          className={`absolute z-50 rounded-xl border border-border bg-card p-1 shadow-2xl ${
-            isCollapsed ? "left-[calc(100%+0.6rem)] bottom-0 w-44" : "left-0 right-0 bottom-[calc(100%+0.5rem)]"
+          className={`rounded-xl border border-border bg-card p-1 shadow-2xl ${
+            isCollapsed
+              ? "fixed left-[5.75rem] bottom-4 z-[1200] w-40"
+              : "absolute z-[1200] left-0 right-0 bottom-[calc(100%+0.5rem)]"
           }`}
         >
           <button
             type="button"
             onClick={handleOpenProfileModal}
-            className="w-full inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            className="w-full inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
           >
             <Pencil className="size-4" />
             Editar perfil
@@ -195,7 +197,7 @@ export function Layout() {
               setIsUserMenuOpen(false);
               void handleLogout();
             }}
-            className="w-full inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+            className="w-full inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
           >
             <LogOut className="size-4" />
             Cerrar sesión
@@ -206,9 +208,9 @@ export function Layout() {
   );
 
   return (
-    <div className="h-screen overflow-hidden flex bg-background">
+    <div className="h-screen overflow-y-hidden overflow-x-visible flex bg-background">
       <aside
-        className={`hidden md:flex h-screen relative shrink-0 overflow-hidden border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground flex-col shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
+        className={`hidden md:flex h-screen relative z-30 shrink-0 overflow-y-hidden overflow-x-visible border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground flex-col shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
           isSidebarCollapsed ? "w-20" : "w-64"
         }`}
       >
