@@ -8,10 +8,11 @@ import { LoginPage } from "../../modules/auth/pages/LoginPage";
 import { RegisterPage } from "../../modules/auth/pages/RegisterPage";
 import { ForgotPasswordPage } from "../../modules/auth/pages/ForgotPasswordPage";
 import { AuthHomeRedirect } from "../../modules/auth/components/AuthHomeRedirect";
+import { AreasPage } from "../../modules/areas/pages/AreasPage";
 import { DashboardPage } from "../../modules/dashboard/pages/DashboardPage";
 import { ProjectsPage } from "../../modules/projects/pages/ProjectsPage";
 import { ProjectBoardPage } from "../../modules/projects/pages/ProjectBoardPage";
-import { MembersPage } from "../../modules/employees/pages/MembersPage";
+import { EmployeesPage } from "../../modules/employees/pages/EmployeesPage";
 import { ProfilePage } from "../../modules/users/pages/ProfilePage";
 
 export function AppRouter() {
@@ -50,6 +51,22 @@ export function AppRouter() {
             }
           />
           <Route
+            path="areas"
+            element={(
+              <ResourceGuard resource="areas">
+                <AreasPage />
+              </ResourceGuard>
+            )}
+          />
+          <Route
+            path="employees"
+            element={(
+              <ResourceGuard resource="employees">
+                <EmployeesPage />
+              </ResourceGuard>
+            )}
+          />
+          <Route
             path="projects"
             element={(
               <ResourceGuard resource="projects">
@@ -72,14 +89,6 @@ export function AppRouter() {
                 <ProfilePage />
               </ResourceGuard>
             )}
-          />
-          <Route
-            path="members"
-            element={
-              <ResourceGuard resource="members">
-                <MembersPage />
-              </ResourceGuard>
-            }
           />
         </Route>
 

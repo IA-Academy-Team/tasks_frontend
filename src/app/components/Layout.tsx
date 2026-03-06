@@ -1,5 +1,5 @@
 import { Outlet, useNavigate, useLocation } from 'react-router';
-import { FolderKanban, Users, LayoutDashboard, LogOut, UserCircle2 } from 'lucide-react';
+import { FolderKanban, Users, LayoutDashboard, LogOut, UserCircle2, Building2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getProjects } from '../store';
 import { Project } from '../types';
@@ -11,7 +11,8 @@ export function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
-  const canManageMembers = user ? canAccessResource(user.role, 'members') : false;
+  const canManageAreas = user ? canAccessResource(user.role, 'areas') : false;
+  const canManageEmployees = user ? canAccessResource(user.role, 'employees') : false;
   const [projects, setProjects] = useState<Project[]>([]);
   const dashboardPath = user ? getDefaultRouteForRole(user.role) : '/';
 
@@ -28,6 +29,8 @@ export function Layout() {
   const isProjectsActive = location.pathname === '/projects' || location.pathname.startsWith('/projects/');
   const isDashboardActive = location.pathname === dashboardPath;
   const isProfileActive = isActive('/profile');
+  const isAreasActive = isActive('/areas');
+  const isEmployeesActive = isActive('/employees');
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -78,19 +81,34 @@ export function Layout() {
             Mi perfil
           </button>
 
-          {canManageMembers && (
+          {canManageAreas && (
             <button
-              onClick={() => navigate('/members')}
+              onClick={() => navigate('/areas')}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                isActive('/members')
+                isAreasActive
+                  ? 'bg-sidebar-accent text-sidebar-foreground'
+                  : 'text-sidebar-foreground/90 hover:bg-sidebar-accent'
+              }`}
+            >
+              <Building2 className="size-4 shrink-0" />
+              Areas
+            </button>
+          )}
+
+          {canManageEmployees && (
+            <button
+              onClick={() => navigate('/employees')}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                isEmployeesActive
                   ? 'bg-sidebar-accent text-sidebar-foreground'
                   : 'text-sidebar-foreground/90 hover:bg-sidebar-accent'
               }`}
             >
               <Users className="size-4 shrink-0" />
-              Miembros
+              Empleados
             </button>
           )}
+
         </nav>
 
         <div className="p-3 border-t border-sidebar-border">
