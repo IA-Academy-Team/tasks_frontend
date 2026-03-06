@@ -1,6 +1,7 @@
 import { api, API_PREFIX } from "../../../shared/api/api";
 
 export type TaskStatusFilter = "all" | "assigned" | "in_progress" | "done";
+export type TaskWorkflowStatus = "assigned" | "in_progress" | "done";
 
 export interface TaskSummary {
   id: number;
@@ -37,6 +38,28 @@ export interface DeleteTaskResponse {
   data: {
     id: number;
     deletedAt: string;
+  };
+}
+
+export interface TaskStatusTransition {
+  id: number;
+  taskId: number;
+  fromStatus: string | null;
+  toStatus: string;
+  changedByUserId: number;
+  changedAt: string;
+  notes: string | null;
+}
+
+export interface TransitionTaskStatusPayload {
+  toStatus: TaskWorkflowStatus;
+  notes?: string | null;
+}
+
+export interface TransitionTaskStatusResponse {
+  data: {
+    task: TaskSummary;
+    transition: TaskStatusTransition;
   };
 }
 
@@ -124,3 +147,11 @@ export const updateTask = (taskId: number, payload: UpdateTaskPayload) =>
 
 export const deleteTask = (taskId: number) =>
   api.delete<DeleteTaskResponse>(`${API_PREFIX}/tasks/${taskId}`);
+
+export const transitionTaskStatus = (
+  taskId: number,
+  payload: TransitionTaskStatusPayload,
+) => api.patch<TransitionTaskStatusResponse>(`${API_PREFIX}/tasks/${taskId}/status`, {
+  toStatus: payload.toStatus,
+  notes: payload.notes ?? null,
+});
