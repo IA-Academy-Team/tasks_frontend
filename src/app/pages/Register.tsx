@@ -21,33 +21,13 @@ export function Register() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Las contraseñas no coinciden');
-      return;
-    }
-    if (formData.password.length < 6) {
-      setError('La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
-    if (!formData.name.trim() || !formData.username.trim() || !formData.email.trim()) {
-      setError('Completa todos los campos obligatorios');
-      return;
-    }
-
-    const user = register({
+    void register({
       name: formData.name.trim(),
       username: formData.username.trim(),
       email: formData.email.trim(),
       password: formData.password,
     });
-
-    if (user) {
-      navigate('/', { replace: true });
-    } else {
-      setError('Ya existe un usuario con ese nombre de usuario o correo');
-    }
+    setError('El registro self-service no está habilitado en esta fase del proyecto.');
   };
 
   return (

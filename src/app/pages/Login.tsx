@@ -2,32 +2,63 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { LogIn } from 'lucide-react';
+import { ApiError } from '../../shared/api/api';
+import { getDefaultRouteForRole } from '../../modules/auth/lib/auth-routing';
 
 export function Login() {
   const navigate = useNavigate();
   const { user, login, isReady } = useAuth();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isReady && user) navigate('/', { replace: true });
+    if (isReady && user) {
+      navigate(getDefaultRouteForRole(user.role), { replace: true });
+    }
   }, [isReady, user, navigate]);
-  const [usernameOrEmail, setUsernameOrEmail] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const mapAuthError = (incomingError: unknown) => {
+    if (incomingError instanceof ApiError) {
+      if (incomingError.code === 'USER_INACTIVE') {
+        return 'Tu cuenta está inactiva. Contacta a un administrador.';
+      }
+
+      if (incomingError.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
+        return 'Tu correo no tiene permiso para iniciar sesión en este entorno.';
+      }
+
+      return incomingError.message;
+    }
+
+    return 'No fue posible iniciar sesión. Intenta nuevamente.';
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!usernameOrEmail.trim() || !password) {
-      setError('Completa usuario/email y contraseña');
+    if (!email.trim() || !password) {
+      setError('Completa correo y contraseña');
       return;
     }
-    const ok = login(usernameOrEmail.trim(), password);
-    if (ok) {
-      navigate('/', { replace: true });
-    } else {
-      setError('Usuario o contraseña incorrectos');
+
+    setIsSubmitting(true);
+
+    try {
+      const authenticatedUser = await login(email.trim(), password);
+      if (!authenticatedUser) {
+        setError('No fue posible recuperar tu sesión después del login.');
+        return;
+      }
+
+      navigate(getDefaultRouteForRole(authenticatedUser.role), { replace: true });
+    } catch (incomingError) {
+      setError(mapAuthError(incomingError));
+    } finally {
+      setIsSubmitting(false);
     }
-  };
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4 relative overflow-hidden">
@@ -46,16 +77,16 @@ export function Login() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label htmlFor="login-user" className="block text-sm font-medium text-foreground mb-1">
-                  Usuario o correo
+                  Correo electrónico
                 </label>
                 <input
                   id="login-user"
-                  type="text"
-                  value={usernameOrEmail}
-                  onChange={(e) => setUsernameOrEmail(e.target.value)}
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3 py-2.5 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary bg-input-background"
-                  placeholder="usuario o email@ejemplo.com"
-                  autoComplete="username"
+                  placeholder="tu@correo.com"
+                  autoComplete="email"
                 />
               </div>
 
@@ -80,10 +111,11 @@ export function Login() {
 
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="w-full flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary-hover font-medium transition-colors shadow-md"
               >
                 <LogIn className="size-4" />
-                Iniciar sesión
+                {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
               </button>
             </form>
 

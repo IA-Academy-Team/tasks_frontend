@@ -1,10 +1,10 @@
 import type { PropsWithChildren } from "react";
 import { Navigate } from "react-router";
 import { useAuth } from "../context/AuthContext";
-import type { UserRole } from "../types";
+import type { AuthRole } from "../../modules/auth/api/auth.api";
 
 interface RoleGuardProps extends PropsWithChildren {
-  allowedRoles: UserRole[];
+  allowedRoles: AuthRole[];
 }
 
 export function RoleGuard({ allowedRoles, children }: RoleGuardProps) {
