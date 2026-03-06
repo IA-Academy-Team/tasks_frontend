@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
+import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import { listEmployees, type EmployeeSummary } from "../../modules/employees/api/employees.api";
 import {
   assignProjectMembership,
@@ -103,6 +104,8 @@ export function ProjectBoard() {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
+  const [pendingUnassignMembership, setPendingUnassignMembership] = useState<ProjectMembership | null>(null);
+  const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
 
   const numericProjectId = Number(projectId);
 
@@ -310,8 +313,6 @@ export function ProjectBoard() {
 
   const handleUnassign = async (membership: ProjectMembership) => {
     if (!project) return;
-    const confirmed = window.confirm(`Deseas desasignar a ${membership.employeeName}?`);
-    if (!confirmed) return;
 
     setIsSubmitting(true);
     setError("");
@@ -457,9 +458,6 @@ export function ProjectBoard() {
   };
 
   const handleDeleteTask = async (task: TaskSummary) => {
-    const confirmed = window.confirm(`Deseas eliminar logicamente la tarea "${task.title}"?`);
-    if (!confirmed) return;
-
     setIsSubmitting(true);
     setError("");
     setSuccess("");
@@ -742,9 +740,7 @@ export function ProjectBoard() {
                             <button
                               type="button"
                               disabled={isSubmitting}
-                              onClick={() => {
-                                void handleUnassign(membership);
-                              }}
+                              onClick={() => setPendingUnassignMembership(membership)}
                               className="app-action-link-danger disabled:opacity-70"
                             >
                               Desasignar
@@ -881,7 +877,7 @@ export function ProjectBoard() {
             </div>
           )}
 
-          <div className="p-5 border-b border-border bg-secondary/10">
+          <div className="app-band p-5 border-b border-border">
             <div className="flex items-center justify-between gap-3 mb-3">
               <h4 className="font-medium text-foreground">Tablero Kanban</h4>
               <p className="text-xs text-muted-foreground">
@@ -1011,9 +1007,7 @@ export function ProjectBoard() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => {
-                                void handleDeleteTask(task);
-                              }}
+                              onClick={() => setPendingDeleteTask(task)}
                               className="app-action-link-danger"
                             >
                               Eliminar
@@ -1028,7 +1022,7 @@ export function ProjectBoard() {
             </div>
           )}
 
-          <div className="p-5 border-t border-border bg-secondary/10">
+          <div className="app-band p-5 border-t border-border">
             <h4 className="font-medium text-foreground mb-2">Historial de estados</h4>
             {!selectedTask ? (
               <p className="text-sm text-muted-foreground">
@@ -1066,6 +1060,58 @@ export function ProjectBoard() {
         {error && <p className="text-sm text-destructive">{error}</p>}
         {success && <p className="text-sm text-success">{success}</p>}
       </div>
+
+      <ConfirmActionDialog
+        open={pendingUnassignMembership !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingUnassignMembership(null);
+          }
+        }}
+        title="Desasignar miembro"
+        description={
+          pendingUnassignMembership
+            ? `Se desasignará a ${pendingUnassignMembership.employeeName} del proyecto.`
+            : ""
+        }
+        confirmLabel="Desasignar"
+        variant="destructive"
+        isProcessing={isSubmitting}
+        onConfirm={() => {
+          if (!pendingUnassignMembership) {
+            return;
+          }
+          const membershipToUnassign = pendingUnassignMembership;
+          setPendingUnassignMembership(null);
+          void handleUnassign(membershipToUnassign);
+        }}
+      />
+
+      <ConfirmActionDialog
+        open={pendingDeleteTask !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteTask(null);
+          }
+        }}
+        title="Eliminar tarea"
+        description={
+          pendingDeleteTask
+            ? `Se eliminará lógicamente "${pendingDeleteTask.title}".`
+            : ""
+        }
+        confirmLabel="Eliminar"
+        variant="destructive"
+        isProcessing={isSubmitting}
+        onConfirm={() => {
+          if (!pendingDeleteTask) {
+            return;
+          }
+          const taskToDelete = pendingDeleteTask;
+          setPendingDeleteTask(null);
+          void handleDeleteTask(taskToDelete);
+        }}
+      />
     </div>
   );
 }

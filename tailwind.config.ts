@@ -60,6 +60,9 @@ const appComponents = plugin(({ addComponents }) => {
       backgroundColor: "color-mix(in srgb, var(--secondary) 45%, transparent)",
       padding: "1rem 1.25rem",
     },
+    ".app-band": {
+      backgroundColor: "color-mix(in srgb, var(--secondary) 32%, transparent)",
+    },
     ".app-title": {
       fontSize: "1.5rem",
       fontWeight: "700",

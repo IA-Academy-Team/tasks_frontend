@@ -122,14 +122,14 @@ export function Login() {
               <p>
                 <Link
                   to="/recuperar-contraseña"
-                  className="text-primary hover:text-primary-hover font-medium"
+                  className="app-auth-link"
                 >
                   Recuperar contraseña
                 </Link>
               </p>
               <p className="text-muted-foreground">
                 ¿No tienes cuenta?{' '}
-                <Link to="/registro" className="text-primary hover:text-primary-hover font-medium">
+                <Link to="/registro" className="app-auth-link">
                   Regístrate
                 </Link>
               </p>

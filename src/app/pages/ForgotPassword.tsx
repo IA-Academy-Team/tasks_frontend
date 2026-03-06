@@ -62,7 +62,7 @@ export function ForgotPassword() {
             <div className="mt-6 text-center">
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 text-sm text-primary hover:text-primary-hover font-medium"
+                className="app-auth-link inline-flex items-center gap-2 text-sm"
               >
                 <ArrowLeft className="size-4" />
                 Volver al inicio de sesión

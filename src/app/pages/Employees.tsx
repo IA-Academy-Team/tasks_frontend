@@ -3,6 +3,7 @@ import { Users2 } from "lucide-react";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
+import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import {
   assignEmployeeArea,
   createEmployee,
@@ -39,6 +40,10 @@ export function Employees() {
   const [employeeAreaAssignments, setEmployeeAreaAssignments] = useState<EmployeeAreaAssignment[]>([]);
   const [employeeProjectMemberships, setEmployeeProjectMemberships] = useState<EmployeeProjectMembership[]>([]);
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<{
+    employee: EmployeeSummary;
+    nextIsActive: boolean;
+  } | null>(null);
 
   const resetForm = () => {
     setEditingEmployeeId(null);
@@ -189,16 +194,6 @@ export function Employees() {
   };
 
   const handleStatusChange = async (employee: EmployeeSummary, nextIsActive: boolean) => {
-    const confirmed = window.confirm(
-      nextIsActive
-        ? `Deseas activar a ${employee.name}?`
-        : `Deseas desactivar a ${employee.name}?`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
     setError("");
     setSuccess("");
 
@@ -429,9 +424,7 @@ export function Employees() {
                           {employee.isActive ? (
                             <button
                               type="button"
-                              onClick={() => {
-                                void handleStatusChange(employee, false);
-                              }}
+                              onClick={() => setPendingStatusChange({ employee, nextIsActive: false })}
                               className="app-action-link-danger"
                             >
                               Desactivar
@@ -439,9 +432,7 @@ export function Employees() {
                           ) : (
                             <button
                               type="button"
-                              onClick={() => {
-                                void handleStatusChange(employee, true);
-                              }}
+                              onClick={() => setPendingStatusChange({ employee, nextIsActive: true })}
                               className="app-action-link"
                             >
                               Activar
@@ -560,6 +551,38 @@ export function Employees() {
           )}
         </section>
       </div>
+
+      <ConfirmActionDialog
+        open={pendingStatusChange !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingStatusChange(null);
+          }
+        }}
+        title={
+          pendingStatusChange?.nextIsActive
+            ? "Activar empleado"
+            : "Desactivar empleado"
+        }
+        description={
+          pendingStatusChange
+            ? pendingStatusChange.nextIsActive
+              ? `Se activará la cuenta de ${pendingStatusChange.employee.name}.`
+              : `Se desactivará la cuenta de ${pendingStatusChange.employee.name}.`
+            : ""
+        }
+        confirmLabel={pendingStatusChange?.nextIsActive ? "Activar" : "Desactivar"}
+        variant={pendingStatusChange?.nextIsActive ? "default" : "destructive"}
+        isProcessing={isSubmitting}
+        onConfirm={() => {
+          if (!pendingStatusChange) {
+            return;
+          }
+          const { employee, nextIsActive } = pendingStatusChange;
+          setPendingStatusChange(null);
+          void handleStatusChange(employee, nextIsActive);
+        }}
+      />
     </div>
   );
 }

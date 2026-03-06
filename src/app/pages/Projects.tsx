@@ -5,6 +5,7 @@ import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
+import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import {
   createProject,
   deleteProject,
@@ -30,6 +31,11 @@ export function Projects() {
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingDeleteProject, setPendingDeleteProject] = useState<ProjectSummary | null>(null);
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState<{
+    project: ProjectSummary;
+    status: ProjectStatusUpdate;
+  } | null>(null);
 
   const [areaId, setAreaId] = useState("");
   const [name, setName] = useState("");
@@ -147,11 +153,7 @@ export function Projects() {
   };
 
   const handleDelete = async (project: ProjectSummary) => {
-    const confirmed = window.confirm(
-      `Deseas eliminar el proyecto "${project.name}"? Si tiene historial se archivara.`,
-    );
-    if (!confirmed) return;
-
+    setIsSubmitting(true);
     setError("");
     setSuccess("");
     try {
@@ -169,13 +171,13 @@ export function Projects() {
       } else {
         setError("No fue posible eliminar el proyecto.");
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleStatusUpdate = async (project: ProjectSummary, status: ProjectStatusUpdate) => {
-    const confirmed = window.confirm(`Deseas cambiar el estado de "${project.name}" a ${status}?`);
-    if (!confirmed) return;
-
+    setIsSubmitting(true);
     setError("");
     setSuccess("");
     try {
@@ -188,6 +190,8 @@ export function Projects() {
       } else {
         setError("No fue posible actualizar el estado.");
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -369,9 +373,7 @@ export function Projects() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  void handleDelete(project);
-                                }}
+                                onClick={() => setPendingDeleteProject(project)}
                                 className="app-action-link-danger inline-flex items-center gap-1"
                               >
                                 <Trash2 className="size-4" />
@@ -379,27 +381,21 @@ export function Projects() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  void handleStatusUpdate(project, "closed");
-                                }}
+                                onClick={() => setPendingStatusUpdate({ project, status: "closed" })}
                                 className="app-action-link"
                               >
                                 Cerrar
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  void handleStatusUpdate(project, "cancelled");
-                                }}
+                                onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}
                                 className="app-action-link-danger"
                               >
                                 Cancelar
                               </button>
                               <button
                                 type="button"
-                                onClick={() => {
-                                  void handleStatusUpdate(project, "active");
-                                }}
+                                onClick={() => setPendingStatusUpdate({ project, status: "active" })}
                                 className="app-action-link"
                               >
                                 Activar
@@ -416,6 +412,58 @@ export function Projects() {
           )}
         </section>
       </div>
+
+      <ConfirmActionDialog
+        open={pendingDeleteProject !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteProject(null);
+          }
+        }}
+        title="Eliminar proyecto"
+        description={
+          pendingDeleteProject
+            ? `Se eliminará "${pendingDeleteProject.name}". Si existe historial asociado, el backend lo archivará automáticamente.`
+            : ""
+        }
+        confirmLabel="Eliminar"
+        variant="destructive"
+        isProcessing={isSubmitting}
+        onConfirm={() => {
+          if (!pendingDeleteProject) {
+            return;
+          }
+          const projectToDelete = pendingDeleteProject;
+          setPendingDeleteProject(null);
+          void handleDelete(projectToDelete);
+        }}
+      />
+
+      <ConfirmActionDialog
+        open={pendingStatusUpdate !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingStatusUpdate(null);
+          }
+        }}
+        title="Actualizar estado del proyecto"
+        description={
+          pendingStatusUpdate
+            ? `Se cambiará el estado de "${pendingStatusUpdate.project.name}" a "${pendingStatusUpdate.status}".`
+            : ""
+        }
+        confirmLabel="Confirmar cambio"
+        variant={pendingStatusUpdate?.status === "cancelled" ? "destructive" : "default"}
+        isProcessing={isSubmitting}
+        onConfirm={() => {
+          if (!pendingStatusUpdate) {
+            return;
+          }
+          const { project, status } = pendingStatusUpdate;
+          setPendingStatusUpdate(null);
+          void handleStatusUpdate(project, status);
+        }}
+      />
     </div>
   );
 }

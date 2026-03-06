@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
+import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import {
   createArea,
   deleteArea,
@@ -19,6 +20,7 @@ export function Areas() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
+  const [pendingDeleteArea, setPendingDeleteArea] = useState<AreaSummary | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -104,14 +106,7 @@ export function Areas() {
   };
 
   const handleDelete = async (area: AreaSummary) => {
-    const confirmed = window.confirm(
-      `Deseas eliminar el area "${area.name}"? Esta accion solo aplica si no tiene dependencias activas.`,
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
+    setIsSubmitting(true);
     setError("");
     setSuccess("");
     try {
@@ -129,6 +124,8 @@ export function Areas() {
       } else {
         setError("No fue posible eliminar el area.");
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -257,9 +254,7 @@ export function Areas() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              void handleDelete(area);
-                            }}
+                            onClick={() => setPendingDeleteArea(area)}
                             className="app-action-link-danger inline-flex items-center gap-1"
                           >
                             <Trash2 className="size-4" />
@@ -275,6 +270,32 @@ export function Areas() {
           )}
         </section>
       </div>
+
+      <ConfirmActionDialog
+        open={pendingDeleteArea !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteArea(null);
+          }
+        }}
+        title="Eliminar area"
+        description={
+          pendingDeleteArea
+            ? `Vas a eliminar "${pendingDeleteArea.name}". Si tiene historial o dependencias activas, el backend puede archivarla en lugar de eliminarla definitivamente.`
+            : ""
+        }
+        confirmLabel="Eliminar"
+        variant="destructive"
+        isProcessing={isSubmitting}
+        onConfirm={() => {
+          if (!pendingDeleteArea) {
+            return;
+          }
+          const areaToDelete = pendingDeleteArea;
+          setPendingDeleteArea(null);
+          void handleDelete(areaToDelete);
+        }}
+      />
     </div>
   );
 }

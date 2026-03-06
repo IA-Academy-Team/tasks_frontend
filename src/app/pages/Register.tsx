@@ -135,7 +135,7 @@ export function Register() {
 
             <p className="mt-6 text-center text-sm text-muted-foreground">
               ¿Ya tienes cuenta?{' '}
-              <Link to="/login" className="text-primary hover:text-primary-hover font-medium">
+              <Link to="/login" className="app-auth-link">
                 Iniciar sesión
               </Link>
             </p>
