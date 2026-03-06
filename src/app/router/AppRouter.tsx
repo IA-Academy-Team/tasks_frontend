@@ -5,7 +5,6 @@ import { ProtectedRoute } from "../components/ProtectedRoute";
 import { RoleGuard } from "../guards/RoleGuard";
 import { ResourceGuard } from "../guards/ResourceGuard";
 import { LoginPage } from "../../modules/auth/pages/LoginPage";
-import { RegisterPage } from "../../modules/auth/pages/RegisterPage";
 import { ForgotPasswordPage } from "../../modules/auth/pages/ForgotPasswordPage";
 import { AuthHomeRedirect } from "../../modules/auth/components/AuthHomeRedirect";
 import { AreasPage } from "../../modules/areas/pages/AreasPage";
@@ -20,7 +19,6 @@ export function AppRouter() {
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/registro" element={<RegisterPage />} />
           <Route path="/recuperar-contraseña" element={<ForgotPasswordPage />} />
         </Route>
 

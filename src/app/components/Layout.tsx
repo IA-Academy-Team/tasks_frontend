@@ -267,7 +267,7 @@ export function Layout() {
         </div>
       )}
 
-      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
         <header className="md:hidden flex items-center justify-between border-b border-border/70 px-4 py-3 bg-card/95 backdrop-blur-sm">
           <button
             type="button"

@@ -5,7 +5,6 @@ const appComponents = plugin(({ addComponents }) => {
   addComponents({
     ".app-shell": {
       width: "100%",
-      height: "100%",
       minHeight: "100%",
       display: "flex",
       flexDirection: "column",
@@ -22,7 +21,6 @@ const appComponents = plugin(({ addComponents }) => {
     },
     ".app-content": {
       flex: "1 1 auto",
-      overflow: "auto",
       padding: "clamp(1.25rem, 2vw, 2rem)",
       display: "flex",
       flexDirection: "column",
