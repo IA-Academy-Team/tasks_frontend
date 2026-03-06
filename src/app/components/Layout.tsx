@@ -25,13 +25,13 @@ type NavItem = {
 };
 
 const baseNavButtonClass =
-  "w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors";
+  "relative w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all";
 
 const getNavButtonClass = (isActive: boolean) =>
   `${baseNavButtonClass} ${
     isActive
-      ? "bg-sidebar-accent text-sidebar-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
-      : "text-sidebar-foreground/88 hover:bg-sidebar-accent/80"
+      ? "bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-ring/45 shadow-[0_10px_24px_rgba(2,12,24,0.24)]"
+      : "text-sidebar-foreground/78 hover:text-sidebar-foreground hover:bg-sidebar-accent/72"
   }`;
 
 export function Layout() {
@@ -107,7 +107,7 @@ export function Layout() {
   const visibleNavItems = navItems.filter((item) => item.isVisible);
 
   const renderNav = () => (
-    <nav className="flex-1 overflow-y-auto p-3 space-y-1.5">
+    <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
       {visibleNavItems.map((item) => {
         const Icon = item.icon;
         return (
@@ -126,19 +126,30 @@ export function Layout() {
 
   return (
     <div className="min-h-screen flex bg-background">
-      <aside className="hidden md:flex w-72 shrink-0 border-r border-sidebar-border/80 bg-sidebar text-sidebar-foreground flex-col shadow-2xl">
-        <div className="p-5 border-b border-sidebar-border/80">
-          <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
+      <aside className="hidden md:flex relative w-72 shrink-0 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] text-sidebar-foreground flex-col shadow-[20px_0_36px_rgba(8,24,43,0.18)]">
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,rgba(130,235,224,0.18),transparent_34%)]" />
+        <div className="relative p-5 border-b border-sidebar-border/80">
+          <div className="rounded-2xl border border-white/16 bg-white/6 px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-xl border border-white/24 bg-white/14 text-sidebar-foreground flex items-center justify-center">
+                <FolderKanban className="size-5" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight leading-none">Tasks</h1>
+                <p className="text-xs text-sidebar-foreground/78 mt-1">Gestión de proyectos</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {renderNav()}
 
-        <div className="p-3 border-t border-sidebar-border/80">
+        <div className="relative p-3 border-t border-sidebar-border/80">
           <button
             onClick={() => {
               void handleLogout();
             }}
-            className={`${baseNavButtonClass} text-sidebar-foreground/88 hover:bg-sidebar-accent/80`}
+            className={`${baseNavButtonClass} text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/72`}
           >
             <LogOut className="size-4 shrink-0" />
             Cerrar sesión
@@ -149,7 +160,7 @@ export function Layout() {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/45" onClick={closeMobileMenu}>
           <aside
-            className="h-full w-72 border-r border-sidebar-border/80 bg-sidebar text-sidebar-foreground shadow-2xl p-4"
+            className="h-full w-72 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#0a2c47_0%,#0e3a5e_48%,#0f3453_100%)] text-sidebar-foreground shadow-2xl p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-sidebar-border/80">
@@ -171,7 +182,7 @@ export function Layout() {
                 onClick={() => {
                   void handleLogout();
                 }}
-                className={`${baseNavButtonClass} text-sidebar-foreground/88 hover:bg-sidebar-accent/80`}
+                className={`${baseNavButtonClass} text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent/72`}
               >
                 <LogOut className="size-4 shrink-0" />
                 Cerrar sesión
@@ -182,18 +193,18 @@ export function Layout() {
       )}
 
       <main className="flex-1 flex flex-col min-h-0 overflow-auto">
-        <header className="md:hidden flex items-center justify-between border-b border-border/70 px-4 py-3 bg-card/95 backdrop-blur-sm">
+        <header className="md:hidden flex items-center justify-between border-b border-white/12 px-4 py-3 bg-[linear-gradient(118deg,#0b2f4b_0%,#105b7e_50%,#127f68_100%)] text-primary-foreground">
           <button
             type="button"
-            className="p-2 rounded-lg border border-border hover:bg-secondary transition-colors"
+            className="p-2 rounded-lg border border-white/26 hover:bg-white/16 transition-colors"
             onClick={() => setIsMobileMenuOpen(true)}
           >
             <Menu className="size-5" />
           </button>
-          <p className="text-sm font-semibold tracking-tight text-foreground">TaskApp</p>
+          <p className="text-sm font-semibold tracking-tight text-primary-foreground">TaskApp</p>
           <button
             type="button"
-            className="p-2 rounded-lg border border-border hover:bg-secondary transition-colors"
+            className="p-2 rounded-lg border border-white/26 hover:bg-white/16 transition-colors"
             onClick={() => {
               void handleLogout();
             }}

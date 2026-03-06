@@ -47,14 +47,14 @@
   --chart-5: #526476;
   --radius: 0.8rem;
 
-  --sidebar: #102a43;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #0f766e;
+  --sidebar: #0d2f4a;
+  --sidebar-foreground: #f8fbff;
+  --sidebar-primary: #14b8a6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255, 255, 255, 0.13);
+  --sidebar-accent: rgba(255, 255, 255, 0.11);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.11);
-  --sidebar-ring: rgba(255, 255, 255, 0.38);
+  --sidebar-border: rgba(185, 224, 255, 0.16);
+  --sidebar-ring: rgba(190, 233, 255, 0.46);
 }
 
 .dark {
@@ -81,14 +81,14 @@
   --input: #223247;
   --input-background: #1b2a3d;
   --ring: #14b8a6;
-  --sidebar: #0d1826;
-  --sidebar-foreground: #edf2f7;
-  --sidebar-primary: #14b8a6;
-  --sidebar-primary-foreground: #062b2f;
-  --sidebar-accent: #223247;
+  --sidebar: #0b2238;
+  --sidebar-foreground: #e6f0fb;
+  --sidebar-primary: #22d3ee;
+  --sidebar-primary-foreground: #04222a;
+  --sidebar-accent: #1b3957;
   --sidebar-accent-foreground: #edf2f7;
-  --sidebar-border: rgba(237, 242, 247, 0.09);
-  --sidebar-ring: #14b8a6;
+  --sidebar-border: rgba(188, 219, 249, 0.16);
+  --sidebar-ring: #67e8f9;
 }
 
 @theme inline {

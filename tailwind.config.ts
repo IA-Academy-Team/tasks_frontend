@@ -17,7 +17,8 @@ const appComponents = plugin(({ addComponents }) => {
       borderBottom: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
       padding: "1.5rem clamp(1.25rem, 2.2vw, 2rem)",
       boxShadow: "0 1px 0 rgba(16, 36, 58, 0.06)",
-      background: "linear-gradient(125deg, #0d4663 0%, #0f766e 56%, #1f3c67 100%)",
+      background:
+        "radial-gradient(circle at 14% 18%, rgba(141, 236, 227, 0.22), transparent 36%), linear-gradient(118deg, #0b2f4b 0%, #105b7e 52%, #127f68 100%)",
     },
     ".app-content": {
       flex: "1 1 auto",
@@ -67,9 +68,10 @@ const appComponents = plugin(({ addComponents }) => {
       alignItems: "center",
       justifyContent: "center",
       borderRadius: "0.75rem",
-      border: "1px solid rgba(255, 255, 255, 0.35)",
-      backgroundColor: "rgba(255, 255, 255, 0.2)",
-      backdropFilter: "blur(4px)",
+      border: "1px solid rgba(236, 249, 255, 0.42)",
+      backgroundColor: "rgba(255, 255, 255, 0.18)",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.32), 0 10px 24px rgba(2, 18, 36, 0.2)",
+      backdropFilter: "blur(6px)",
     },
     ".app-control": {
       width: "100%",
