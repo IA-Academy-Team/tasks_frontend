@@ -7,6 +7,13 @@ import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
   createProject,
   deleteProject,
   listProjects,
@@ -28,6 +35,7 @@ export function Projects() {
   const [areaFilter, setAreaFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -97,6 +105,7 @@ export function Projects() {
     setEndDate(project.endDate ?? "");
     setError("");
     setSuccess("");
+    setIsProjectModalOpen(true);
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -140,6 +149,7 @@ export function Projects() {
       }
 
       resetForm();
+      setIsProjectModalOpen(false);
       await loadProjects();
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -201,93 +211,25 @@ export function Projects() {
         title="Proyectos"
         subtitle="Gestion de proyectos por area"
         icon={<FolderKanban className="size-5" />}
+        actions={isAdmin ? (
+          <button
+            type="button"
+            onClick={() => {
+              resetForm();
+              setError("");
+              setSuccess("");
+              setIsProjectModalOpen(true);
+            }}
+            className="app-btn-primary h-10 w-10 p-0"
+            aria-label="Crear proyecto"
+            title="Crear proyecto"
+          >
+            <Plus className="size-5" />
+          </button>
+        ) : undefined}
       />
 
       <div className="app-content">
-        {isAdmin && (
-          <section className="app-panel app-panel-pad">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              {editingProjectId ? "Editar proyecto" : "Crear proyecto"}
-            </h3>
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Area</label>
-                <select
-                  value={areaId}
-                  onChange={(event) => setAreaId(event.target.value)}
-                  className="app-control"
-                >
-                  <option value="">Selecciona un area</option>
-                  {areas.filter((area) => area.isActive).map((area) => (
-                    <option key={area.id} value={area.id}>
-                      {area.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  className="app-control"
-                  placeholder="Nombre del proyecto"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Descripcion</label>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  className="app-control"
-                  placeholder="Descripcion"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
-                  className="app-control"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                  className="app-control"
-                />
-              </div>
-              <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="app-btn-primary"
-                >
-                  <Plus className="size-4" />
-                  {isSubmitting ? "Guardando..." : editingProjectId ? "Actualizar" : "Crear"}
-                </button>
-                {editingProjectId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="app-btn-secondary"
-                >
-                  Cancelar edicion
-                </button>
-                )}
-              </div>
-            </form>
-            {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
-            {success && <p className="mt-4 text-sm text-success">{success}</p>}
-          </section>
-        )}
-
         <section className="app-panel overflow-hidden">
           <div className="app-panel-header">
             <h3 className="text-lg font-semibold text-foreground">Listado de proyectos</h3>
@@ -316,8 +258,8 @@ export function Projects() {
               </select>
             </div>
           </div>
-          {error && !isAdmin && <p className="p-4 text-sm text-destructive">{error}</p>}
-          {success && !isAdmin && <p className="p-4 text-sm text-success">{success}</p>}
+          {error && <p className="p-4 text-sm text-destructive">{error}</p>}
+          {success && <p className="p-4 text-sm text-success">{success}</p>}
 
           {isLoading ? (
             <div className="p-6 text-sm text-muted-foreground">Cargando proyectos...</div>
@@ -369,7 +311,6 @@ export function Projects() {
                                 className="app-action-link inline-flex items-center gap-1"
                               >
                                 <Pencil className="size-4" />
-                                Editar
                               </button>
                               <button
                                 type="button"
@@ -412,6 +353,108 @@ export function Projects() {
           )}
         </section>
       </div>
+
+      <Dialog
+        open={isProjectModalOpen}
+        onOpenChange={(open) => {
+          setIsProjectModalOpen(open);
+          if (!open && !isSubmitting) {
+            resetForm();
+            setError("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editingProjectId ? "Editar proyecto" : "Crear proyecto"}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Area</label>
+              <select
+                value={areaId}
+                onChange={(event) => setAreaId(event.target.value)}
+                className="app-control"
+              >
+                <option value="">Selecciona un area</option>
+                {areas.filter((area) => area.isActive).map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="app-control"
+                placeholder="Nombre del proyecto"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Descripcion</label>
+              <input
+                type="text"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="app-control"
+                placeholder="Descripcion"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+                className="app-control"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+                className="app-control"
+              />
+            </div>
+
+            {error && (
+              <p className="md:col-span-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">
+                {error}
+              </p>
+            )}
+
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
+              {editingProjectId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    setIsProjectModalOpen(false);
+                  }}
+                  className="app-btn-secondary"
+                >
+                  Cancelar edicion
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="app-btn-primary"
+              >
+                <Plus className="size-4" />
+                {isSubmitting ? "Guardando..." : editingProjectId ? "Actualizar" : "Crear"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmActionDialog
         open={pendingDeleteProject !== null}
