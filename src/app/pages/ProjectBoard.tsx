@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -18,10 +18,33 @@ import {
   createTask,
   deleteTask,
   listTasks,
+  transitionTaskStatus,
   updateTask,
+  type TaskWorkflowStatus,
   type TaskStatusFilter,
   type TaskSummary,
 } from "../../modules/tasks/api/tasks.api";
+
+const KANBAN_COLUMNS: { key: TaskWorkflowStatus; title: string }[] = [
+  { key: "assigned", title: "Asignada" },
+  { key: "in_progress", title: "En proceso" },
+  { key: "done", title: "Terminada" },
+];
+
+const WORKFLOW_LABELS: Record<TaskWorkflowStatus, string> = {
+  assigned: "Asignada",
+  in_progress: "En proceso",
+  done: "Terminada",
+};
+
+const STATUS_NAME_TO_KEY: Record<string, TaskWorkflowStatus> = {
+  Asignada: "assigned",
+  "En proceso": "in_progress",
+  Terminada: "done",
+};
+
+const getStatusKeyFromTask = (task: TaskSummary): TaskWorkflowStatus | null =>
+  STATUS_NAME_TO_KEY[task.status] ?? null;
 
 export function ProjectBoard() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -51,6 +74,7 @@ export function ProjectBoard() {
   const [taskEstimatedMinutes, setTaskEstimatedMinutes] = useState("");
   const [taskAssigneeMembershipId, setTaskAssigneeMembershipId] = useState("");
   const [taskPriorityId, setTaskPriorityId] = useState("2");
+  const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
 
   const numericProjectId = Number(projectId);
 
@@ -151,6 +175,23 @@ export function ProjectBoard() {
     () => memberships.filter((membership) => membership.isActive),
     [memberships],
   );
+
+  const kanbanTasks = useMemo(() => {
+    const grouped: Record<TaskWorkflowStatus, TaskSummary[]> = {
+      assigned: [],
+      in_progress: [],
+      done: [],
+    };
+
+    tasks.forEach((task) => {
+      const statusKey = getStatusKeyFromTask(task);
+      if (statusKey) {
+        grouped[statusKey].push(task);
+      }
+    });
+
+    return grouped;
+  }, [tasks]);
 
   const handleAssign = async () => {
     const employeeId = Number(assignEmployeeId);
@@ -344,6 +385,83 @@ export function ProjectBoard() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleTaskDrop = async (taskId: number, toStatus: TaskWorkflowStatus) => {
+    const taskToMove = tasks.find((task) => task.id === taskId);
+    if (!taskToMove) {
+      return;
+    }
+
+    const currentStatus = getStatusKeyFromTask(taskToMove);
+    if (!currentStatus || currentStatus === toStatus) {
+      return;
+    }
+
+    const previousTasks = tasks;
+    const optimisticStatusLabel = WORKFLOW_LABELS[toStatus];
+
+    setError("");
+    setSuccess("");
+    setMovingTaskId(taskId);
+    setTasks((currentTasks) => {
+      const moved = currentTasks.map((task) => (
+        task.id === taskId
+          ? {
+              ...task,
+              status: optimisticStatusLabel,
+            }
+          : task
+      ));
+
+      if (taskStatusFilter !== "all" && toStatus !== taskStatusFilter) {
+        return moved.filter((task) => task.id !== taskId);
+      }
+
+      return moved;
+    });
+
+    try {
+      const response = await transitionTaskStatus(taskId, { toStatus });
+      const updatedTask = response?.data?.task;
+
+      if (!updatedTask) {
+        throw new Error("Transition response missing task payload");
+      }
+
+      setTasks((currentTasks) => {
+        const nextTasks = currentTasks.map((task) => (task.id === updatedTask.id ? updatedTask : task));
+        const alreadyPresent = nextTasks.some((task) => task.id === updatedTask.id);
+        const shouldIncludeInFilter = taskStatusFilter === "all" || toStatus === taskStatusFilter;
+
+        if (!alreadyPresent && shouldIncludeInFilter) {
+          return [...nextTasks, updatedTask];
+        }
+
+        return nextTasks;
+      });
+      setSuccess(`Tarea movida a ${WORKFLOW_LABELS[toStatus]}.`);
+    } catch (incomingError) {
+      setTasks(previousTasks);
+      if (incomingError instanceof ApiError) {
+        setError(incomingError.message);
+      } else {
+        setError("No fue posible mover la tarea.");
+      }
+    } finally {
+      setMovingTaskId(null);
+    }
+  };
+
+  const handleColumnDrop = (event: DragEvent<HTMLDivElement>, toStatus: TaskWorkflowStatus) => {
+    event.preventDefault();
+    const rawTaskId = event.dataTransfer.getData("application/task-id");
+    const taskId = Number(rawTaskId);
+    if (!Number.isInteger(taskId) || taskId <= 0) {
+      return;
+    }
+
+    void handleTaskDrop(taskId, toStatus);
   };
 
   if (isLoading) {
@@ -668,6 +786,61 @@ export function ProjectBoard() {
               </form>
             </div>
           )}
+
+          <div className="p-5 border-b border-border bg-secondary/10">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <h4 className="font-medium text-foreground">Tablero Kanban</h4>
+              <p className="text-xs text-muted-foreground">
+                Flujo permitido: Asignada → En proceso → Terminada
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {KANBAN_COLUMNS.map((column) => (
+                <div
+                  key={column.key}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => handleColumnDrop(event, column.key)}
+                  className="rounded-xl border border-border bg-background/80 min-h-[220px] flex flex-col"
+                >
+                  <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground">{column.title}</p>
+                    <span className="text-xs text-muted-foreground">
+                      {kanbanTasks[column.key].length}
+                    </span>
+                  </div>
+                  <div className="p-3 space-y-2 flex-1">
+                    {kanbanTasks[column.key].length === 0 ? (
+                      <p className="text-xs text-muted-foreground">Sin tareas</p>
+                    ) : (
+                      kanbanTasks[column.key].map((task) => (
+                        <article
+                          key={task.id}
+                          draggable={movingTaskId === null}
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData("application/task-id", String(task.id));
+                            event.dataTransfer.effectAllowed = "move";
+                          }}
+                          className={`rounded-lg border border-border bg-card p-3 shadow-sm transition-opacity ${
+                            movingTaskId === task.id ? "opacity-50" : ""
+                          }`}
+                        >
+                          <p className="text-sm font-medium text-foreground">{task.title}</p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {task.assigneeName
+                              ? `${task.assigneeName} · ${task.priority}`
+                              : `Sin asignar · ${task.priority}`}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Limite: {task.dueDate}
+                          </p>
+                        </article>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {tasks.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">No hay tareas para este filtro.</div>
