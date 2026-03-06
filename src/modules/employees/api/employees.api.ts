@@ -30,6 +30,49 @@ export interface EmployeesResponse {
   data: EmployeeSummary[];
 }
 
+export interface EmployeeAreaAssignment {
+  id: number;
+  employeeId: number;
+  areaId: number;
+  areaName: string;
+  assignedByUserId: number;
+  endedByUserId: number | null;
+  assignedAt: string;
+  endedAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeProjectMembership {
+  id: number;
+  employeeId: number;
+  projectId: number;
+  projectName: string;
+  projectStatus: string;
+  projectAreaId: number;
+  projectAreaName: string;
+  assignedByUserId: number;
+  endedByUserId: number | null;
+  assignedAt: string;
+  unassignedAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeAreaAssignmentsResponse {
+  data: EmployeeAreaAssignment[];
+}
+
+export interface EmployeeAreaAssignmentResponse {
+  data: EmployeeAreaAssignment;
+}
+
+export interface EmployeeProjectMembershipsResponse {
+  data: EmployeeProjectMembership[];
+}
+
 export interface CreateEmployeePayload {
   name: string;
   email: string;
@@ -51,6 +94,10 @@ export interface UpdateEmployeeStatusPayload {
   isActive: boolean;
 }
 
+export interface AssignEmployeeAreaPayload {
+  areaId: number;
+}
+
 export const listEmployees = (status: EmployeeStatusFilter) =>
   api.get<EmployeesResponse>(`${API_PREFIX}/employees?status=${status}`);
 
@@ -65,3 +112,24 @@ export const updateEmployeeStatus = (
   payload: UpdateEmployeeStatusPayload,
 ) => api.patch<EmployeeResponse>(`${API_PREFIX}/employees/${employeeId}/status`, payload);
 
+export const listEmployeeAreaAssignments = (
+  employeeId: number,
+  status: EmployeeStatusFilter = "all",
+) => api.get<EmployeeAreaAssignmentsResponse>(
+  `${API_PREFIX}/employees/${employeeId}/area-assignments?status=${status}`,
+);
+
+export const assignEmployeeArea = (
+  employeeId: number,
+  payload: AssignEmployeeAreaPayload,
+) => api.post<EmployeeAreaAssignmentResponse>(
+  `${API_PREFIX}/employees/${employeeId}/area-assignments`,
+  payload,
+);
+
+export const listEmployeeProjectMemberships = (
+  employeeId: number,
+  status: EmployeeStatusFilter = "all",
+) => api.get<EmployeeProjectMembershipsResponse>(
+  `${API_PREFIX}/employees/${employeeId}/project-memberships?status=${status}`,
+);

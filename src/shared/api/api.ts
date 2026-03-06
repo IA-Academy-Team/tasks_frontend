@@ -107,6 +107,9 @@ export const api = {
     post: <T = unknown>(endpoint: string, data?: unknown, options: RequestOptions = {}) =>
         apiFetch<T>(endpoint, { ...options, method: 'POST', data }),
 
+    patch: <T = unknown>(endpoint: string, data?: unknown, options: RequestOptions = {}) =>
+        apiFetch<T>(endpoint, { ...options, method: 'PATCH', data }),
+
     put: <T = unknown>(endpoint: string, data?: unknown, options: RequestOptions = {}) =>
         apiFetch<T>(endpoint, { ...options, method: 'PUT', data }),
 
