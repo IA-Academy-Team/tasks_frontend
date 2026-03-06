@@ -10,12 +10,14 @@ import {
   FileText,
   FolderKanban,
   Gauge,
+  LayoutDashboard,
   Timer,
   Users,
 } from "lucide-react";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
 import { DateRangeFilter } from "../components/DateRangeFilter";
+import { PageHero } from "../components/PageHero";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { listEmployees, type EmployeeSummary } from "../../modules/employees/api/employees.api";
 import { listProjects, type ProjectSummary } from "../../modules/projects/api/projects.api";
@@ -216,23 +218,26 @@ export function Dashboard() {
   }
 
   return (
-    <div className="app-content">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          {isAdmin
+    <div className="app-shell">
+      <PageHero
+        title="Dashboard"
+        subtitle={
+          isAdmin
             ? "Productividad consolidada, reporte de cumplimiento y alertas activas."
-            : "Resumen operativo de tus tareas y tiempos de ejecucion."}
-        </p>
-      </header>
+            : "Resumen operativo de tus tareas y tiempos de ejecucion."
+        }
+        icon={<LayoutDashboard className="size-5" />}
+      />
 
-      {error && (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      <div className="app-content">
 
-      {isEmployee && employeeDashboard && (
+        {error && (
+          <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
+        {isEmployee && employeeDashboard && (
         <>
           <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
             <StatCard
@@ -304,9 +309,9 @@ export function Dashboard() {
             )}
           </section>
         </>
-      )}
+        )}
 
-      {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && (
+        {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && (
         <>
           <section className="app-panel app-panel-pad space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -659,7 +664,8 @@ export function Dashboard() {
             )}
           </section>
         </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

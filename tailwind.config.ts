@@ -15,27 +15,17 @@ const appComponents = plugin(({ addComponents }) => {
       position: "relative",
       overflow: "hidden",
       borderBottom: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
-      padding: "1.5rem",
+      padding: "1.5rem clamp(1.25rem, 2.2vw, 2rem)",
       boxShadow: "0 1px 0 rgba(16, 36, 58, 0.06)",
       background: "linear-gradient(125deg, #0d4663 0%, #0f766e 56%, #1f3c67 100%)",
-    },
-    "@media (min-width: 768px)": {
-      ".app-hero": {
-        padding: "1.75rem 2rem",
-      },
     },
     ".app-content": {
       flex: "1 1 auto",
       overflow: "auto",
-      padding: "1.5rem",
+      padding: "clamp(1.25rem, 2vw, 2rem)",
       display: "flex",
       flexDirection: "column",
       gap: "1.5rem",
-    },
-    "@media (min-width: 768px) and (max-width: 9999px)": {
-      ".app-content": {
-        padding: "2rem",
-      },
     },
     ".app-panel": {
       borderRadius: "1rem",
@@ -44,12 +34,7 @@ const appComponents = plugin(({ addComponents }) => {
       boxShadow: "0 14px 28px rgba(16, 36, 58, 0.08)",
     },
     ".app-panel-pad": {
-      padding: "1.25rem",
-    },
-    "@media (min-width: 768px) and (max-width: 9999px)": {
-      ".app-panel-pad": {
-        padding: "1.5rem",
-      },
+      padding: "clamp(1rem, 1.4vw, 1.5rem)",
     },
     ".app-panel-header": {
       display: "flex",

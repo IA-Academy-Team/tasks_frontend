@@ -129,7 +129,6 @@ export function Layout() {
       <aside className="hidden md:flex w-72 shrink-0 border-r border-sidebar-border/80 bg-sidebar text-sidebar-foreground flex-col shadow-2xl">
         <div className="p-5 border-b border-sidebar-border/80">
           <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-xs text-sidebar-foreground/80 mt-1">Gestión de proyectos</p>
         </div>
 
         {renderNav()}
