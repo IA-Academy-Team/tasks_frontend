@@ -320,23 +320,6 @@ export function Dashboard() {
         {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && (
         <>
           <section className="app-panel app-panel-pad space-y-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h2 className="text-lg font-semibold text-foreground">Filtros globales</h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setDateFrom("");
-                  setDateTo("");
-                  setProjectIdFilter("");
-                  setAreaIdFilter("");
-                  setEmployeeIdFilter("");
-                  setComplianceFilter("all");
-                }}
-                className="app-btn-secondary"
-              >
-                Limpiar filtros
-              </button>
-            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
               <DateRangeFilter
                 dateFrom={dateFrom}
@@ -393,9 +376,20 @@ export function Dashboard() {
                 <option value="estimate_delayed">Atraso estimado</option>
                 <option value="date_overdue">Atraso por fecha</option>
               </select>
-              <div className="px-3 py-2 rounded-xl border border-border bg-secondary/30 text-xs text-muted-foreground flex items-center">
-                {isLoadingFilters ? "Cargando opciones..." : "Filtros aplicados desde backend"}
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                  setProjectIdFilter("");
+                  setAreaIdFilter("");
+                  setEmployeeIdFilter("");
+                  setComplianceFilter("all");
+                }}
+                className="app-btn-secondary"
+              >
+                {isLoadingFilters ? "Cargando..." : "Limpiar filtros"}
+              </button>
             </div>
           </section>
 
@@ -426,15 +420,8 @@ export function Dashboard() {
             <div className="app-panel-header">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Alertas activas de atraso</h2>
-                <p className="text-xs text-muted-foreground">
-                  Generado: {formatDateTime(overdueAlerts.generatedAt)}
-                </p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <p className="text-2xl font-semibold text-foreground">{overdueAlerts.counters.totalAlerts}</p>
-                  <p className="text-xs text-muted-foreground">alertas activas</p>
-                </div>
                 <button
                   type="button"
                   onClick={() => setIsAlertsExpanded((current) => !current)}
@@ -501,9 +488,6 @@ export function Dashboard() {
             <div className="app-panel-header">
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Reporte de cumplimiento</h2>
-                <p className="text-xs text-muted-foreground">
-                  Fila resaltada cuando existe atraso por fecha o por estimacion.
-                </p>
               </div>
               <div className="flex items-center gap-3">
                 <FileText className="size-5 text-primary" />

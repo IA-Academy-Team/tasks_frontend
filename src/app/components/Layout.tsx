@@ -18,6 +18,7 @@ import { useAuth } from "../context/AuthContext";
 import { getDefaultRouteForRole } from "../../modules/auth/lib/auth-routing";
 import { canAccessResource } from "../../modules/auth/lib/access-policy";
 import { ProfileEditorModal } from "./ProfileEditorModal";
+import { NotificationsFloatingPanel } from "./NotificationsFloatingPanel";
 
 type NavItem = {
   key: string;
@@ -298,6 +299,7 @@ export function Layout() {
         open={isProfileModalOpen}
         onOpenChange={setIsProfileModalOpen}
       />
+      <NotificationsFloatingPanel />
     </div>
   );
 }

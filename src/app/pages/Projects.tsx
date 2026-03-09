@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
-import { FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Eye, FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
@@ -57,6 +57,14 @@ export function Projects() {
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+
+  const getProjectStatusClass = (status: string) => {
+    const normalized = status.toLowerCase();
+    if (normalized === "active" || normalized === "activo") return "text-success";
+    if (normalized === "cancelled" || normalized === "cancelado") return "text-destructive";
+    if (normalized === "closed" || normalized === "cerrado") return "text-warning";
+    return "text-muted-foreground";
+  };
 
   const resetForm = () => {
     setEditingProjectId(null);
@@ -294,7 +302,9 @@ export function Projects() {
                         <p className="text-muted-foreground">{project.description ?? "Sin descripcion"}</p>
                       </td>
                       <td className="app-td">{project.areaName}</td>
-                      <td className="app-td">{project.status}</td>
+                      <td className="app-td">
+                        <span className={getProjectStatusClass(project.status)}>{project.status}</span>
+                      </td>
                       <td className="app-td">{project.activeMemberCount}</td>
                       <td className="app-td">{project.totalTaskCount}</td>
                       <td className="app-td">
@@ -315,6 +325,7 @@ export function Projects() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-44">
                               <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                                <Eye className="size-4" />
                                 Ver detalle
                               </DropdownMenuItem>
                               {isAdmin && (
