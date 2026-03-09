@@ -152,6 +152,11 @@ export const createTask = (payload: CreateTaskPayload) =>
     taskPriorityId: payload.taskPriorityId ?? 2,
     assigneeMembershipId: withNullableInt(payload.assigneeMembershipId),
     estimatedMinutes: withNullableInt(payload.estimatedMinutes),
+  }, {
+    toast: {
+      successMessage: "Tarea creada correctamente.",
+      errorMessage: "No fue posible crear la tarea.",
+    },
   });
 
 export const updateTask = (taskId: number, payload: UpdateTaskPayload) =>
@@ -165,10 +170,20 @@ export const updateTask = (taskId: number, payload: UpdateTaskPayload) =>
     taskPriorityId: payload.taskPriorityId,
     assigneeMembershipId: withNullableInt(payload.assigneeMembershipId),
     estimatedMinutes: withNullableInt(payload.estimatedMinutes),
+  }, {
+    toast: {
+      successMessage: "Tarea actualizada correctamente.",
+      errorMessage: "No fue posible actualizar la tarea.",
+    },
   });
 
 export const deleteTask = (taskId: number) =>
-  api.delete<DeleteTaskResponse>(`${API_PREFIX}/tasks/${taskId}`);
+  api.delete<DeleteTaskResponse>(`${API_PREFIX}/tasks/${taskId}`, {
+    toast: {
+      successMessage: "Tarea eliminada correctamente.",
+      errorMessage: "No fue posible eliminar la tarea.",
+    },
+  });
 
 export const transitionTaskStatus = (
   taskId: number,
@@ -176,6 +191,11 @@ export const transitionTaskStatus = (
 ) => api.patch<TransitionTaskStatusResponse>(`${API_PREFIX}/tasks/${taskId}/status`, {
   toStatus: payload.toStatus,
   notes: payload.notes ?? null,
+}, {
+  toast: {
+    successMessage: "Estado de tarea actualizado.",
+    errorMessage: "No fue posible cambiar el estado de la tarea.",
+  },
 });
 
 export const getTaskHistory = (taskId: number) =>

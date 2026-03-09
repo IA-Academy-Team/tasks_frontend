@@ -45,10 +45,20 @@ export const signInWithEmail = (email: string, password: string) =>
     email,
     password,
     rememberMe: true,
+  }, {
+    toast: {
+      successMessage: "Inicio de sesion exitoso.",
+      errorMessage: "No fue posible iniciar sesion.",
+    },
   });
 
 export const signOutCurrentSession = () =>
-  api.post(`${AUTH_HANDLER_BASE_PATH}/sign-out`);
+  api.post(`${AUTH_HANDLER_BASE_PATH}/sign-out`, undefined, {
+    toast: {
+      successMessage: "Sesion cerrada correctamente.",
+      errorMessage: "No fue posible cerrar sesion.",
+    },
+  });
 
 export const getCurrentSession = () =>
   api.get<CurrentSessionResponse>(`${AUTH_BASE_PATH}/session`);

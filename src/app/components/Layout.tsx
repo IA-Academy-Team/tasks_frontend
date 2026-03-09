@@ -30,14 +30,14 @@ type NavItem = {
 };
 
 const baseNavButtonClass =
-  "group relative w-full flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all";
+  "group relative w-full flex items-center gap-3.5 rounded-xl px-4 py-3 text-base font-medium transition-all";
 
 const getNavButtonClass = (isActive: boolean, isCollapsed = false) =>
   `${baseNavButtonClass} ${
     isActive
       ? "bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-ring/45 shadow-[0_10px_24px_rgba(2,12,24,0.24)]"
       : "text-sidebar-foreground/78 hover:text-sidebar-foreground hover:bg-sidebar-accent/72"
-  } ${isCollapsed ? "justify-center px-2.5" : ""}`;
+  } ${isCollapsed ? "justify-center px-3" : ""}`;
 
 export function Layout() {
   const navigate = useNavigate();
@@ -139,7 +139,7 @@ export function Layout() {
             aria-label={item.label}
             title={isCollapsed ? item.label : undefined}
           >
-            <Icon className="size-4 shrink-0" />
+            <Icon className="size-5 shrink-0" />
             {!isCollapsed && <span className="flex-1 text-left">{item.label}</span>}
           </button>
         );
@@ -153,27 +153,27 @@ export function Layout() {
         type="button"
         onClick={() => setIsUserMenuOpen((current) => !current)}
         className={`${baseNavButtonClass} text-sidebar-foreground/82 hover:text-sidebar-foreground hover:bg-sidebar-accent/72 ${
-          isCollapsed ? "justify-center px-2.5" : ""
+          isCollapsed ? "justify-center px-3" : ""
         }`}
         aria-label="Opciones de usuario"
         title={isCollapsed ? "Opciones de usuario" : undefined}
       >
-        <span className="size-8 shrink-0 rounded-full overflow-hidden border border-white/25 bg-white/12 flex items-center justify-center">
+        <span className="size-9 shrink-0 rounded-full overflow-hidden border border-white/25 bg-white/12 flex items-center justify-center">
           {user?.image ? (
             <img src={user.image} alt={user.name} className="size-full object-cover" />
           ) : (
-            <UserCircle2 className="size-5 text-sidebar-foreground" />
+            <UserCircle2 className="size-6 text-sidebar-foreground" />
           )}
         </span>
         {!isCollapsed && (
           <span className="flex-1 min-w-0 text-left">
-            <span className="block truncate">{user?.name ?? "Usuario"}</span>
-            <span className="block truncate text-[11px] leading-4 text-sidebar-foreground/62">
+            <span className="block truncate text-[15px] leading-5">{user?.name ?? "Usuario"}</span>
+            <span className="block truncate text-xs leading-5 text-sidebar-foreground/62">
               {user?.email ?? "Sin correo"}
             </span>
           </span>
         )}
-        {!isCollapsed && <LogOut className="size-4 shrink-0 text-sidebar-foreground/72" aria-hidden="true" />}
+        {!isCollapsed && <LogOut className="size-5 shrink-0 text-sidebar-foreground/72" aria-hidden="true" />}
       </button>
 
       {isUserMenuOpen && (
@@ -187,7 +187,7 @@ export function Layout() {
           <button
             type="button"
             onClick={handleOpenProfileModal}
-            className="w-full inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+            className="w-full inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
           >
             <Pencil className="size-4" />
             Editar perfil
@@ -198,7 +198,7 @@ export function Layout() {
               setIsUserMenuOpen(false);
               void handleLogout();
             }}
-            className="w-full inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+            className="w-full inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
           >
             <LogOut className="size-4" />
             Cerrar sesión
@@ -226,12 +226,12 @@ export function Layout() {
             onClick={() => setIsSidebarCollapsed((current) => !current)}
             className={`z-20 inline-flex items-center justify-center transition-all ${
               isSidebarCollapsed
-                ? "size-9 rounded-xl border border-white/18 bg-white/10 text-sidebar-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] hover:border-white/28 hover:bg-white/18"
-                : "absolute right-2 top-1/2 size-10 -translate-y-1/2 text-sidebar-foreground/86 hover:rounded-lg hover:border hover:border-white/24 hover:bg-white/14 hover:text-sidebar-foreground"
+                ? "size-10 rounded-xl border border-white/18 bg-white/10 text-sidebar-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.15)] hover:border-white/28 hover:bg-white/18"
+                : "absolute right-2 top-1/2 size-11 -translate-y-1/2 text-sidebar-foreground/86 hover:rounded-lg hover:border hover:border-white/24 hover:bg-white/14 hover:text-sidebar-foreground"
             }`}
             aria-label={isSidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
           >
-            {isSidebarCollapsed ? <ChevronRight className="size-5" /> : <ChevronLeft className="size-6" />}
+            {isSidebarCollapsed ? <ChevronRight className="size-6" /> : <ChevronLeft className="size-6" />}
           </button>
           {!isSidebarCollapsed && <h1 className="pr-12 text-2xl font-bold tracking-tight leading-none">Tasks</h1>}
         </div>
@@ -251,15 +251,15 @@ export function Layout() {
           >
             <div className="flex items-center justify-between pb-3 border-b border-sidebar-border/80">
               <div>
-                <h1 className="text-lg font-bold">Tasks</h1>
-                <p className="text-xs text-sidebar-foreground/80">Gestión de proyectos</p>
+                <h1 className="text-xl font-bold">Tasks</h1>
+                <p className="text-sm text-sidebar-foreground/80">Gestión de proyectos</p>
               </div>
               <button
                 type="button"
-                className="p-2 rounded-lg hover:bg-sidebar-accent/80 text-sidebar-foreground"
+                className="p-2.5 rounded-lg hover:bg-sidebar-accent/80 text-sidebar-foreground"
                 onClick={closeMobileMenu}
               >
-                <X className="size-5" />
+                <X className="size-6" />
               </button>
             </div>
             <div className="pt-3">{renderNav(false)}</div>

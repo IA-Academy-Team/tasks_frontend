@@ -102,15 +102,30 @@ export const listEmployees = (status: EmployeeStatusFilter) =>
   api.get<EmployeesResponse>(`${API_PREFIX}/employees?status=${status}`);
 
 export const createEmployee = (payload: CreateEmployeePayload) =>
-  api.post<EmployeeResponse>(`${API_PREFIX}/employees`, payload);
+  api.post<EmployeeResponse>(`${API_PREFIX}/employees`, payload, {
+    toast: {
+      successMessage: "Empleado creado correctamente.",
+      errorMessage: "No fue posible crear el empleado.",
+    },
+  });
 
 export const updateEmployee = (employeeId: number, payload: UpdateEmployeePayload) =>
-  api.patch<EmployeeResponse>(`${API_PREFIX}/employees/${employeeId}`, payload);
+  api.patch<EmployeeResponse>(`${API_PREFIX}/employees/${employeeId}`, payload, {
+    toast: {
+      successMessage: "Empleado actualizado correctamente.",
+      errorMessage: "No fue posible actualizar el empleado.",
+    },
+  });
 
 export const updateEmployeeStatus = (
   employeeId: number,
   payload: UpdateEmployeeStatusPayload,
-) => api.patch<EmployeeResponse>(`${API_PREFIX}/employees/${employeeId}/status`, payload);
+) => api.patch<EmployeeResponse>(`${API_PREFIX}/employees/${employeeId}/status`, payload, {
+  toast: {
+    successMessage: payload.isActive ? "Empleado activado correctamente." : "Empleado desactivado correctamente.",
+    errorMessage: "No fue posible actualizar el estado del empleado.",
+  },
+});
 
 export const listEmployeeAreaAssignments = (
   employeeId: number,
@@ -125,6 +140,12 @@ export const assignEmployeeArea = (
 ) => api.post<EmployeeAreaAssignmentResponse>(
   `${API_PREFIX}/employees/${employeeId}/area-assignments`,
   payload,
+  {
+    toast: {
+      successMessage: "Area asignada correctamente.",
+      errorMessage: "No fue posible asignar el area.",
+    },
+  },
 );
 
 export const listEmployeeProjectMemberships = (

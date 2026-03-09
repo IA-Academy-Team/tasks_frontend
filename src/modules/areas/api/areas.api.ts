@@ -44,11 +44,25 @@ export const listAreas = (status: AreaStatusFilter) =>
   api.get<AreasResponse>(`${API_PREFIX}/areas?status=${status}`);
 
 export const createArea = (payload: CreateAreaPayload) =>
-  api.post<AreaResponse>(`${API_PREFIX}/areas`, payload);
+  api.post<AreaResponse>(`${API_PREFIX}/areas`, payload, {
+    toast: {
+      successMessage: "Area creada correctamente.",
+      errorMessage: "No fue posible crear el area.",
+    },
+  });
 
 export const updateArea = (areaId: number, payload: UpdateAreaPayload) =>
-  api.patch<AreaResponse>(`${API_PREFIX}/areas/${areaId}`, payload);
+  api.patch<AreaResponse>(`${API_PREFIX}/areas/${areaId}`, payload, {
+    toast: {
+      successMessage: "Area actualizada correctamente.",
+      errorMessage: "No fue posible actualizar el area.",
+    },
+  });
 
 export const deleteArea = (areaId: number) =>
-  api.delete<DeleteAreaResponse>(`${API_PREFIX}/areas/${areaId}`);
-
+  api.delete<DeleteAreaResponse>(`${API_PREFIX}/areas/${areaId}`, {
+    toast: {
+      successMessage: "Area procesada correctamente.",
+      errorMessage: "No fue posible eliminar el area.",
+    },
+  });

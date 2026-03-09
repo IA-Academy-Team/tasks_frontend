@@ -49,10 +49,24 @@ const buildNotificationsQuery = (params: {
 };
 
 export const listNotifications = (params: { status?: NotificationStatusFilter; limit?: number } = {}) =>
-  api.get<NotificationsResponse>(`${API_PREFIX}/notifications?${buildNotificationsQuery(params)}`);
+  api.get<NotificationsResponse>(`${API_PREFIX}/notifications?${buildNotificationsQuery(params)}`, {
+    toast: {
+      showError: false,
+    },
+  });
 
 export const markNotificationAsRead = (notificationId: number) =>
-  api.patch<NotificationResponse>(`${API_PREFIX}/notifications/${notificationId}/read`, {});
+  api.patch<NotificationResponse>(`${API_PREFIX}/notifications/${notificationId}/read`, {}, {
+    toast: {
+      successMessage: "Notificacion marcada como leida.",
+      errorMessage: "No fue posible marcar la notificacion como leida.",
+    },
+  });
 
 export const markAllNotificationsAsRead = () =>
-  api.patch<MarkAllNotificationsReadResponse>(`${API_PREFIX}/notifications/read-all`, {});
+  api.patch<MarkAllNotificationsReadResponse>(`${API_PREFIX}/notifications/read-all`, {}, {
+    toast: {
+      successMessage: "Todas las notificaciones fueron marcadas como leidas.",
+      errorMessage: "No fue posible marcar las notificaciones.",
+    },
+  });
