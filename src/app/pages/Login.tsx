@@ -21,12 +21,18 @@ export function Login() {
 
   const mapAuthError = (incomingError: unknown) => {
     if (incomingError instanceof ApiError) {
+      const normalizedMessage = incomingError.message.trim().toLowerCase();
+
       if (incomingError.code === 'USER_INACTIVE') {
         return 'Tu cuenta está inactiva. Contacta a un administrador.';
       }
 
       if (incomingError.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
         return 'Tu correo no tiene permiso para iniciar sesión en este entorno.';
+      }
+
+      if (incomingError.code === 'INVALID_CREDENTIALS' || normalizedMessage === 'invalid email or password') {
+        return 'Correo o contraseña incorrectos.';
       }
 
       return incomingError.message;
@@ -105,7 +111,9 @@ export function Login() {
               </div>
 
               {error && (
-                <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">{error}</p>
+                <p className="rounded-xl border border-destructive/40 bg-destructive/15 px-3 py-2 text-sm font-medium text-destructive">
+                  {error}
+                </p>
               )}
 
               <button
