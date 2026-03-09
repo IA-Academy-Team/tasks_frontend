@@ -483,7 +483,6 @@ export function Dashboard() {
                 <h2 className="text-lg font-semibold text-foreground">Reporte de cumplimiento</h2>
               </div>
               <div className="flex items-center gap-3">
-                <FileText className="size-5 text-primary" />
                 <button
                   type="button"
                   onClick={() => setIsComplianceExpanded((current) => !current)}
