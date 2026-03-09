@@ -48,7 +48,7 @@ export const signInWithEmail = (email: string, password: string) =>
   }, {
     toast: {
       successMessage: "Inicio de sesion exitoso.",
-      errorMessage: "No fue posible iniciar sesion.",
+      showError: false,
     },
   });
 

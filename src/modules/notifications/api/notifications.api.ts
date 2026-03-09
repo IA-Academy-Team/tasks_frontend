@@ -49,11 +49,7 @@ const buildNotificationsQuery = (params: {
 };
 
 export const listNotifications = (params: { status?: NotificationStatusFilter; limit?: number } = {}) =>
-  api.get<NotificationsResponse>(`${API_PREFIX}/notifications?${buildNotificationsQuery(params)}`, {
-    toast: {
-      showError: false,
-    },
-  });
+  api.get<NotificationsResponse>(`${API_PREFIX}/notifications?${buildNotificationsQuery(params)}`);
 
 export const markNotificationAsRead = (notificationId: number) =>
   api.patch<NotificationResponse>(`${API_PREFIX}/notifications/${notificationId}/read`, {}, {
