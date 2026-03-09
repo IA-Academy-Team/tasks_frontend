@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { MoreHorizontal, Plus, Users2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
@@ -152,18 +153,18 @@ export function Employees() {
     const trimmedImage = image.trim();
 
     if (!trimmedName) {
-      setError("El nombre es obligatorio.");
+      toast.error("El nombre es obligatorio.");
       return;
     }
 
     if (!editingEmployeeId) {
       if (!trimmedEmail) {
-        setError("El correo es obligatorio.");
+        toast.error("El correo es obligatorio.");
         return;
       }
 
       if (!password.trim()) {
-        setError("La contrasena es obligatoria para crear un empleado.");
+        toast.error("La contrasena es obligatoria para crear un empleado.");
         return;
       }
     }
@@ -237,13 +238,13 @@ export function Employees() {
 
   const handleAssignArea = async () => {
     if (!selectedEmployeeId) {
-      setError("Selecciona primero un empleado.");
+      toast.error("Selecciona primero un empleado.");
       return;
     }
 
     const numericAreaId = Number(assignmentAreaId);
     if (!Number.isInteger(numericAreaId) || numericAreaId <= 0) {
-      setError("Selecciona un area valida para reasignar.");
+      toast.error("Selecciona un area valida para reasignar.");
       return;
     }
 
@@ -311,7 +312,6 @@ export function Employees() {
               <option value="inactive">Inactivos</option>
             </select>
           </div>
-          {error && <p className="p-4 text-sm text-destructive">{error}</p>}
           {success && <p className="p-4 text-sm text-success">{success}</p>}
 
           {isLoading ? (
@@ -580,13 +580,6 @@ export function Employees() {
                 <span className="text-sm text-foreground">Empleado activo</span>
               </label>
             </div>
-
-            {error && (
-              <p className="md:col-span-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">
-                {error}
-              </p>
-            )}
-
             <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
               {editingEmployeeId && (
                 <button

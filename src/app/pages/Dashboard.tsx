@@ -236,13 +236,6 @@ export function Dashboard() {
       />
 
       <div className="app-content">
-
-        {error && (
-          <p className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-            {error}
-          </p>
-        )}
-
         {isEmployee && employeeDashboard && (
         <>
           <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">

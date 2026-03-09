@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { LogIn } from 'lucide-react';
 import { ApiError } from '../../shared/api/api';
 import { getDefaultRouteForRole } from '../../modules/auth/lib/auth-routing';
+import { toast } from "react-toastify";
 
 export function Login() {
   const navigate = useNavigate();
@@ -17,7 +18,53 @@ export function Login() {
   }, [isReady, user, navigate]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+
+  const validateLoginInput = (rawEmail: string, rawPassword: string): string | null => {
+    const trimmedEmail = rawEmail.trim();
+    const trimmedPassword = rawPassword.trim();
+
+    if (!trimmedEmail && !trimmedPassword) {
+      return 'Debes ingresar tu correo electrónico y tu contraseña.';
+    }
+
+    if (!trimmedEmail) {
+      return 'Debes ingresar tu correo electrónico.';
+    }
+
+    if (!trimmedPassword) {
+      return 'Debes ingresar tu contraseña.';
+    }
+
+    if (trimmedEmail.includes(' ')) {
+      return 'El correo electrónico no debe contener espacios.';
+    }
+
+    const atIndex = trimmedEmail.indexOf('@');
+    if (atIndex === -1) {
+      return "El correo debe incluir '@' y un dominio. Ejemplo: usuario@dominio.com.";
+    }
+
+    const localPart = trimmedEmail.slice(0, atIndex);
+    const domainPart = trimmedEmail.slice(atIndex + 1);
+
+    if (!localPart) {
+      return "Antes de '@' debes escribir tu usuario de correo.";
+    }
+
+    if (!domainPart) {
+      return "Falta el dominio del correo después de '@'.";
+    }
+
+    if (!domainPart.includes('.')) {
+      return 'El dominio del correo debe incluir un punto. Ejemplo: dominio.com.';
+    }
+
+    if (domainPart.startsWith('.') || domainPart.endsWith('.')) {
+      return 'El dominio del correo no puede iniciar ni terminar con punto.';
+    }
+
+    return null;
+  };
 
   const mapAuthError = (incomingError: unknown) => {
     if (incomingError instanceof ApiError) {
@@ -43,24 +90,26 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    if (!email.trim() || !password) {
-      setError('Completa correo y contraseña');
+    const validationError = validateLoginInput(email, password);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
+
+    const normalizedEmail = email.trim().toLowerCase();
 
     setIsSubmitting(true);
 
     try {
-      const authenticatedUser = await login(email.trim(), password);
+      const authenticatedUser = await login(normalizedEmail, password);
       if (!authenticatedUser) {
-        setError('No fue posible recuperar tu sesión después del login.');
+        toast.error('No fue posible recuperar tu sesión después del login.');
         return;
       }
 
       navigate(getDefaultRouteForRole(authenticatedUser.role), { replace: true });
     } catch (incomingError) {
-      setError(mapAuthError(incomingError));
+      toast.error(mapAuthError(incomingError));
     } finally {
       setIsSubmitting(false);
     }
@@ -109,13 +158,6 @@ export function Login() {
                   autoComplete="current-password"
                 />
               </div>
-
-              {error && (
-                <p className="rounded-xl border border-destructive/40 bg-destructive/15 px-3 py-2 text-sm font-medium text-destructive">
-                  {error}
-                </p>
-              )}
-
               <button
                 type="submit"
                 disabled={isSubmitting}

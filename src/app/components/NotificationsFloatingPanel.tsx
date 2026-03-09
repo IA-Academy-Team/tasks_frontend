@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Bell, Check, CheckCheck, FolderKanban, ListTodo, MapPinned, X } from "lucide-react";
 import { useNavigate } from "react-router";
-import { ApiError } from "../../shared/api/api";
 import {
   listNotifications,
   markAllNotificationsAsRead,
@@ -47,7 +46,6 @@ export function NotificationsFloatingPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
-  const [error, setError] = useState("");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -58,7 +56,6 @@ export function NotificationsFloatingPanel() {
       return;
     }
 
-    setError("");
     setIsLoading(true);
 
     try {
@@ -67,12 +64,8 @@ export function NotificationsFloatingPanel() {
 
       setNotifications(result?.notifications ?? []);
       setUnreadCount(result?.unreadCount ?? 0);
-    } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible cargar notificaciones.");
-      }
+    } catch {
+      // Toast feedback is handled in the shared API layer.
     } finally {
       setIsLoading(false);
     }
@@ -149,17 +142,12 @@ export function NotificationsFloatingPanel() {
         item.id === notificationId ? updated : item
       )));
       setUnreadCount((current) => Math.max(0, current - 1));
-    } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible marcar la notificacion como leida.");
-      }
+    } catch {
+      // Toast feedback is handled in the shared API layer.
     }
   };
 
   const handleMarkAllAsRead = async () => {
-    setError("");
     setIsMarkingAll(true);
 
     try {
@@ -170,12 +158,8 @@ export function NotificationsFloatingPanel() {
         readAt: item.readAt ?? new Date().toISOString(),
       })));
       setUnreadCount(0);
-    } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible marcar las notificaciones.");
-      }
+    } catch {
+      // Toast feedback is handled in the shared API layer.
     } finally {
       setIsMarkingAll(false);
     }
@@ -300,10 +284,6 @@ export function NotificationsFloatingPanel() {
                   </li>
                 ))}
               </ul>
-            )}
-
-            {error && (
-              <p className="border-t border-border px-3 py-2 text-xs text-destructive">{error}</p>
             )}
           </div>
         </section>

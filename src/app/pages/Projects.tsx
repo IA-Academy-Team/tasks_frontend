@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { Eye, FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
@@ -132,12 +133,12 @@ export function Projects() {
     const numericAreaId = Number(areaId);
 
     if (!trimmedName) {
-      setError("El nombre del proyecto es obligatorio.");
+      toast.error("El nombre del proyecto es obligatorio.");
       return;
     }
 
     if (!Number.isInteger(numericAreaId) || numericAreaId <= 0) {
-      setError("Debes seleccionar un area valida.");
+      toast.error("Debes seleccionar un area valida.");
       return;
     }
 
@@ -273,7 +274,6 @@ export function Projects() {
               </select>
             </div>
           </div>
-          {error && <p className="p-4 text-sm text-destructive">{error}</p>}
           {success && <p className="p-4 text-sm text-success">{success}</p>}
 
           {isLoading ? (
@@ -436,13 +436,6 @@ export function Projects() {
                 className="app-control"
               />
             </div>
-
-            {error && (
-              <p className="md:col-span-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">
-                {error}
-              </p>
-            )}
-
             <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
               {editingProjectId && (
                 <button

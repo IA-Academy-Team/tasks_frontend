@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Building2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
@@ -86,7 +87,7 @@ export function Areas() {
     const trimmedDescription = description.trim();
 
     if (!trimmedName) {
-      setError("El nombre del area es obligatorio.");
+      toast.error("El nombre del area es obligatorio.");
       return;
     }
 
@@ -184,7 +185,6 @@ export function Areas() {
               <option value="inactive">Inactivas</option>
             </select>
           </div>
-          {error && <p className="p-4 text-sm text-destructive">{error}</p>}
           {success && <p className="p-4 text-sm text-success">{success}</p>}
 
           {isLoading ? (
@@ -305,13 +305,6 @@ export function Areas() {
                 Area activa
               </label>
             </div>
-
-            {error && (
-              <p className="md:col-span-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">
-                {error}
-              </p>
-            )}
-
             <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
               {editingAreaId && (
                 <button

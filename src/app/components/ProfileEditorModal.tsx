@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Save, UserCircle2 } from "lucide-react";
+import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import {
   getMyProfile,
@@ -74,7 +75,7 @@ export function ProfileEditorModal({
     const normalizedImage = image.trim();
 
     if (!normalizedName) {
-      setError("El nombre es obligatorio.");
+      toast.error("El nombre es obligatorio.");
       return;
     }
 
@@ -91,7 +92,6 @@ export function ProfileEditorModal({
       setName(nextProfile?.name ?? normalizedName);
       setPhoneNumber(nextProfile?.phoneNumber ?? "");
       setImage(nextProfile?.image ?? "");
-      setSuccess("Perfil actualizado correctamente.");
       await refreshSession();
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -184,11 +184,6 @@ export function ProfileEditorModal({
               />
             </div>
 
-            {error && (
-              <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">
-                {error}
-              </p>
-            )}
             {success && (
               <p className="text-sm text-success bg-success/10 px-3 py-2 rounded-xl">
                 {success}

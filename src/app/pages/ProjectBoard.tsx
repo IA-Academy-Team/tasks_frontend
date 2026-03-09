@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
@@ -288,7 +289,7 @@ export function ProjectBoard() {
   const handleAssign = async () => {
     const employeeId = Number(assignEmployeeId);
     if (!Number.isInteger(employeeId) || employeeId <= 0 || !project) {
-      setError("Selecciona un empleado valido para asignar.");
+      toast.error("Selecciona un empleado valido para asignar.");
       return;
     }
 
@@ -338,12 +339,12 @@ export function ProjectBoard() {
     const toEmployeeId = Number(reassignEmployeeId);
 
     if (!Number.isInteger(membershipId) || membershipId <= 0) {
-      setError("Selecciona una membresia activa para reasignar.");
+      toast.error("Selecciona una membresia activa para reasignar.");
       return;
     }
 
     if (!Number.isInteger(toEmployeeId) || toEmployeeId <= 0) {
-      setError("Selecciona un empleado destino valido.");
+      toast.error("Selecciona un empleado destino valido.");
       return;
     }
 
@@ -388,12 +389,12 @@ export function ProjectBoard() {
 
     const title = taskTitle.trim();
     if (!title) {
-      setError("El titulo de la tarea es obligatorio.");
+      toast.error("El titulo de la tarea es obligatorio.");
       return;
     }
 
     if (!taskPlannedStartDate || !taskDueDate) {
-      setError("Las fechas planificadas son obligatorias.");
+      toast.error("Las fechas planificadas son obligatorias.");
       return;
     }
 
@@ -406,12 +407,12 @@ export function ProjectBoard() {
     const priorityId = Number(taskPriorityId);
 
     if (estimatedMinutes !== null && (!Number.isInteger(estimatedMinutes) || estimatedMinutes <= 0)) {
-      setError("El tiempo estimado debe ser un entero positivo.");
+      toast.error("El tiempo estimado debe ser un entero positivo.");
       return;
     }
 
     if (!Number.isInteger(priorityId) || priorityId <= 0) {
-      setError("Selecciona una prioridad valida.");
+      toast.error("Selecciona una prioridad valida.");
       return;
     }
 
@@ -563,7 +564,7 @@ export function ProjectBoard() {
   if (!project) {
     return (
       <div className="size-full flex flex-col items-center justify-center gap-3">
-        <p className="text-foreground">No fue posible cargar el proyecto.</p>
+        <p className="text-foreground">Proyecto no disponible.</p>
         <button
           type="button"
           onClick={() => navigate("/projects")}
@@ -1057,7 +1058,6 @@ export function ProjectBoard() {
           </div>
         </section>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
         {success && <p className="text-sm text-success">{success}</p>}
       </div>
 
