@@ -116,21 +116,21 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_5%,rgba(15,118,110,0.14),transparent_30%),radial-gradient(circle_at_95%_20%,rgba(11,110,168,0.14),transparent_34%)] pointer-events-none" />
       <div className="absolute top-[-80px] right-[-60px] w-[320px] h-[320px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-80px] left-[-30px] w-[280px] h-[280px] rounded-full bg-accent/10 blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-sm relative z-10">
+      <div className="w-full max-w-md relative z-10">
         <div className="app-panel overflow-hidden">
-          <div className="px-8 py-6 text-center border-b border-border/60 bg-[linear-gradient(130deg,#0d4663_0%,#0f766e_58%,#1f3c67_100%)]">
-            <h1 className="text-2xl font-bold text-foreground">Tasks</h1>
-            <p className="text-sm text-foreground/90 mt-1">Inicia sesión en tu cuenta</p>
+          <div className="px-10 py-8 text-center border-b border-border/60 bg-[linear-gradient(130deg,#0d4663_0%,#0f766e_58%,#1f3c67_100%)]">
+            <h1 className="text-3xl font-bold text-foreground">Tasks</h1>
+            <p className="text-base text-foreground/90 mt-2">Inicia sesión en tu cuenta</p>
           </div>
-          <div className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="p-10">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label htmlFor="login-user" className="block text-sm font-semibold text-foreground mb-1.5">
+                <label htmlFor="login-user" className="block text-base font-semibold text-foreground mb-2">
                   Correo electrónico
                 </label>
                 <input
@@ -138,14 +138,14 @@ export function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="app-control"
+                  className="app-control h-12 text-base"
                   placeholder="tu@correo.com"
                   autoComplete="email"
                 />
               </div>
 
               <div>
-                <label htmlFor="login-password" className="block text-sm font-semibold text-foreground mb-1.5">
+                <label htmlFor="login-password" className="block text-base font-semibold text-foreground mb-2">
                   Contraseña
                 </label>
                 <input
@@ -153,7 +153,7 @@ export function Login() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="app-control"
+                  className="app-control h-12 text-base"
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
@@ -161,14 +161,14 @@ export function Login() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="app-btn-primary w-full py-3"
+                className="app-btn-primary w-full py-3.5 text-base"
               >
-                <LogIn className="size-4" />
+                <LogIn className="size-5" />
                 {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
               </button>
             </form>
 
-            <div className="mt-6 space-y-3 text-center text-sm">
+            <div className="mt-7 space-y-3 text-center text-base">
               <p>
                 <Link
                   to="/recuperar-contraseña"
