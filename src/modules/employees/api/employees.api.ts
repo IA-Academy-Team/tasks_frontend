@@ -73,6 +73,13 @@ export interface EmployeeProjectMembershipsResponse {
   data: EmployeeProjectMembership[];
 }
 
+export interface DeleteEmployeeResponse {
+  data: {
+    id: number;
+    mode: "deleted" | "archived";
+  };
+}
+
 export interface CreateEmployeePayload {
   name: string;
   email: string;
@@ -154,3 +161,11 @@ export const listEmployeeProjectMemberships = (
 ) => api.get<EmployeeProjectMembershipsResponse>(
   `${API_PREFIX}/employees/${employeeId}/project-memberships?status=${status}`,
 );
+
+export const deleteEmployee = (employeeId: number) =>
+  api.delete<DeleteEmployeeResponse>(`${API_PREFIX}/employees/${employeeId}`, {
+    toast: {
+      successMessage: "Empleado eliminado correctamente.",
+      errorMessage: "No fue posible eliminar el empleado.",
+    },
+  });

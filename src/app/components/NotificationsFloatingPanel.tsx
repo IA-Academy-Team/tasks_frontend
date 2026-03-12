@@ -7,9 +7,14 @@ import {
   markNotificationAsRead,
   type NotificationItem,
 } from "../../modules/notifications/api/notifications.api";
+import {
+  disconnectNotificationsSocket,
+  getNotificationsSocket,
+  type NotificationCreatedRealtimeEvent,
+  type NotificationReadRealtimeEvent,
+  type NotificationsReadAllRealtimeEvent,
+} from "../../modules/notifications/realtime/notifications.socket";
 import { useAuth } from "../context/AuthContext";
-
-const POLLING_MS = 30000;
 
 const formatNotificationDate = (value: string) => (
   new Date(value).toLocaleString("es-CO", {
@@ -43,20 +48,23 @@ const toNumberOrNull = (value: unknown): number | null => {
 export function NotificationsFloatingPanel() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchNotifications = async () => {
-    if (!user) {
+  const fetchNotifications = async (withLoading = true) => {
+    if (!userId) {
       setNotifications([]);
       setUnreadCount(0);
       return;
     }
 
-    setIsLoading(true);
+    if (withLoading) {
+      setIsLoading(true);
+    }
 
     try {
       const response = await listNotifications({ status: "all", limit: 25 });
@@ -67,30 +75,73 @@ export function NotificationsFloatingPanel() {
     } catch {
       // Toast feedback is handled in the shared API layer.
     } finally {
-      setIsLoading(false);
+      if (withLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
+      setNotifications([]);
+      setUnreadCount(0);
+      disconnectNotificationsSocket();
       return;
     }
 
     void fetchNotifications();
-    const intervalId = window.setInterval(() => {
-      void fetchNotifications();
-    }, POLLING_MS);
+    const socket = getNotificationsSocket();
+
+    const handleNotificationCreated = (event: NotificationCreatedRealtimeEvent) => {
+      setNotifications((current) => {
+        const next = [event.notification, ...current.filter((item) => item.id !== event.notification.id)];
+        return next.slice(0, 25);
+      });
+      setUnreadCount(event.unreadCount);
+    };
+
+    const handleNotificationRead = (event: NotificationReadRealtimeEvent) => {
+      setNotifications((current) => current.map((item) => (
+        item.id === event.notificationId
+          ? { ...item, isRead: true, readAt: event.readAt }
+          : item
+      )));
+      setUnreadCount(event.unreadCount);
+    };
+
+    const handleNotificationsReadAll = (event: NotificationsReadAllRealtimeEvent) => {
+      setNotifications((current) => current.map((item) => ({
+        ...item,
+        isRead: true,
+        readAt: item.readAt ?? event.readAt,
+      })));
+      setUnreadCount(event.unreadCount);
+    };
+
+    const handleSocketConnect = () => {
+      void fetchNotifications(false);
+    };
+
+    socket.on("connect", handleSocketConnect);
+    socket.on("notifications:new", handleNotificationCreated);
+    socket.on("notifications:read", handleNotificationRead);
+    socket.on("notifications:read-all", handleNotificationsReadAll);
+    socket.connect();
 
     return () => {
-      window.clearInterval(intervalId);
+      socket.off("connect", handleSocketConnect);
+      socket.off("notifications:new", handleNotificationCreated);
+      socket.off("notifications:read", handleNotificationRead);
+      socket.off("notifications:read-all", handleNotificationsReadAll);
+      disconnectNotificationsSocket();
     };
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     if (isOpen) {
       void fetchNotifications();
     }
-  }, [isOpen]);
+  }, [isOpen, userId]);
 
   const hasUnreadNotifications = unreadCount > 0;
 
@@ -121,7 +172,7 @@ export function NotificationsFloatingPanel() {
     }
 
     if (notification.resourceType === "area") {
-      if (user.role === "admin") {
+      if (user?.role === "admin") {
         navigate("/areas");
       } else {
         navigate("/app/employee/dashboard");
@@ -141,7 +192,7 @@ export function NotificationsFloatingPanel() {
       setNotifications((current) => current.map((item) => (
         item.id === notificationId ? updated : item
       )));
-      setUnreadCount((current) => Math.max(0, current - 1));
+      void fetchNotifications(false);
     } catch {
       // Toast feedback is handled in the shared API layer.
     }
@@ -158,6 +209,7 @@ export function NotificationsFloatingPanel() {
         readAt: item.readAt ?? new Date().toISOString(),
       })));
       setUnreadCount(0);
+      void fetchNotifications(false);
     } catch {
       // Toast feedback is handled in the shared API layer.
     } finally {
