@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bell, Check, CheckCheck, FolderKanban, ListTodo, MapPinned, X } from "lucide-react";
 import { useNavigate } from "react-router";
 import {
@@ -55,7 +55,7 @@ export function NotificationsFloatingPanel() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchNotifications = async (withLoading = true) => {
+  const fetchNotifications = useCallback(async (withLoading = true) => {
     if (!userId) {
       setNotifications([]);
       setUnreadCount(0);
@@ -79,7 +79,7 @@ export function NotificationsFloatingPanel() {
         setIsLoading(false);
       }
     }
-  };
+  }, [userId]);
 
   useEffect(() => {
     if (!userId) {
@@ -135,13 +135,13 @@ export function NotificationsFloatingPanel() {
       socket.off("notifications:read-all", handleNotificationsReadAll);
       disconnectNotificationsSocket();
     };
-  }, [userId]);
+  }, [fetchNotifications, userId]);
 
   useEffect(() => {
     if (isOpen) {
       void fetchNotifications();
     }
-  }, [isOpen, userId]);
+  }, [fetchNotifications, isOpen, userId]);
 
   const hasUnreadNotifications = unreadCount > 0;
 

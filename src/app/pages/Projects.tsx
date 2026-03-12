@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { Eye, FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -10,7 +10,6 @@ import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
@@ -76,7 +75,7 @@ export function Projects() {
     setEndDate("");
   };
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
       setError("");
       const response = await listProjects({
@@ -93,7 +92,7 @@ export function Projects() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [areaFilter, statusFilter]);
 
   const loadAreas = async () => {
     try {
@@ -106,7 +105,7 @@ export function Projects() {
 
   useEffect(() => {
     void loadProjects();
-  }, [statusFilter, areaFilter]);
+  }, [loadProjects]);
 
   useEffect(() => {
     void loadAreas();
@@ -274,6 +273,7 @@ export function Projects() {
               </select>
             </div>
           </div>
+          {error && <p className="px-4 pt-4 text-sm text-destructive">{error}</p>}
           {success && <p className="p-4 text-sm text-success">{success}</p>}
 
           {isLoading ? (
@@ -291,12 +291,24 @@ export function Projects() {
                     <th className="app-th">Miembros</th>
                     <th className="app-th">Tareas</th>
                     <th className="app-th">Fechas</th>
-                    <th className="app-th">Acciones</th>
+                    {isAdmin && <th className="app-th">Acciones</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {projects.map((project) => (
-                    <tr key={project.id} className="app-row">
+                    <tr
+                      key={project.id}
+                      className={`app-row ${!isAdmin ? "cursor-pointer hover:bg-secondary/40" : ""}`}
+                      onClick={!isAdmin ? () => navigate(`/projects/${project.id}`) : undefined}
+                      onKeyDown={!isAdmin ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          navigate(`/projects/${project.id}`);
+                        }
+                      } : undefined}
+                      role={!isAdmin ? "button" : undefined}
+                      tabIndex={!isAdmin ? 0 : undefined}
+                    >
                       <td className="app-td">
                         <p className="font-medium">{project.name}</p>
                         <p className="text-muted-foreground">{project.description ?? "Sin descripcion"}</p>
@@ -311,53 +323,51 @@ export function Projects() {
                         <p>Inicio: {project.startDate ?? "-"}</p>
                         <p>Fin: {project.endDate ?? "-"}</p>
                       </td>
-                      <td className="app-td">
-                        <div className="flex justify-end">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
-                                aria-label={`Acciones de ${project.name}`}
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
-                                <Eye className="size-4" />
-                                Ver detalle
-                              </DropdownMenuItem>
-                              {isAdmin && (
-                                <>
-                                  <DropdownMenuItem onClick={() => startEdit(project)}>
-                                    <Pencil className="size-4" />
-                                    Editar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
-                                    Cerrar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
-                                    Cancelar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
-                                    Activar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => setPendingDeleteProject(project)}
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="size-4" />
-                                    Eliminar
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="app-td">
+                          <div className="flex justify-end">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                                  aria-label={`Acciones de ${project.name}`}
+                                >
+                                  <MoreHorizontal className="size-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                                  <Eye className="size-4" />
+                                  Ver detalle
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => startEdit(project)}>
+                                  <Pencil className="size-4" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
+                                  Cerrar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
+                                  Cancelar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
+                                  Activar
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setPendingDeleteProject(project)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="size-4" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -478,6 +488,7 @@ export function Projects() {
         confirmLabel="Eliminar"
         variant="destructive"
         isProcessing={isSubmitting}
+        confirmDelaySeconds={5}
         onConfirm={() => {
           if (!pendingDeleteProject) {
             return;

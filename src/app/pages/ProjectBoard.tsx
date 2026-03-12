@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "react-toastify";
@@ -121,7 +121,7 @@ export function ProjectBoard() {
     setTaskPriorityId("2");
   };
 
-  const loadProject = async () => {
+  const loadProject = useCallback(async () => {
     if (!Number.isInteger(numericProjectId) || numericProjectId <= 0) {
       navigate("/projects", { replace: true });
       return;
@@ -139,9 +139,9 @@ export function ProjectBoard() {
       }
       setProject(null);
     }
-  };
+  }, [navigate, numericProjectId]);
 
-  const loadMemberships = async () => {
+  const loadMemberships = useCallback(async () => {
     if (!Number.isInteger(numericProjectId) || numericProjectId <= 0) return;
     try {
       const response = await listProjectMemberships(numericProjectId, membershipStatusFilter);
@@ -153,9 +153,9 @@ export function ProjectBoard() {
         setError("No fue posible cargar las membresias.");
       }
     }
-  };
+  }, [membershipStatusFilter, numericProjectId]);
 
-  const loadTasks = async () => {
+  const loadTasks = useCallback(async () => {
     if (!Number.isInteger(numericProjectId) || numericProjectId <= 0) return;
     try {
       const response = await listTasks({
@@ -170,16 +170,16 @@ export function ProjectBoard() {
         setError("No fue posible cargar las tareas del proyecto.");
       }
     }
-  };
+  }, [numericProjectId, taskStatusFilter]);
 
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     try {
       const response = await listEmployees("active");
       setEmployees(response?.data ?? []);
     } catch {
       setEmployees([]);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const initialize = async () => {
@@ -188,15 +188,15 @@ export function ProjectBoard() {
       setIsLoading(false);
     };
     void initialize();
-  }, [projectId]);
+  }, [loadEmployees, loadMemberships, loadProject, loadTasks, projectId]);
 
   useEffect(() => {
     void loadMemberships();
-  }, [membershipStatusFilter, projectId]);
+  }, [loadMemberships, membershipStatusFilter, projectId]);
 
   useEffect(() => {
     void loadTasks();
-  }, [taskStatusFilter, projectId]);
+  }, [loadTasks, projectId, taskStatusFilter]);
 
   useEffect(() => {
     if (selectedTaskId === null) {
@@ -243,7 +243,7 @@ export function ProjectBoard() {
     [selectedTaskId, tasks],
   );
 
-  const loadTaskHistory = async (taskId: number) => {
+  const loadTaskHistory = useCallback(async (taskId: number) => {
     setIsLoadingTaskHistory(true);
     try {
       const response = await getTaskHistory(taskId);
@@ -258,7 +258,7 @@ export function ProjectBoard() {
     } finally {
       setIsLoadingTaskHistory(false);
     }
-  };
+  }, []);
 
   const handleSelectTask = (taskId: number) => {
     setError("");
@@ -284,7 +284,7 @@ export function ProjectBoard() {
 
     setSelectedTaskId(taskIdFromQuery);
     void loadTaskHistory(taskIdFromQuery);
-  }, [searchParams, selectedTaskId, tasks]);
+  }, [loadTaskHistory, searchParams, selectedTaskId, tasks]);
 
   const handleAssign = async () => {
     const employeeId = Number(assignEmployeeId);
@@ -597,6 +597,11 @@ export function ProjectBoard() {
       </div>
 
       <div className="app-content">
+        {error && (
+          <section className="app-panel app-panel-pad">
+            <p className="text-sm text-destructive">{error}</p>
+          </section>
+        )}
         <section className="app-panel app-panel-pad">
           <h3 className="text-lg font-semibold text-foreground mb-3">Detalle basico</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">

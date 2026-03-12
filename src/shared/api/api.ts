@@ -108,7 +108,7 @@ const emitErrorToast = (message: string, options: RequestOptions, endpoint: stri
 };
 
 export const apiFetch = async <T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<T | null> => {
-    const { data, toast: _toast, ...requestOptions } = options;
+    const { data, ...requestOptions } = options;
     const headers = new Headers(options.headers || {});
     headers.set('Content-Type', 'application/json');
 

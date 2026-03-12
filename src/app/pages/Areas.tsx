@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Building2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
@@ -48,7 +48,7 @@ export function Areas() {
     setIsActive(true);
   };
 
-  const loadAreas = async () => {
+  const loadAreas = useCallback(async () => {
     try {
       setError("");
       const response = await listAreas(statusFilter);
@@ -62,11 +62,11 @@ export function Areas() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     void loadAreas();
-  }, [statusFilter]);
+  }, [loadAreas]);
 
   const startEdit = (area: AreaSummary) => {
     setEditingAreaId(area.id);
@@ -185,6 +185,7 @@ export function Areas() {
               <option value="inactive">Inactivas</option>
             </select>
           </div>
+          {error && <p className="px-4 pt-4 text-sm text-destructive">{error}</p>}
           {success && <p className="p-4 text-sm text-success">{success}</p>}
 
           {isLoading ? (
@@ -347,6 +348,7 @@ export function Areas() {
         confirmLabel="Eliminar"
         variant="destructive"
         isProcessing={isSubmitting}
+        confirmDelaySeconds={5}
         onConfirm={() => {
           if (!pendingDeleteArea) {
             return;

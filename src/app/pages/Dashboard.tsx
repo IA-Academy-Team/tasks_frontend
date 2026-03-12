@@ -309,6 +309,11 @@ export function Dashboard() {
       />
 
       <div className="app-content">
+        {error && (
+          <section className="app-panel app-panel-pad">
+            <p className="text-sm text-destructive">{error}</p>
+          </section>
+        )}
         {isEmployee && employeeDashboard && (
         <>
           <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">

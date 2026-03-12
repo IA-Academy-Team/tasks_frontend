@@ -11,7 +11,6 @@ import { useSession } from "../../modules/auth/providers/SessionProvider";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "./ui/dialog";
@@ -184,6 +183,11 @@ export function ProfileEditorModal({
             {success && (
               <p className="text-sm text-success bg-success/10 px-3 py-2 rounded-xl">
                 {success}
+              </p>
+            )}
+            {error && (
+              <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">
+                {error}
               </p>
             )}
 

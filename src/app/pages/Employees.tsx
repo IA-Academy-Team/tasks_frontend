@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { MoreHorizontal, Plus, Users2 } from "lucide-react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { MoreHorizontal, Plus, Trash2, Users2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { ApiError } from "../../shared/api/api";
@@ -22,6 +22,7 @@ import {
 import {
   assignEmployeeArea,
   createEmployee,
+  deleteEmployee,
   listEmployeeAreaAssignments,
   listEmployees,
   listEmployeeProjectMemberships,
@@ -60,6 +61,7 @@ export function Employees() {
     employee: EmployeeSummary;
     nextIsActive: boolean;
   } | null>(null);
+  const [pendingDeleteEmployee, setPendingDeleteEmployee] = useState<EmployeeSummary | null>(null);
 
   const resetForm = () => {
     setEditingEmployeeId(null);
@@ -72,7 +74,7 @@ export function Employees() {
     setIsActive(true);
   };
 
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     try {
       setError("");
       const response = await listEmployees(statusFilter);
@@ -86,7 +88,7 @@ export function Employees() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   const loadAreas = async () => {
     try {
@@ -122,7 +124,7 @@ export function Employees() {
 
   useEffect(() => {
     void loadEmployees();
-  }, [statusFilter]);
+  }, [loadEmployees]);
 
   useEffect(() => {
     void loadAreas();
@@ -228,6 +230,37 @@ export function Employees() {
     }
   };
 
+  const handleDeleteEmployee = async (employee: EmployeeSummary) => {
+    setError("");
+    setSuccess("");
+    setIsSubmitting(true);
+    try {
+      const response = await deleteEmployee(employee.id);
+      const mode = response?.data?.mode ?? "deleted";
+      setSuccess(
+        mode === "archived"
+          ? "Empleado archivado por historial existente."
+          : "Empleado eliminado correctamente.",
+      );
+
+      if (selectedEmployeeId === employee.id) {
+        setSelectedEmployeeId(null);
+        setEmployeeAreaAssignments([]);
+        setEmployeeProjectMemberships([]);
+      }
+
+      await loadEmployees();
+    } catch (incomingError) {
+      if (incomingError instanceof ApiError) {
+        setError(incomingError.message);
+      } else {
+        setError("No fue posible eliminar el empleado.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleOpenAssignments = async (employee: EmployeeSummary) => {
     setSelectedEmployeeId(employee.id);
     setAssignmentAreaId("");
@@ -312,6 +345,7 @@ export function Employees() {
               <option value="inactive">Inactivos</option>
             </select>
           </div>
+          {error && <p className="px-4 pt-4 text-sm text-destructive">{error}</p>}
           {success && <p className="p-4 text-sm text-success">{success}</p>}
 
           {isLoading ? (
@@ -378,6 +412,14 @@ export function Employees() {
                                   Activar
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setPendingDeleteEmployee(employee)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="size-4" />
+                                Eliminar
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -634,6 +676,33 @@ export function Employees() {
           const { employee, nextIsActive } = pendingStatusChange;
           setPendingStatusChange(null);
           void handleStatusChange(employee, nextIsActive);
+        }}
+      />
+
+      <ConfirmActionDialog
+        open={pendingDeleteEmployee !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteEmployee(null);
+          }
+        }}
+        title="Eliminar empleado"
+        description={
+          pendingDeleteEmployee
+            ? `Se eliminará a ${pendingDeleteEmployee.name}. Si existe historial, el backend archivará la cuenta en lugar de eliminarla definitivamente.`
+            : ""
+        }
+        confirmLabel="Eliminar"
+        variant="destructive"
+        isProcessing={isSubmitting}
+        confirmDelaySeconds={5}
+        onConfirm={() => {
+          if (!pendingDeleteEmployee) {
+            return;
+          }
+          const employeeToDelete = pendingDeleteEmployee;
+          setPendingDeleteEmployee(null);
+          void handleDeleteEmployee(employeeToDelete);
         }}
       />
     </div>
