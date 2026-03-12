@@ -11,50 +11,50 @@
   --primary-hover: #115e59;
   --primary-foreground: #ffffff;
 
-  --background: #edf2f7;
-  --card: #fdfefe;
-  --card-foreground: #10243a;
-  --popover: #fdfefe;
-  --popover-foreground: #10243a;
+  --background: #f4f8fd;
+  --card: #ffffff;
+  --card-foreground: #12263b;
+  --popover: #ffffff;
+  --popover-foreground: #12263b;
 
-  --foreground: #10243a;
-  --muted-foreground: #526476;
+  --foreground: #12263b;
+  --muted-foreground: #61758a;
 
-  --secondary: #dbe7f3;
-  --secondary-foreground: #10243a;
-  --muted: #e2eaf2;
-  --accent: #0b6ea8;
+  --secondary: #eaf1f9;
+  --secondary-foreground: #12263b;
+  --muted: #eef4fb;
+  --accent: #1178ad;
   --accent-foreground: #f5f9ff;
 
-  --success: #15803d;
+  --success: #0f8a49;
   --success-foreground: #ffffff;
-  --warning: #b45309;
+  --warning: #b86414;
   --warning-foreground: #fff7ed;
-  --destructive: #c2410c;
+  --destructive: #cc4b12;
   --destructive-foreground: #ffffff;
 
-  --border: rgba(16, 36, 58, 0.16);
+  --border: rgba(18, 38, 59, 0.12);
   --input: transparent;
-  --input-background: #f7fafc;
-  --switch-background: #526476;
+  --input-background: #ffffff;
+  --switch-background: #5d7185;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
   --ring: #0f766e;
-  --chart-1: #0b6ea8;
-  --chart-2: #15803d;
-  --chart-3: #b45309;
+  --chart-1: #1178ad;
+  --chart-2: #0f8a49;
+  --chart-3: #b86414;
   --chart-4: #0f766e;
-  --chart-5: #526476;
+  --chart-5: #61758a;
   --radius: 0.8rem;
 
-  --sidebar: #0d2f4a;
-  --sidebar-foreground: #f8fbff;
-  --sidebar-primary: #14b8a6;
+  --sidebar: #ecf3fb;
+  --sidebar-foreground: #173a58;
+  --sidebar-primary: #0f766e;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255, 255, 255, 0.11);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(185, 224, 255, 0.16);
-  --sidebar-ring: rgba(190, 233, 255, 0.46);
+  --sidebar-accent: rgba(23, 58, 88, 0.09);
+  --sidebar-accent-foreground: #0f314e;
+  --sidebar-border: rgba(23, 58, 88, 0.14);
+  --sidebar-ring: rgba(15, 118, 110, 0.28);
 }
 
 .dark {
@@ -144,8 +144,8 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    background-image: radial-gradient(circle at 12% 8%, rgba(15, 118, 110, 0.09), transparent 32%),
-      radial-gradient(circle at 82% 18%, rgba(11, 110, 168, 0.08), transparent 38%);
+    background-image: radial-gradient(circle at 12% 8%, rgba(15, 118, 110, 0.07), transparent 34%),
+      radial-gradient(circle at 82% 18%, rgba(17, 120, 173, 0.06), transparent 40%);
     min-height: 100vh;
   }
 
