@@ -112,9 +112,6 @@ export function ProfileEditorModal({
             <UserCircle2 className="size-5 text-primary" />
             Editar perfil
           </DialogTitle>
-          <DialogDescription>
-            Actualiza tu información básica de usuario.
-          </DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
