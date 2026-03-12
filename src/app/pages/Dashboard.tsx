@@ -96,7 +96,7 @@ function StatCard(props: {
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{props.title}</p>
-          <p className="mt-2 text-2xl font-semibold text-foreground">{props.value}</p>
+          <p className="mt-2 text-2xl font-semibold text-primary">{props.value}</p>
         </div>
         <div className="rounded-xl bg-primary/12 p-2 text-primary">{props.icon}</div>
       </div>
@@ -385,29 +385,8 @@ export function Dashboard() {
 
         {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && adminInsights && (
         <>
-          <section className="app-panel app-panel-pad space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Filtros globales</h2>
-                <p className="text-sm text-muted-foreground">Ajusta el panorama operativo del equipo.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setDateFrom("");
-                  setDateTo("");
-                  setProjectIdFilter("");
-                  setAreaIdFilter("");
-                  setEmployeeIdFilter("");
-                  setComplianceFilter("all");
-                }}
-                className="app-btn-secondary"
-              >
-                {isLoadingFilters ? "Cargando..." : "Limpiar filtros"}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+          <section className="app-panel app-panel-pad">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
               <DateRangeFilter
                 dateFrom={dateFrom}
                 dateTo={dateTo}
@@ -461,26 +440,40 @@ export function Dashboard() {
                 <option value="all">Cumplimiento: todos</option>
                 <option value="on_time">En tiempo</option>
                 <option value="estimate_delayed">Atraso estimado</option>
-                  <option value="date_overdue">Atraso por fecha</option>
-                </select>
+                <option value="date_overdue">Atraso por fecha</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                  setProjectIdFilter("");
+                  setAreaIdFilter("");
+                  setEmployeeIdFilter("");
+                  setComplianceFilter("all");
+                }}
+                className="app-btn-secondary w-full"
+              >
+                {isLoadingFilters ? "Cargando..." : "Limpiar filtros"}
+              </button>
             </div>
           </section>
 
           <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
             <article className="app-panel px-5 py-4">
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{adminDashboard.teamSummary.totalTasks}</p>
+              <p className="text-3xl font-semibold tracking-tight text-primary">{adminDashboard.teamSummary.totalTasks}</p>
               <p className="mt-1 text-sm text-muted-foreground">Tareas totales</p>
             </article>
             <article className="app-panel px-5 py-4">
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{adminDashboard.teamSummary.completionRate}%</p>
+              <p className="text-3xl font-semibold tracking-tight text-primary">{adminDashboard.teamSummary.completionRate}%</p>
               <p className="mt-1 text-sm text-muted-foreground">Cumplimiento</p>
             </article>
             <article className="app-panel px-5 py-4">
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{formatMinutes(adminDashboard.teamSummary.totalEstimatedMinutes)}</p>
+              <p className="text-3xl font-semibold tracking-tight text-primary">{formatMinutes(adminDashboard.teamSummary.totalEstimatedMinutes)}</p>
               <p className="mt-1 text-sm text-muted-foreground">Tiempo estimado</p>
             </article>
             <article className="app-panel px-5 py-4">
-              <p className="text-3xl font-semibold tracking-tight text-foreground">{formatMinutes(adminDashboard.teamSummary.totalActualMinutes)}</p>
+              <p className="text-3xl font-semibold tracking-tight text-primary">{formatMinutes(adminDashboard.teamSummary.totalActualMinutes)}</p>
               <p className="mt-1 text-sm text-muted-foreground">Tiempo real</p>
             </article>
           </section>
@@ -570,7 +563,7 @@ export function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {adminInsights.complianceSegments.map((segment) => (
                 <article key={segment.key} className="rounded-xl border border-border bg-background px-4 py-3">
-                  <p className="text-2xl font-semibold text-foreground">{segment.count}</p>
+                  <p className={`text-2xl font-semibold ${segment.textClassName}`}>{segment.count}</p>
                   <p className={`mt-1 text-sm font-medium ${segment.textClassName}`}>{segment.label}</p>
                   <p className="text-xs text-muted-foreground">{segment.percentage}% del total</p>
                 </article>
