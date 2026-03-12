@@ -2,19 +2,15 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import {
   AlertTriangle,
-  BarChart3,
   CalendarClock,
   ChevronDown,
   ChevronUp,
   CheckCircle2,
   Clock3,
   ExternalLink,
-  FileText,
   FolderKanban,
-  Gauge,
   LayoutDashboard,
   Timer,
-  Users,
 } from "lucide-react";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
@@ -76,6 +72,20 @@ const getComplianceBadgeClass = (complianceStatus: "on_time" | "estimate_delayed
 const getAlertReasonClass = (reason: "DATE_OVERDUE" | "ESTIMATE_OVERDUE") =>
   reason === "DATE_OVERDUE" ? "text-destructive" : "text-warning";
 
+const toPercentage = (count: number, total: number): number => {
+  if (total <= 0) return 0;
+  return Math.round((count / total) * 100);
+};
+
+type ComplianceSegment = {
+  key: "on_time" | "estimate_delayed" | "date_overdue";
+  label: string;
+  count: number;
+  percentage: number;
+  barClassName: string;
+  textClassName: string;
+};
+
 function StatCard(props: {
   title: string;
   value: string | number;
@@ -120,9 +130,6 @@ export function Dashboard() {
   const [employeeIdFilter, setEmployeeIdFilter] = useState("");
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
   const [isAlertsExpanded, setIsAlertsExpanded] = useState(true);
-  const [isComplianceExpanded, setIsComplianceExpanded] = useState(true);
-  const [isEmployeeProductivityExpanded, setIsEmployeeProductivityExpanded] = useState(true);
-  const [isAreaProductivityExpanded, setIsAreaProductivityExpanded] = useState(true);
 
   const adminQuery: AdminDashboardQuery = useMemo(() => ({
     dateFrom: dateFrom || undefined,
@@ -137,6 +144,72 @@ export function Dashboard() {
     compliance: complianceFilter,
     limit: 300,
   }), [adminQuery, complianceFilter]);
+
+  const adminInsights = useMemo(() => {
+    if (!adminDashboard || !taskComplianceReport) {
+      return null;
+    }
+
+    const complianceSummary = taskComplianceReport.summary;
+    const complianceTotal = complianceSummary.totalTasks;
+    const complianceSegments: ComplianceSegment[] = [
+      {
+        key: "on_time",
+        label: "En tiempo",
+        count: complianceSummary.onTimeTasks,
+        percentage: toPercentage(complianceSummary.onTimeTasks, complianceTotal),
+        barClassName: "bg-success",
+        textClassName: "text-success",
+      },
+      {
+        key: "estimate_delayed",
+        label: "Atraso estimado",
+        count: complianceSummary.estimateDelayedTasks,
+        percentage: toPercentage(complianceSummary.estimateDelayedTasks, complianceTotal),
+        barClassName: "bg-warning",
+        textClassName: "text-warning",
+      },
+      {
+        key: "date_overdue",
+        label: "Atraso por fecha",
+        count: complianceSummary.dateOverdueTasks,
+        percentage: toPercentage(complianceSummary.dateOverdueTasks, complianceTotal),
+        barClassName: "bg-destructive",
+        textClassName: "text-destructive",
+      },
+    ];
+
+    const topEmployees = [...adminDashboard.employeeProductivity]
+      .sort((a, b) => (
+        b.completionRate - a.completionRate
+        || b.doneTasks - a.doneTasks
+        || b.totalTasks - a.totalTasks
+      ))
+      .slice(0, 5);
+
+    const topAreas = [...adminDashboard.areaProductivity]
+      .sort((a, b) => (
+        b.completionRate - a.completionRate
+        || b.doneTasks - a.doneTasks
+        || b.totalTasks - a.totalTasks
+      ))
+      .slice(0, 5);
+
+    const recentActivity = [...taskComplianceReport.rows]
+      .sort((a, b) => {
+        const aDate = new Date(a.completedAt ?? a.dueDate).getTime();
+        const bDate = new Date(b.completedAt ?? b.dueDate).getTime();
+        return bDate - aDate;
+      })
+      .slice(0, 6);
+
+    return {
+      complianceSegments,
+      topEmployees,
+      topAreas,
+      recentActivity,
+    };
+  }, [adminDashboard, taskComplianceReport]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -310,10 +383,31 @@ export function Dashboard() {
         </>
         )}
 
-        {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && (
+        {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && adminInsights && (
         <>
-          <section className="app-panel app-panel-pad space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+          <section className="app-panel app-panel-pad space-y-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Filtros globales</h2>
+                <p className="text-sm text-muted-foreground">Ajusta el panorama operativo del equipo.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDateFrom("");
+                  setDateTo("");
+                  setProjectIdFilter("");
+                  setAreaIdFilter("");
+                  setEmployeeIdFilter("");
+                  setComplianceFilter("all");
+                }}
+                className="app-btn-secondary"
+              >
+                {isLoadingFilters ? "Cargando..." : "Limpiar filtros"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
               <DateRangeFilter
                 dateFrom={dateFrom}
                 dateTo={dateTo}
@@ -367,338 +461,248 @@ export function Dashboard() {
                 <option value="all">Cumplimiento: todos</option>
                 <option value="on_time">En tiempo</option>
                 <option value="estimate_delayed">Atraso estimado</option>
-                <option value="date_overdue">Atraso por fecha</option>
-              </select>
-              <button
-                type="button"
-                onClick={() => {
-                  setDateFrom("");
-                  setDateTo("");
-                  setProjectIdFilter("");
-                  setAreaIdFilter("");
-                  setEmployeeIdFilter("");
-                  setComplianceFilter("all");
-                }}
-                className="app-btn-secondary"
-              >
-                {isLoadingFilters ? "Cargando..." : "Limpiar filtros"}
-              </button>
+                  <option value="date_overdue">Atraso por fecha</option>
+                </select>
             </div>
           </section>
 
           <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-            <StatCard
-              title="Tareas totales"
-              value={adminDashboard.teamSummary.totalTasks}
-              icon={<BarChart3 className="size-5" />}
-            />
-            <StatCard
-              title="Cumplimiento"
-              value={`${adminDashboard.teamSummary.completionRate}%`}
-              icon={<Gauge className="size-5" />}
-            />
-            <StatCard
-              title="Tiempo estimado"
-              value={formatMinutes(adminDashboard.teamSummary.totalEstimatedMinutes)}
-              icon={<Clock3 className="size-5" />}
-            />
-            <StatCard
-              title="Tiempo real"
-              value={formatMinutes(adminDashboard.teamSummary.totalActualMinutes)}
-              icon={<Timer className="size-5" />}
-            />
+            <article className="app-panel px-5 py-4">
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{adminDashboard.teamSummary.totalTasks}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Tareas totales</p>
+            </article>
+            <article className="app-panel px-5 py-4">
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{adminDashboard.teamSummary.completionRate}%</p>
+              <p className="mt-1 text-sm text-muted-foreground">Cumplimiento</p>
+            </article>
+            <article className="app-panel px-5 py-4">
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{formatMinutes(adminDashboard.teamSummary.totalEstimatedMinutes)}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Tiempo estimado</p>
+            </article>
+            <article className="app-panel px-5 py-4">
+              <p className="text-3xl font-semibold tracking-tight text-foreground">{formatMinutes(adminDashboard.teamSummary.totalActualMinutes)}</p>
+              <p className="mt-1 text-sm text-muted-foreground">Tiempo real</p>
+            </article>
           </section>
 
           <section className="app-panel overflow-hidden">
-            <div className="app-panel-header">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">Alertas activas de atraso</h2>
+            <button
+              type="button"
+              onClick={() => setIsAlertsExpanded((current) => !current)}
+              className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left"
+              aria-expanded={isAlertsExpanded}
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                  <AlertTriangle className="size-4" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate text-base font-semibold text-foreground">
+                    {overdueAlerts.counters.totalAlerts} tarea(s) con alerta activa
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Fecha: {overdueAlerts.counters.dateOverdueAlerts} · Estimación: {overdueAlerts.counters.estimateOverdueAlerts}
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsAlertsExpanded((current) => !current)}
-                  className="app-btn-secondary px-3 py-1.5 text-xs"
-                  aria-expanded={isAlertsExpanded}
-                >
-                  {isAlertsExpanded ? "" : ""}
-                  {isAlertsExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-                </button>
-              </div>
-            </div>
+              {isAlertsExpanded ? <ChevronUp className="size-4 text-muted-foreground" /> : <ChevronDown className="size-4 text-muted-foreground" />}
+            </button>
+
             {isAlertsExpanded && (
               <>
-                <div className="px-5 py-3 bg-secondary/20 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
-                  <span>Fecha: {overdueAlerts.counters.dateOverdueAlerts}</span>
-                  <span>Estimacion: {overdueAlerts.counters.estimateOverdueAlerts}</span>
-                </div>
                 {overdueAlerts.alerts.length === 0 ? (
-                  <div className="px-5 py-6 text-sm text-muted-foreground">
+                  <div className="px-5 py-5 border-t border-border text-sm text-muted-foreground">
                     No hay tareas con alertas activas para los filtros seleccionados.
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
-                    {overdueAlerts.alerts.map((alert) => (
-                      <div key={alert.taskId} className="px-5 py-4 flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className={`size-4 ${getAlertReasonClass(alert.reason)}`} />
-                            <p className="font-medium text-foreground">{alert.title}</p>
-                            <span className={`text-xs font-medium ${getAlertReasonClass(alert.reason)}`}>
-                              {alert.reasonLabel}
-                            </span>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            {alert.projectName} · {alert.areaName} · Estado: {alert.status}
+                  <div className="border-t border-border divide-y divide-border">
+                    {overdueAlerts.alerts.slice(0, 6).map((alert) => (
+                      <article key={alert.taskId} className="px-5 py-3.5 flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">{alert.title}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {alert.projectName} · {alert.assigneeName ?? "Sin asignar"} · Vence {formatDate(alert.dueDate)}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Vence: {formatDate(alert.dueDate)} · Estimado: {alert.estimatedMinutes === null ? "-" : formatMinutes(alert.estimatedMinutes)}
-                            {" · "}
-                            Real: {formatMinutes(alert.actualMinutes)}
-                            {alert.daysOverdue ? ` · ${alert.daysOverdue} dia(s) de atraso` : ""}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Responsable: {alert.assigneeName ?? "Sin asignar"}{alert.assigneeEmail ? ` (${alert.assigneeEmail})` : ""}
-                          </p>
+                          <p className={`mt-1 text-xs font-medium ${getAlertReasonClass(alert.reason)}`}>{alert.reasonLabel}</p>
                         </div>
                         <button
                           type="button"
                           onClick={() => navigate(`/projects/${alert.projectId}?taskId=${alert.taskId}`)}
-                          className="app-btn-secondary"
+                          className="app-action-link inline-flex items-center gap-1"
                         >
                           Ver tarea
-                          <ExternalLink className="size-4" />
+                          <ExternalLink className="size-3.5" />
                         </button>
-                      </div>
+                      </article>
                     ))}
+                    {overdueAlerts.alerts.length > 6 && (
+                      <p className="px-5 py-3 text-xs text-muted-foreground">
+                        Mostrando 6 de {overdueAlerts.alerts.length} alertas.
+                      </p>
+                    )}
                   </div>
                 )}
               </>
             )}
           </section>
 
-          <section className="app-panel overflow-hidden">
-            <div className="app-panel-header">
+          <section className="app-panel app-panel-pad space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-foreground">Reporte de cumplimiento</h2>
+                <h2 className="text-lg font-semibold text-foreground">Cumplimiento del equipo</h2>
+                <p className="text-sm text-muted-foreground">Vista agregada de entregas en tiempo y atrasos.</p>
               </div>
-              <div className="flex items-center gap-3">
+              <p className="text-sm font-medium text-foreground">{adminDashboard.teamSummary.completionRate}% global</p>
+            </div>
+
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-secondary/70 flex">
+              {adminInsights.complianceSegments.map((segment) => (
+                segment.count > 0 ? (
+                  <div
+                    key={segment.key}
+                    className={segment.barClassName}
+                    style={{ width: `${segment.percentage}%` }}
+                  />
+                ) : null
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {adminInsights.complianceSegments.map((segment) => (
+                <article key={segment.key} className="rounded-xl border border-border bg-background px-4 py-3">
+                  <p className="text-2xl font-semibold text-foreground">{segment.count}</p>
+                  <p className={`mt-1 text-sm font-medium ${segment.textClassName}`}>{segment.label}</p>
+                  <p className="text-xs text-muted-foreground">{segment.percentage}% del total</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <section className="app-panel app-panel-pad">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-foreground">Top empleados</h2>
                 <button
                   type="button"
-                  onClick={() => setIsComplianceExpanded((current) => !current)}
-                  className="app-btn-secondary px-3 py-1.5 text-xs"
-                  aria-expanded={isComplianceExpanded}
+                  onClick={() => navigate("/employees")}
+                  className="app-action-link text-sm"
                 >
-                  {isComplianceExpanded ? "" : ""}
-                  {isComplianceExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                  Ver equipo
                 </button>
               </div>
-            </div>
-            {isComplianceExpanded && (
-              <>
-                <div className="px-5 py-3 bg-secondary/20 text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-1">
-                  <span>Total: {taskComplianceReport.summary.totalTasks}</span>
-                  <span>En tiempo: {taskComplianceReport.summary.onTimeTasks}</span>
-                  <span>Atraso estimado: {taskComplianceReport.summary.estimateDelayedTasks}</span>
-                  <span>Atraso por fecha: {taskComplianceReport.summary.dateOverdueTasks}</span>
+              {adminInsights.topEmployees.length === 0 ? (
+                <p className="mt-4 text-sm text-muted-foreground">Sin datos para los filtros seleccionados.</p>
+              ) : (
+                <ol className="mt-4 space-y-2.5">
+                  {adminInsights.topEmployees.map((item, index) => (
+                    <li
+                      key={item.employeeId}
+                      className="rounded-xl border border-border bg-background px-3.5 py-3 flex items-center gap-3"
+                    >
+                      <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-foreground">
+                        {index + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">{item.employeeName}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {item.doneTasks} terminadas · {item.totalTasks} totales
+                        </p>
+                      </div>
+                      <span className="text-sm font-semibold text-foreground">{item.completionRate}%</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+
+            <section className="app-panel app-panel-pad">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-foreground">Top áreas</h2>
+                <button
+                  type="button"
+                  onClick={() => navigate("/areas")}
+                  className="app-action-link text-sm"
+                >
+                  Ver áreas
+                </button>
+              </div>
+              {adminInsights.topAreas.length === 0 ? (
+                <p className="mt-4 text-sm text-muted-foreground">Sin datos para los filtros seleccionados.</p>
+              ) : (
+                <div className="mt-4 space-y-3.5">
+                  {adminInsights.topAreas.map((item) => (
+                    <article key={item.areaId} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-3 text-sm">
+                        <p className="font-medium text-foreground">{item.areaName}</p>
+                        <p className="text-foreground">{item.completionRate}%</p>
+                      </div>
+                      <div className="h-2 w-full rounded-full bg-secondary/80 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${Math.max(0, Math.min(100, item.completionRate))}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">{item.doneTasks} de {item.totalTasks} tareas terminadas</p>
+                    </article>
+                  ))}
                 </div>
-                {taskComplianceReport.rows.length === 0 ? (
-                  <div className="px-5 py-6 text-sm text-muted-foreground">
-                    No hay tareas en el reporte para los filtros seleccionados.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="app-table">
-                      <thead className="app-table-head">
-                        <tr>
-                          <th className="app-th">Tarea</th>
-                          <th className="app-th">Proyecto</th>
-                          <th className="app-th">Responsable</th>
-                          <th className="app-th">Estado</th>
-                          <th className="app-th">Vence</th>
-                          <th className="app-th">Estimado</th>
-                          <th className="app-th">Real</th>
-                          <th className="app-th">Desvio</th>
-                          <th className="app-th">Cumplimiento</th>
-                          <th className="app-th">Accion</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {taskComplianceReport.rows.map((row) => (
-                          <tr
-                            key={row.taskId}
-                            className={`app-row ${
-                              row.complianceStatus === "date_overdue"
-                                ? "bg-destructive/5"
-                                : row.complianceStatus === "estimate_delayed"
-                                  ? "bg-warning/10"
-                                  : ""
-                            }`}
-                          >
-                            <td className="app-td">
-                              <p>{row.title}</p>
-                              <p className="text-xs text-muted-foreground">{row.priority}</p>
-                            </td>
-                            <td className="app-td">
-                              <p>{row.projectName}</p>
-                              <p className="text-xs text-muted-foreground">{row.areaName}</p>
-                            </td>
-                            <td className="app-td">
-                              {row.assigneeName ? (
-                                <>
-                                  <p>{row.assigneeName}</p>
-                                  <p className="text-xs text-muted-foreground">{row.assigneeEmail}</p>
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground">Sin asignar</span>
-                              )}
-                            </td>
-                            <td className="app-td">{row.status}</td>
-                            <td className="app-td">
-                              <p>{formatDate(row.dueDate)}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {row.completedAt ? `Cierre: ${formatDateTime(row.completedAt)}` : "Sin cierre"}
-                              </p>
-                            </td>
-                            <td className="app-td">
-                              {row.estimatedMinutes === null ? "-" : formatMinutes(row.estimatedMinutes)}
-                            </td>
-                            <td className="app-td">{formatMinutes(row.actualMinutes)}</td>
-                            <td className="app-td">
-                              {row.deviationMinutes === null ? "-" : `${row.deviationMinutes > 0 ? "+" : ""}${row.deviationMinutes} min`}
-                            </td>
-                            <td className={`app-td font-medium ${getComplianceBadgeClass(row.complianceStatus)}`}>
-                              {row.complianceLabel}
-                            </td>
-                            <td className="app-td">
-                              <button
-                                type="button"
-                                onClick={() => navigate(`/projects/${row.projectId}?taskId=${row.taskId}`)}
-                                className="app-action-link inline-flex items-center gap-1"
-                              >
-                                Ver
-                                <ExternalLink className="size-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
+              )}
+            </section>
           </section>
 
-          <section className="app-panel overflow-hidden">
-            <div className="app-panel-header">
-              <h2 className="text-lg font-semibold text-foreground">Productividad por empleado</h2>
+          <section className="app-panel app-panel-pad">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Actividad reciente</h2>
+                <p className="text-sm text-muted-foreground">Últimos movimientos de tareas según los filtros activos.</p>
+              </div>
               <button
                 type="button"
-                onClick={() => setIsEmployeeProductivityExpanded((current) => !current)}
-                className="app-btn-secondary px-3 py-1.5 text-xs"
-                aria-expanded={isEmployeeProductivityExpanded}
+                onClick={() => navigate("/projects")}
+                className="app-action-link inline-flex items-center gap-1"
               >
-                {isEmployeeProductivityExpanded ? "" : ""}
-                {isEmployeeProductivityExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+                Ver reporte completo
+                <ExternalLink className="size-3.5" />
               </button>
             </div>
-            {isEmployeeProductivityExpanded && (
-              <>
-                {adminDashboard.employeeProductivity.length === 0 ? (
-                  <div className="px-5 py-6 text-sm text-muted-foreground">
-                    Sin datos para los filtros seleccionados.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="app-table">
-                      <thead className="app-table-head">
-                        <tr>
-                          <th className="app-th">Empleado</th>
-                          <th className="app-th">Tareas</th>
-                          <th className="app-th">Terminadas</th>
-                          <th className="app-th">Cumplimiento</th>
-                          <th className="app-th">Estimado</th>
-                          <th className="app-th">Real</th>
-                          <th className="app-th">Desvio</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {adminDashboard.employeeProductivity.map((item) => (
-                          <tr key={item.employeeId} className="app-row">
-                            <td className="app-td">
-                              <p>{item.employeeName}</p>
-                              <p className="text-xs text-muted-foreground">{item.employeeEmail}</p>
-                            </td>
-                            <td className="app-td">{item.totalTasks}</td>
-                            <td className="app-td">{item.doneTasks}</td>
-                            <td className="app-td">{item.completionRate}%</td>
-                            <td className="app-td">{formatMinutes(item.totalEstimatedMinutes)}</td>
-                            <td className="app-td">{formatMinutes(item.totalActualMinutes)}</td>
-                            <td className="app-td">
-                              {item.totalDeviationMinutes > 0 ? "+" : ""}{item.totalDeviationMinutes} min
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
-            )}
-          </section>
 
-          <section className="app-panel overflow-hidden">
-            <div className="app-panel-header">
-              <h2 className="text-lg font-semibold text-foreground">Productividad por area</h2>
-              <button
-                type="button"
-                onClick={() => setIsAreaProductivityExpanded((current) => !current)}
-                className="app-btn-secondary px-3 py-1.5 text-xs"
-                aria-expanded={isAreaProductivityExpanded}
-              >
-                {isAreaProductivityExpanded ? "" : ""}
-                {isAreaProductivityExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-              </button>
-            </div>
-            {isAreaProductivityExpanded && (
-              <>
-                {adminDashboard.areaProductivity.length === 0 ? (
-                  <div className="px-5 py-6 text-sm text-muted-foreground">
-                    Sin datos para los filtros seleccionados.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="app-table">
-                      <thead className="app-table-head">
-                        <tr>
-                          <th className="app-th">Area</th>
-                          <th className="app-th">Tareas</th>
-                          <th className="app-th">Asignadas</th>
-                          <th className="app-th">En proceso</th>
-                          <th className="app-th">Terminadas</th>
-                          <th className="app-th">Cumplimiento</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {adminDashboard.areaProductivity.map((item) => (
-                          <tr key={item.areaId} className="app-row">
-                            <td className="app-td flex items-center gap-2">
-                              <Users className="size-4 text-primary" />
-                              {item.areaName}
-                            </td>
-                            <td className="app-td">{item.totalTasks}</td>
-                            <td className="app-td">{item.assignedTasks}</td>
-                            <td className="app-td">{item.inProgressTasks}</td>
-                            <td className="app-td">{item.doneTasks}</td>
-                            <td className="app-td">{item.completionRate}%</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
+            {adminInsights.recentActivity.length === 0 ? (
+              <p className="mt-4 text-sm text-muted-foreground">No hay actividad para los filtros seleccionados.</p>
+            ) : (
+              <div className="mt-4 space-y-2.5">
+                {adminInsights.recentActivity.map((row) => (
+                  <article key={row.taskId} className="rounded-xl border border-border bg-background px-4 py-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{row.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {row.projectName} · {row.assigneeName ?? "Sin asignar"}
+                        </p>
+                      </div>
+                      <span className={`text-xs font-medium ${getComplianceBadgeClass(row.complianceStatus)}`}>
+                        {row.complianceLabel}
+                      </span>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>Vence: {formatDate(row.dueDate)}</span>
+                      <span>Estimado: {row.estimatedMinutes === null ? "-" : formatMinutes(row.estimatedMinutes)}</span>
+                      <span>Real: {formatMinutes(row.actualMinutes)}</span>
+                      <span>Desvío: {row.deviationMinutes === null ? "-" : `${row.deviationMinutes > 0 ? "+" : ""}${row.deviationMinutes} min`}</span>
+                      {row.completedAt && <span>Cierre: {formatDateTime(row.completedAt)}</span>}
+                    </div>
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/projects/${row.projectId}?taskId=${row.taskId}`)}
+                        className="app-action-link inline-flex items-center gap-1 text-xs"
+                      >
+                        Ver tarea
+                        <ExternalLink className="size-3.5" />
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
             )}
           </section>
         </>
