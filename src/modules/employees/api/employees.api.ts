@@ -112,7 +112,6 @@ export const createEmployee = (payload: CreateEmployeePayload) =>
   api.post<EmployeeResponse>(`${API_PREFIX}/employees`, payload, {
     toast: {
       successMessage: "Empleado creado correctamente.",
-      errorMessage: "No fue posible crear el empleado.",
     },
   });
 

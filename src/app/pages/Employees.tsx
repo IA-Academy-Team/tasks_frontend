@@ -158,6 +158,10 @@ export function Employees() {
       toast.error("El nombre es obligatorio.");
       return;
     }
+    if (trimmedName.length < 2) {
+      toast.error("El nombre debe tener al menos 2 caracteres.");
+      return;
+    }
 
     if (!editingEmployeeId) {
       if (!trimmedEmail) {
@@ -165,10 +169,47 @@ export function Employees() {
         return;
       }
 
+      if (!trimmedEmail.includes("@")) {
+        toast.error("El correo debe incluir el simbolo @.");
+        return;
+      }
+
+      const [localPart, domainPart] = trimmedEmail.split("@");
+      if (!localPart) {
+        toast.error("El correo debe incluir texto antes de @.");
+        return;
+      }
+      if (!domainPart) {
+        toast.error("El correo debe incluir un dominio despues de @.");
+        return;
+      }
+      if (!domainPart.includes(".")) {
+        toast.error("El dominio del correo no es valido. Ejemplo: correo@empresa.com");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        toast.error("El correo electronico no tiene un formato valido.");
+        return;
+      }
+
       if (!password.trim()) {
         toast.error("La contrasena es obligatoria para crear un empleado.");
         return;
       }
+      if (password.trim().length < 8) {
+        toast.error("La contrasena debe tener minimo 8 caracteres.");
+        return;
+      }
+    }
+
+    if (trimmedPhoneNumber && trimmedPhoneNumber.length > 30) {
+      toast.error("El telefono no puede superar 30 caracteres.");
+      return;
+    }
+
+    if (trimmedImage && !/^https?:\/\//i.test(trimmedImage)) {
+      toast.error("La URL de imagen debe iniciar con http:// o https://");
+      return;
     }
 
     setIsSubmitting(true);
