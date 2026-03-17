@@ -13,7 +13,6 @@ import { useAuth } from "../context/AuthContext";
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import { PageHero } from "../components/PageHero";
 import { DashboardMetrics } from "../components/dashboard/DashboardMetrics";
-import { ProjectHealthSection, type ProjectHealthItem } from "../components/dashboard/ProjectHealthSection";
 import { TeamPerformanceSection, type TeamPerformanceItem } from "../components/dashboard/TeamPerformanceSection";
 import { WorkloadDistributionChart, type WorkloadItem } from "../components/dashboard/WorkloadDistributionChart";
 import { RecentActivity } from "../components/dashboard/RecentActivity";
@@ -62,7 +61,6 @@ type AdminInsights = {
     value: number;
     fill: string;
   }[];
-  projectHealth: ProjectHealthItem[];
   teamPerformance: TeamPerformanceItem[];
   workload: WorkloadItem[];
   recentActivity: TaskComplianceReportData["rows"];
@@ -174,38 +172,6 @@ export function Dashboard() {
       }))
       .sort((a, b) => b.completionRate - a.completionRate || b.doneTasks - a.doneTasks);
 
-    const projectHealthMap = new Map<number, ProjectHealthItem>();
-    taskComplianceReport.rows.forEach((row) => {
-      const current = projectHealthMap.get(row.projectId);
-      if (!current) {
-        projectHealthMap.set(row.projectId, {
-          projectId: row.projectId,
-          projectName: row.projectName,
-          totalTasks: 1,
-          completedTasks: isDoneStatus(row.status) ? 1 : 0,
-          overdueTasks: row.isDateOverdue ? 1 : 0,
-          completionRate: 0,
-          estimatedMinutes: row.estimatedMinutes ?? 0,
-          actualMinutes: row.actualMinutes,
-        });
-        return;
-      }
-      current.totalTasks += 1;
-      current.completedTasks += isDoneStatus(row.status) ? 1 : 0;
-      current.overdueTasks += row.isDateOverdue ? 1 : 0;
-      current.estimatedMinutes += row.estimatedMinutes ?? 0;
-      current.actualMinutes += row.actualMinutes;
-    });
-
-    const projectHealth = [...projectHealthMap.values()]
-      .map((project) => ({
-        ...project,
-        completionRate: project.totalTasks > 0
-          ? Math.round((project.completedTasks / project.totalTasks) * 100)
-          : 0,
-      }))
-      .sort((a, b) => b.overdueTasks - a.overdueTasks || a.completionRate - b.completionRate);
-
     const recentActivity = [...taskComplianceReport.rows]
       .sort((a, b) => {
         const aDate = new Date(a.completedAt ?? a.dueDate).getTime();
@@ -218,7 +184,6 @@ export function Dashboard() {
       efficiencyRate,
       overloadThreshold,
       statusDistribution,
-      projectHealth,
       teamPerformance,
       workload,
       recentActivity,
@@ -482,12 +447,6 @@ export function Dashboard() {
               efficiencyRate={adminInsights.efficiencyRate}
               statusDistribution={adminInsights.statusDistribution}
             />
-
-            <ProjectHealthSection
-              projects={adminInsights.projectHealth}
-              onOpenProject={(projectId) => navigate(`/projects/${projectId}`)}
-            />
-
             <TeamPerformanceSection
               team={adminInsights.teamPerformance}
               onOpenEmployees={() => navigate("/employees")}

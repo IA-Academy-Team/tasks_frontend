@@ -105,6 +105,10 @@ export interface AssignEmployeeAreaPayload {
   areaId: number;
 }
 
+export interface UnassignEmployeeAreaPayload {
+  areaId?: number;
+}
+
 export const listEmployees = (status: EmployeeStatusFilter) =>
   api.get<EmployeesResponse>(`${API_PREFIX}/employees?status=${status}`);
 
@@ -150,6 +154,20 @@ export const assignEmployeeArea = (
     toast: {
       successMessage: "Area asignada correctamente.",
       errorMessage: "No fue posible asignar el area.",
+    },
+  },
+);
+
+export const unassignEmployeeArea = (
+  employeeId: number,
+  payload: UnassignEmployeeAreaPayload = {},
+) => api.patch<EmployeeAreaAssignmentResponse>(
+  `${API_PREFIX}/employees/${employeeId}/area-assignments/unassign`,
+  payload,
+  {
+    toast: {
+      successMessage: "Empleado retirado del area correctamente.",
+      errorMessage: "No fue posible retirar el empleado del area.",
     },
   },
 );

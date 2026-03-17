@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import { listEmployees, type EmployeeSummary } from "../../modules/employees/api/employees.api";
 import {
   assignProjectMembership,
@@ -94,17 +100,17 @@ export function ProjectBoard() {
   const [reassignMembershipId, setReassignMembershipId] = useState("");
   const [reassignEmployeeId, setReassignEmployeeId] = useState("");
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
-  const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPlannedStartDate, setTaskPlannedStartDate] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
-  const [taskEstimatedMinutes, setTaskEstimatedMinutes] = useState("");
+  const [taskEstimatedHours, setTaskEstimatedHours] = useState("");
+  const [taskAreaId, setTaskAreaId] = useState("");
   const [taskAssigneeMembershipId, setTaskAssigneeMembershipId] = useState("");
-  const [taskPriorityId, setTaskPriorityId] = useState("2");
   const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [pendingUnassignMembership, setPendingUnassignMembership] = useState<ProjectMembership | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
 
@@ -112,13 +118,12 @@ export function ProjectBoard() {
 
   const resetTaskForm = () => {
     setEditingTaskId(null);
-    setTaskTitle("");
     setTaskDescription("");
     setTaskPlannedStartDate("");
     setTaskDueDate("");
-    setTaskEstimatedMinutes("");
+    setTaskEstimatedHours("");
+    setTaskAreaId(project ? String(project.areaId) : "");
     setTaskAssigneeMembershipId("");
-    setTaskPriorityId("2");
   };
 
   const loadProject = useCallback(async () => {
@@ -220,6 +225,31 @@ export function ProjectBoard() {
     () => memberships.filter((membership) => membership.isActive),
     [memberships],
   );
+
+  const taskAreaOptions = useMemo(() => {
+    const options = new Map<number, string>();
+
+    if (project) {
+      options.set(project.areaId, project.areaName);
+    }
+
+    memberships.forEach((membership) => {
+      if (membership.currentAreaId && membership.currentAreaName) {
+        options.set(membership.currentAreaId, membership.currentAreaName);
+      }
+    });
+
+    return [...options.entries()].map(([id, name]) => ({ id, name }));
+  }, [memberships, project]);
+
+  const assigneeMembershipOptions = useMemo(() => {
+    const selectedAreaId = Number(taskAreaId);
+    if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
+      return [];
+    }
+
+    return activeMemberships.filter((membership) => membership.currentAreaId === selectedAreaId);
+  }, [activeMemberships, taskAreaId]);
 
   const kanbanTasks = useMemo(() => {
     const grouped: Record<TaskWorkflowStatus, TaskSummary[]> = {
@@ -369,27 +399,47 @@ export function ProjectBoard() {
   };
 
   const startTaskEdit = (task: TaskSummary) => {
+    const currentMembership = activeMemberships.find(
+      (membership) => membership.id === task.assigneeMembershipId,
+    );
+
     setSelectedTaskId(task.id);
     void loadTaskHistory(task.id);
     setEditingTaskId(task.id);
-    setTaskTitle(task.title);
     setTaskDescription(task.description ?? "");
     setTaskPlannedStartDate(task.plannedStartDate);
     setTaskDueDate(task.dueDate);
-    setTaskEstimatedMinutes(task.estimatedMinutes ? String(task.estimatedMinutes) : "");
+    setTaskEstimatedHours(task.estimatedMinutes ? String(Number((task.estimatedMinutes / 60).toFixed(1))) : "");
+    setTaskAreaId(
+      currentMembership?.currentAreaId
+        ? String(currentMembership.currentAreaId)
+        : project
+          ? String(project.areaId)
+          : "",
+    );
     setTaskAssigneeMembershipId(task.assigneeMembershipId ? String(task.assigneeMembershipId) : "");
-    setTaskPriorityId(String(task.taskPriorityId));
     setError("");
     setSuccess("");
+    setIsTaskModalOpen(true);
+  };
+
+  const openCreateTaskModal = () => {
+    resetTaskForm();
+    if (project) {
+      setTaskAreaId(String(project.areaId));
+    }
+    setError("");
+    setSuccess("");
+    setIsTaskModalOpen(true);
   };
 
   const handleTaskSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (!project) return;
 
-    const title = taskTitle.trim();
-    if (!title) {
-      toast.error("El titulo de la tarea es obligatorio.");
+    const description = taskDescription.trim();
+    if (!description) {
+      toast.error("La descripcion de la tarea es obligatoria.");
       return;
     }
 
@@ -398,21 +448,27 @@ export function ProjectBoard() {
       return;
     }
 
-    const estimatedMinutes = taskEstimatedMinutes.trim()
-      ? Number(taskEstimatedMinutes)
+    const selectedAreaId = Number(taskAreaId);
+    const estimatedHours = taskEstimatedHours.trim()
+      ? Number(taskEstimatedHours)
       : null;
     const assigneeMembershipId = taskAssigneeMembershipId
       ? Number(taskAssigneeMembershipId)
       : null;
-    const priorityId = Number(taskPriorityId);
+    const estimatedMinutes = estimatedHours === null ? null : Math.round(estimatedHours * 60);
 
-    if (estimatedMinutes !== null && (!Number.isInteger(estimatedMinutes) || estimatedMinutes <= 0)) {
-      toast.error("El tiempo estimado debe ser un entero positivo.");
+    if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
+      toast.error("Selecciona un grupo/area.");
       return;
     }
 
-    if (!Number.isInteger(priorityId) || priorityId <= 0) {
-      toast.error("Selecciona una prioridad valida.");
+    if (estimatedHours !== null && (!Number.isFinite(estimatedHours) || estimatedHours <= 0)) {
+      toast.error("La estimacion de horas debe ser positiva.");
+      return;
+    }
+
+    if (assigneeMembershipId === null) {
+      toast.error("Selecciona un empleado para asignar la tarea.");
       return;
     }
 
@@ -422,11 +478,11 @@ export function ProjectBoard() {
     try {
       if (editingTaskId) {
         await updateTask(editingTaskId, {
-          title,
-          description: taskDescription.trim() || null,
+          title: description.slice(0, 80),
+          description,
           plannedStartDate: taskPlannedStartDate,
           dueDate: taskDueDate,
-          taskPriorityId: priorityId,
+          taskPriorityId: 2,
           assigneeMembershipId,
           estimatedMinutes,
         });
@@ -434,11 +490,11 @@ export function ProjectBoard() {
       } else {
         await createTask({
           projectId: project.id,
-          title,
-          description: taskDescription.trim() || null,
+          title: description.slice(0, 80),
+          description,
           plannedStartDate: taskPlannedStartDate,
           dueDate: taskDueDate,
-          taskPriorityId: priorityId,
+          taskPriorityId: 2,
           assigneeMembershipId,
           estimatedMinutes,
         });
@@ -446,6 +502,7 @@ export function ProjectBoard() {
       }
 
       resetTaskForm();
+      setIsTaskModalOpen(false);
       await loadTasks();
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -767,121 +824,28 @@ export function ProjectBoard() {
         <section className="app-panel overflow-hidden">
           <div className="app-panel-header">
             <h3 className="text-lg font-semibold text-foreground">Tareas del proyecto</h3>
-            <select
-              value={taskStatusFilter}
-              onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatusFilter)}
-              className="app-control h-9 min-w-40"
-            >
-              <option value="all">Todas</option>
-              <option value="assigned">Asignadas</option>
-              <option value="in_progress">En proceso</option>
-              <option value="done">Terminadas</option>
-            </select>
-          </div>
-
-          {isAdmin && (
-            <div className="p-5 border-b border-border">
-              <h4 className="font-medium mb-3">
-                {editingTaskId ? "Editar tarea" : "Crear tarea"}
-              </h4>
-              <form onSubmit={handleTaskSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Titulo</label>
-                  <input
-                    type="text"
-                    value={taskTitle}
-                    onChange={(event) => setTaskTitle(event.target.value)}
-                    className="app-control"
-                    placeholder="Titulo de la tarea"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Descripcion</label>
-                  <textarea
-                    value={taskDescription}
-                    onChange={(event) => setTaskDescription(event.target.value)}
-                    className="app-control min-h-24"
-                    rows={3}
-                    placeholder="Descripcion breve"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Inicio planificado</label>
-                  <input
-                    type="date"
-                    value={taskPlannedStartDate}
-                    onChange={(event) => setTaskPlannedStartDate(event.target.value)}
-                    className="app-control"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Fecha limite</label>
-                  <input
-                    type="date"
-                    value={taskDueDate}
-                    onChange={(event) => setTaskDueDate(event.target.value)}
-                    className="app-control"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Prioridad</label>
-                  <select
-                    value={taskPriorityId}
-                    onChange={(event) => setTaskPriorityId(event.target.value)}
-                    className="app-control"
-                  >
-                    <option value="1">Baja</option>
-                    <option value="2">Media</option>
-                    <option value="3">Alta</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Asignado a</label>
-                  <select
-                    value={taskAssigneeMembershipId}
-                    onChange={(event) => setTaskAssigneeMembershipId(event.target.value)}
-                    className="app-control"
-                  >
-                    <option value="">Sin asignar</option>
-                    {activeMemberships.map((membership) => (
-                      <option key={membership.id} value={membership.id}>
-                        {membership.employeeName} ({membership.employeeEmail})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium mb-1">Tiempo estimado (minutos)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={taskEstimatedMinutes}
-                    onChange={(event) => setTaskEstimatedMinutes(event.target.value)}
-                    className="app-control"
-                    placeholder="Ejemplo: 90"
-                  />
-                </div>
-                <div className="md:col-span-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="app-btn-primary"
-                  >
-                    {editingTaskId ? "Actualizar tarea" : "Crear tarea"}
-                  </button>
-                  {editingTaskId && (
-                    <button
-                      type="button"
-                      onClick={resetTaskForm}
-                      className="app-btn-secondary"
-                    >
-                      Cancelar edicion
-                    </button>
-                  )}
-                </div>
-              </form>
+            <div className="flex items-center gap-2">
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={openCreateTaskModal}
+                  className="app-btn-primary"
+                >
+                  <Plus className="size-4" />
+                </button>
+              )}
+              <select
+                value={taskStatusFilter}
+                onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatusFilter)}
+                className="app-control h-9 min-w-40"
+              >
+                <option value="all">Todas</option>
+                <option value="assigned">Asignadas</option>
+                <option value="in_progress">En proceso</option>
+                <option value="done">Terminadas</option>
+              </select>
             </div>
-          )}
+          </div>
 
           <div className="app-band p-5 border-b border-border">
             <div className="flex items-center justify-between gap-3 mb-3">
@@ -1065,6 +1029,124 @@ export function ProjectBoard() {
 
         {success && <p className="text-sm text-success">{success}</p>}
       </div>
+
+      <Dialog
+        open={isTaskModalOpen}
+        onOpenChange={(open) => {
+          setIsTaskModalOpen(open);
+          if (!open && !isSubmitting) {
+            resetTaskForm();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingTaskId ? "Editar tarea" : "Crear tarea"}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleTaskSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Descripcion</label>
+              <textarea
+                value={taskDescription}
+                onChange={(event) => setTaskDescription(event.target.value)}
+                className="app-control min-h-24"
+                rows={3}
+                placeholder="Describe brevemente la tarea"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Estimacion de horas</label>
+              <input
+                type="number"
+                min={1}
+                step="0.5"
+                value={taskEstimatedHours}
+                onChange={(event) => setTaskEstimatedHours(event.target.value)}
+                className="app-control"
+                placeholder="Ejemplo: 4"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Grupo/Area</label>
+              <select
+                value={taskAreaId}
+                onChange={(event) => {
+                  setTaskAreaId(event.target.value);
+                  setTaskAssigneeMembershipId("");
+                }}
+                className="app-control"
+              >
+                <option value="">Selecciona grupo/area</option>
+                {taskAreaOptions.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Fecha de inicio</label>
+              <input
+                type="date"
+                value={taskPlannedStartDate}
+                onChange={(event) => setTaskPlannedStartDate(event.target.value)}
+                className="app-control"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Fecha de fin</label>
+              <input
+                type="date"
+                value={taskDueDate}
+                onChange={(event) => setTaskDueDate(event.target.value)}
+                className="app-control"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Empleado</label>
+              <select
+                value={taskAssigneeMembershipId}
+                onChange={(event) => setTaskAssigneeMembershipId(event.target.value)}
+                className="app-control"
+                disabled={assigneeMembershipOptions.length === 0}
+              >
+                <option value="">Selecciona empleado</option>
+                {assigneeMembershipOptions.map((membership) => (
+                  <option key={membership.id} value={membership.id}>
+                    {membership.employeeName} ({membership.employeeEmail})
+                  </option>
+                ))}
+              </select>
+              {taskAreaId && assigneeMembershipOptions.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  No hay empleados activos del proyecto para el grupo/area seleccionado.
+                </p>
+              )}
+            </div>
+            <div className="md:col-span-2 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsTaskModalOpen(false);
+                  resetTaskForm();
+                }}
+                className="app-btn-secondary"
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="app-btn-primary"
+              >
+                {isSubmitting ? "Guardando..." : editingTaskId ? "Actualizar" : "Crear tarea"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmActionDialog
         open={pendingUnassignMembership !== null}

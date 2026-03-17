@@ -26,6 +26,12 @@ import {
   type AreaStatusFilter,
   type AreaSummary,
 } from "../../modules/areas/api/areas.api";
+import {
+  assignEmployeeArea,
+  listEmployees,
+  unassignEmployeeArea,
+  type EmployeeSummary,
+} from "../../modules/employees/api/employees.api";
 
 export function Areas() {
   const [areas, setAreas] = useState<AreaSummary[]>([]);
@@ -37,6 +43,10 @@ export function Areas() {
   const [success, setSuccess] = useState("");
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
   const [pendingDeleteArea, setPendingDeleteArea] = useState<AreaSummary | null>(null);
+  const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
+  const [initialEmployeeIds, setInitialEmployeeIds] = useState<number[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -46,6 +56,8 @@ export function Areas() {
     setName("");
     setDescription("");
     setIsActive(true);
+    setSelectedEmployeeIds([]);
+    setInitialEmployeeIds([]);
   };
 
   const loadAreas = useCallback(async () => {
@@ -68,13 +80,51 @@ export function Areas() {
     void loadAreas();
   }, [loadAreas]);
 
-  const startEdit = (area: AreaSummary) => {
+  const loadEmployees = async () => {
+    setIsLoadingEmployees(true);
+    try {
+      const response = await listEmployees("all");
+      return response?.data ?? [];
+    } catch {
+      return [] as EmployeeSummary[];
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  };
+
+  const toggleEmployeeSelection = (employeeId: number) => {
+    setSelectedEmployeeIds((current) => (
+      current.includes(employeeId)
+        ? current.filter((id) => id !== employeeId)
+        : [...current, employeeId]
+    ));
+  };
+
+  const openCreateAreaModal = async () => {
+    resetForm();
+    setError("");
+    setSuccess("");
+    const employeesData = await loadEmployees();
+    setEmployees(employeesData);
+    setSelectedEmployeeIds([]);
+    setInitialEmployeeIds([]);
+    setIsAreaModalOpen(true);
+  };
+
+  const startEdit = async (area: AreaSummary) => {
     setEditingAreaId(area.id);
     setName(area.name);
     setDescription(area.description ?? "");
     setIsActive(area.isActive);
     setSuccess("");
     setError("");
+    const employeesData = await loadEmployees();
+    setEmployees(employeesData);
+    const areaEmployeeIds = employeesData
+      .filter((employee) => employee.currentAreaId === area.id)
+      .map((employee) => employee.id);
+    setSelectedEmployeeIds(areaEmployeeIds);
+    setInitialEmployeeIds(areaEmployeeIds);
     setIsAreaModalOpen(true);
   };
 
@@ -93,6 +143,8 @@ export function Areas() {
 
     setIsSubmitting(true);
     try {
+      let savedAreaId = editingAreaId;
+
       if (editingAreaId) {
         await updateArea(editingAreaId, {
           name: trimmedName,
@@ -101,15 +153,42 @@ export function Areas() {
         });
         setSuccess("Area actualizada correctamente.");
       } else {
-        await createArea({
+        const createdAreaResponse = await createArea({
           name: trimmedName,
           description: trimmedDescription || null,
           isActive,
         });
+        savedAreaId = createdAreaResponse?.data?.id ?? null;
         setSuccess("Area creada correctamente.");
       }
 
+      if (savedAreaId) {
+        const selectedSet = new Set(selectedEmployeeIds);
+        const initialSet = new Set(initialEmployeeIds);
+
+        const toUnassign = initialEmployeeIds.filter((employeeId) => !selectedSet.has(employeeId));
+        const toAssign = selectedEmployeeIds.filter((employeeId) => !initialSet.has(employeeId));
+
+        const unassignResults = await Promise.allSettled(
+          toUnassign.map((employeeId) => unassignEmployeeArea(employeeId, { areaId: savedAreaId! })),
+        );
+        const assignResults = await Promise.allSettled(
+          toAssign.map((employeeId) => assignEmployeeArea(employeeId, { areaId: savedAreaId! })),
+        );
+
+        const failedCount = [...unassignResults, ...assignResults]
+          .filter((result) => result.status === "rejected")
+          .length;
+
+        if (failedCount > 0) {
+          setError(
+            `Se guardó el area, pero ${failedCount} cambio(s) de empleados no se pudo(ieron) aplicar.`,
+          );
+        }
+      }
+
       resetForm();
+      setEmployees([]);
       setIsAreaModalOpen(false);
       await loadAreas();
     } catch (incomingError) {
@@ -157,10 +236,7 @@ export function Areas() {
           <button
             type="button"
             onClick={() => {
-              resetForm();
-              setError("");
-              setSuccess("");
-              setIsAreaModalOpen(true);
+              void openCreateAreaModal();
             }}
             className="app-btn-primary h-10 w-10 p-0"
             aria-label="Crear area"
@@ -231,7 +307,9 @@ export function Areas() {
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem onClick={() => startEdit(area)}>
+                              <DropdownMenuItem onClick={() => {
+                                void startEdit(area);
+                              }}>
                                 <Pencil className="size-4" />
                                 Editar
                               </DropdownMenuItem>
@@ -262,6 +340,7 @@ export function Areas() {
           setIsAreaModalOpen(open);
           if (!open && !isSubmitting) {
             resetForm();
+            setEmployees([]);
             setError("");
           }
         }}
@@ -270,7 +349,7 @@ export function Areas() {
           <DialogHeader>
             <DialogTitle>{editingAreaId ? "Editar area" : "Crear area"}</DialogTitle>
             <DialogDescription>
-              Define la informacion principal del area operativa.
+              Define la informacion principal del area y sus empleados.
             </DialogDescription>
           </DialogHeader>
 
@@ -305,6 +384,43 @@ export function Areas() {
               <label htmlFor="area-modal-is-active" className="text-sm text-foreground">
                 Area activa
               </label>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Empleados del area</label>
+              {isLoadingEmployees ? (
+                <p className="text-sm text-muted-foreground">Cargando empleados...</p>
+              ) : employees.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay empleados disponibles.</p>
+              ) : (
+                <div className="max-h-56 overflow-y-auto rounded-xl border border-border p-2 space-y-2">
+                  {employees.map((employee) => {
+                    const isChecked = selectedEmployeeIds.includes(employee.id);
+                    const isDisabled = !employee.isActive && !isChecked;
+
+                    return (
+                      <label
+                        key={employee.id}
+                        className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${
+                          isDisabled ? "opacity-60" : "hover:bg-secondary/50"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleEmployeeSelection(employee.id)}
+                          disabled={isDisabled || isSubmitting}
+                        />
+                        <span className="text-sm text-foreground">
+                          {employee.name} ({employee.email})
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {employee.currentAreaName ? `· Actual: ${employee.currentAreaName}` : "· Sin area"}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
             <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
               {editingAreaId && (

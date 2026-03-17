@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
-import { Eye, FolderKanban, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  CalendarClock,
+  ChevronDown,
+  Eye,
+  FolderKanban,
+  ListChecks,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { useAuth } from "../context/AuthContext";
@@ -51,6 +62,7 @@ export function Projects() {
     project: ProjectSummary;
     status: ProjectStatusUpdate;
   } | null>(null);
+  const [expandedProjectId, setExpandedProjectId] = useState<number | null>(null);
 
   const [areaId, setAreaId] = useState("");
   const [name, setName] = useState("");
@@ -220,6 +232,10 @@ export function Projects() {
     }
   };
 
+  const toggleProjectCard = (projectId: number) => {
+    setExpandedProjectId((currentId) => (currentId === projectId ? null : projectId));
+  };
+
   return (
     <div className="app-shell">
       <PageHero
@@ -281,97 +297,131 @@ export function Projects() {
           ) : projects.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">No hay proyectos para este filtro.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="app-table">
-                <thead className="app-table-head">
-                  <tr>
-                    <th className="app-th">Proyecto</th>
-                    <th className="app-th">Area</th>
-                    <th className="app-th">Estado</th>
-                    <th className="app-th">Miembros</th>
-                    <th className="app-th">Tareas</th>
-                    <th className="app-th">Fechas</th>
-                    {isAdmin && <th className="app-th">Acciones</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {projects.map((project) => (
-                    <tr
-                      key={project.id}
-                      className={`app-row ${!isAdmin ? "cursor-pointer hover:bg-secondary/40" : ""}`}
-                      onClick={!isAdmin ? () => navigate(`/projects/${project.id}`) : undefined}
-                      onKeyDown={!isAdmin ? (event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          navigate(`/projects/${project.id}`);
-                        }
-                      } : undefined}
-                      role={!isAdmin ? "button" : undefined}
-                      tabIndex={!isAdmin ? 0 : undefined}
-                    >
-                      <td className="app-td">
-                        <p className="font-medium">{project.name}</p>
-                        <p className="text-muted-foreground">{project.description ?? "Sin descripcion"}</p>
-                      </td>
-                      <td className="app-td">{project.areaName}</td>
-                      <td className="app-td">
-                        <span className={getProjectStatusClass(project.status)}>{project.status}</span>
-                      </td>
-                      <td className="app-td">{project.activeMemberCount}</td>
-                      <td className="app-td">{project.totalTaskCount}</td>
-                      <td className="app-td">
-                        <p>Inicio: {project.startDate ?? "-"}</p>
-                        <p>Fin: {project.endDate ?? "-"}</p>
-                      </td>
-                      {isAdmin && (
-                        <td className="app-td">
-                          <div className="flex justify-end">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button
-                                  type="button"
-                                  className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
-                                  aria-label={`Acciones de ${project.name}`}
-                                >
-                                  <MoreHorizontal className="size-4" />
-                                </button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-44">
-                                <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
-                                  <Eye className="size-4" />
-                                  Ver detalle
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => startEdit(project)}>
-                                  <Pencil className="size-4" />
-                                  Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
-                                  Cerrar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
-                                  Cancelar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
-                                  Activar
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setPendingDeleteProject(project)}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="size-4" />
-                                  Eliminar
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 p-4">
+              {projects.map((project) => {
+                const isExpanded = expandedProjectId === project.id;
+
+                return (
+                  <article
+                    key={project.id}
+                    className="rounded-2xl border border-border bg-card shadow-[0_8px_24px_rgba(16,36,58,0.08)] transition-colors hover:border-primary/50"
+                  >
+                    <div className="flex items-start gap-3 p-4">
+                      <button
+                        type="button"
+                        onClick={() => toggleProjectCard(project.id)}
+                        className="flex-1 text-left"
+                        aria-expanded={isExpanded}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h4 className="text-base font-semibold text-foreground truncate">{project.name}</h4>
                           </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          <ChevronDown
+                            className={`mt-1 size-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                          />
+                        </div>
+                      </button>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={(event) => event.stopPropagation()}
+                            className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                            aria-label={`Acciones de ${project.name}`}
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                            <Eye className="size-4" />
+                            Ver detalle
+                          </DropdownMenuItem>
+                          {isAdmin && (
+                            <>
+                              <DropdownMenuItem onClick={() => startEdit(project)}>
+                                <Pencil className="size-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
+                                Cerrar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
+                                Cancelar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
+                                Activar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setPendingDeleteProject(project)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="size-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="px-4 pb-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="rounded-xl border border-border bg-background px-3 py-2">
+                          <p className="text-xs text-muted-foreground">Area</p>
+                          <p className="text-sm font-medium text-foreground truncate">{project.areaName}</p>
+                        </div>
+                        <div className="rounded-xl border border-border bg-background px-3 py-2">
+                          <p className="text-xs text-muted-foreground">Estado</p>
+                          <p className={`text-sm font-medium ${getProjectStatusClass(project.status)}`}>{project.status}</p>
+                        </div>
+                        <div className="rounded-xl border border-border bg-background px-3 py-2">
+                          <p className="text-xs text-muted-foreground">Miembros activos</p>
+                          <p className="text-sm font-medium text-foreground">{project.activeMemberCount}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="border-t border-border px-4 pb-4 pt-3 space-y-3 bg-background/50">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div className="rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 text-sm text-foreground">
+                            <Users className="size-4 text-muted-foreground" />
+                            <span>{project.activeMemberCount} miembros activos</span>
+                          </div>
+                          <div className="rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 text-sm text-foreground">
+                            <ListChecks className="size-4 text-muted-foreground" />
+                            <span>{project.totalTaskCount} tareas totales</span>
+                          </div>
+                          <div className="rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 text-sm text-foreground">
+                            <CalendarClock className="size-4 text-muted-foreground" />
+                            <span>Inicio: {project.startDate ?? "-"}</span>
+                          </div>
+                          <div className="rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 text-sm text-foreground">
+                            <CalendarClock className="size-4 text-muted-foreground" />
+                            <span>Fin: {project.endDate ?? "-"}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/projects/${project.id}`)}
+                            className="app-btn-secondary"
+                          >
+                            <Eye className="size-4" />
+                            Abrir vista del proyecto
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
           )}
         </section>
