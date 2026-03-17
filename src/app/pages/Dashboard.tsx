@@ -14,9 +14,6 @@ import { DateRangeFilter } from "../components/DateRangeFilter";
 import { PageHero } from "../components/PageHero";
 import { DashboardMetrics } from "../components/dashboard/DashboardMetrics";
 import { TeamPerformanceSection, type TeamPerformanceItem } from "../components/dashboard/TeamPerformanceSection";
-import { WorkloadDistributionChart, type WorkloadItem } from "../components/dashboard/WorkloadDistributionChart";
-import { RecentActivity } from "../components/dashboard/RecentActivity";
-import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { listEmployees, type EmployeeSummary } from "../../modules/employees/api/employees.api";
 import { listProjects, type ProjectSummary } from "../../modules/projects/api/projects.api";
 import {
@@ -51,18 +48,14 @@ const toEfficiencyRate = (estimatedMinutes: number, actualMinutes: number) => {
   return Math.max(0, Math.round((estimatedMinutes / actualMinutes) * 100));
 };
 
-const isDoneStatus = (status: string) => status.trim().toLowerCase() === "terminada";
-
 type AdminInsights = {
   efficiencyRate: number;
-  overloadThreshold: number;
   statusDistribution: {
     status: string;
     value: number;
     fill: string;
   }[];
   teamPerformance: TeamPerformanceItem[];
-  workload: WorkloadItem[];
   recentActivity: TaskComplianceReportData["rows"];
 };
 
@@ -99,13 +92,11 @@ export function Dashboard() {
   const [taskComplianceReport, setTaskComplianceReport] = useState<TaskComplianceReportData | null>(null);
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
 
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [projectIdFilter, setProjectIdFilter] = useState("");
-  const [areaIdFilter, setAreaIdFilter] = useState("");
   const [employeeIdFilter, setEmployeeIdFilter] = useState("");
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
 
@@ -113,9 +104,8 @@ export function Dashboard() {
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     projectId: projectIdFilter ? Number(projectIdFilter) : undefined,
-    areaId: areaIdFilter ? Number(areaIdFilter) : undefined,
     employeeId: employeeIdFilter ? Number(employeeIdFilter) : undefined,
-  }), [areaIdFilter, dateFrom, dateTo, employeeIdFilter, projectIdFilter]);
+  }), [dateFrom, dateTo, employeeIdFilter, projectIdFilter]);
 
   const reportQuery = useMemo(() => ({
     ...adminQuery,
@@ -133,31 +123,14 @@ export function Dashboard() {
       { status: "Asignada", value: teamSummary.assignedTasks, fill: "var(--chart-1)" },
       { status: "En proceso", value: teamSummary.inProgressTasks, fill: "var(--chart-4)" },
       { status: "Terminada", value: teamSummary.doneTasks, fill: "var(--chart-2)" },
+      {
+        status: "Retrasada/Vencida",
+        value: taskComplianceReport.summary.estimateDelayedTasks + taskComplianceReport.summary.dateOverdueTasks,
+        fill: "var(--chart-5)",
+      },
     ];
 
     const efficiencyRate = toEfficiencyRate(teamSummary.totalEstimatedMinutes, teamSummary.totalActualMinutes);
-
-    const workloadMap = new Map<number, WorkloadItem>();
-    taskComplianceReport.rows.forEach((row) => {
-      if (row.assigneeEmployeeId === null || row.assigneeName === null) return;
-      if (isDoneStatus(row.status)) return;
-      const current = workloadMap.get(row.assigneeEmployeeId);
-      if (current) {
-        current.activeTasks += 1;
-        return;
-      }
-      workloadMap.set(row.assigneeEmployeeId, {
-        employeeId: row.assigneeEmployeeId,
-        employeeName: row.assigneeName,
-        activeTasks: 1,
-      });
-    });
-
-    const workload = [...workloadMap.values()].sort((a, b) => b.activeTasks - a.activeTasks);
-    const avgWorkload = workload.length === 0
-      ? 0
-      : workload.reduce((acc, item) => acc + item.activeTasks, 0) / workload.length;
-    const overloadThreshold = Math.max(3, Math.ceil(avgWorkload * 1.4));
 
     const teamPerformance = adminDashboard.employeeProductivity
       .map((employee) => ({
@@ -182,10 +155,8 @@ export function Dashboard() {
 
     return {
       efficiencyRate,
-      overloadThreshold,
       statusDistribution,
       teamPerformance,
-      workload,
       recentActivity,
     };
   }, [adminDashboard, taskComplianceReport]);
@@ -196,17 +167,14 @@ export function Dashboard() {
     const loadFilters = async () => {
       setIsLoadingFilters(true);
       try {
-        const [projectsResponse, areasResponse, employeesResponse] = await Promise.all([
+        const [projectsResponse, employeesResponse] = await Promise.all([
           listProjects({ status: "all" }),
-          listAreas("all"),
           listEmployees("active"),
         ]);
         setProjects(projectsResponse?.data ?? []);
-        setAreas(areasResponse?.data ?? []);
         setEmployees((employeesResponse?.data ?? []).filter((employee) => employee.role === "employee"));
       } catch {
         setProjects([]);
-        setAreas([]);
         setEmployees([]);
       } finally {
         setIsLoadingFilters(false);
@@ -259,7 +227,6 @@ export function Dashboard() {
     setDateFrom("");
     setDateTo("");
     setProjectIdFilter("");
-    setAreaIdFilter("");
     setEmployeeIdFilter("");
     setComplianceFilter("all");
   };
@@ -376,7 +343,7 @@ export function Dashboard() {
         {isAdmin && adminDashboard && taskComplianceReport && adminInsights && (
           <>
             <section className="app-panel app-panel-pad">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
                 <DateRangeFilter
                   dateFrom={dateFrom}
                   dateTo={dateTo}
@@ -395,18 +362,6 @@ export function Dashboard() {
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={areaIdFilter}
-                  onChange={(event) => setAreaIdFilter(event.target.value)}
-                  className="app-control"
-                >
-                  <option value="">Area: todas</option>
-                  {areas.map((area) => (
-                    <option key={area.id} value={area.id}>
-                      {area.name}
                     </option>
                   ))}
                 </select>
@@ -450,17 +405,6 @@ export function Dashboard() {
             <TeamPerformanceSection
               team={adminInsights.teamPerformance}
               onOpenEmployees={() => navigate("/employees")}
-            />
-
-            <WorkloadDistributionChart
-              workload={adminInsights.workload}
-              overloadThreshold={adminInsights.overloadThreshold}
-            />
-
-            <RecentActivity
-              rows={adminInsights.recentActivity}
-              onOpenTask={(projectId, taskId) => navigate(`/projects/${projectId}?taskId=${taskId}`)}
-              onOpenProjects={() => navigate("/projects")}
             />
           </>
         )}

@@ -41,6 +41,7 @@ const pieChartConfig = {
   Asignada: { label: "Asignadas", color: "var(--chart-1)" },
   "En proceso": { label: "En proceso", color: "var(--chart-4)" },
   Terminada: { label: "Terminadas", color: "var(--chart-2)" },
+  "Retrasada/Vencida": { label: "Retrasadas/Vencidas", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
 const comparisonChartConfig = {
@@ -120,7 +121,7 @@ export function DashboardMetrics({
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-foreground">Distribución por estado</h2>
-              <p className="text-sm text-muted-foreground">Asignadas, en proceso y terminadas.</p>
+              <p className="text-sm text-muted-foreground">Asignadas, en proceso, terminadas y retrasadas/vencidas.</p>
             </div>
             <p className="text-xs text-muted-foreground">{summary.totalTasks} tareas</p>
           </div>

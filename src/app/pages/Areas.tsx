@@ -34,8 +34,11 @@ import {
 } from "../../modules/employees/api/employees.api";
 
 export function Areas() {
+  const PAGE_SIZE = 8;
+
   const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<AreaStatusFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
@@ -79,6 +82,13 @@ export function Areas() {
   useEffect(() => {
     void loadAreas();
   }, [loadAreas]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, areas.length]);
+
+  const totalPages = Math.max(1, Math.ceil(areas.length / PAGE_SIZE));
+  const paginatedAreas = areas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const loadEmployees = async () => {
     setIsLoadingEmployees(true);
@@ -248,90 +258,102 @@ export function Areas() {
       />
 
       <div className="app-content">
-        <section className="app-panel overflow-hidden">
-          <div className="app-panel-header">
-            <h3 className="text-lg font-semibold text-foreground">Listado de areas</h3>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as AreaStatusFilter)}
-              className="app-control h-9 min-w-40"
-            >
-              <option value="all">Todas</option>
-              <option value="active">Activas</option>
-              <option value="inactive">Inactivas</option>
-            </select>
-          </div>
-          {error && <p className="px-4 pt-4 text-sm text-destructive">{error}</p>}
-          {success && <p className="p-4 text-sm text-success">{success}</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-foreground">Listado de areas</h3>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as AreaStatusFilter)}
+            className="app-control h-9 min-w-40"
+          >
+            <option value="all">Todas</option>
+            <option value="active">Activas</option>
+            <option value="inactive">Inactivas</option>
+          </select>
+        </div>
 
-          {isLoading ? (
-            <div className="p-6 text-sm text-muted-foreground">Cargando areas...</div>
-          ) : areas.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">No hay areas para este filtro.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="app-table">
-                <thead className="app-table-head">
-                  <tr>
-                    <th className="app-th">Nombre</th>
-                    <th className="app-th">Estado</th>
-                    <th className="app-th">Miembros activos</th>
-                    <th className="app-th">Proyectos activos</th>
-                    <th className="app-th">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {areas.map((area) => (
-                    <tr key={area.id} className="app-row">
-                      <td className="app-td">
-                        <p className="font-medium">{area.name}</p>
-                        <p className="text-muted-foreground">{area.description ?? "Sin descripcion"}</p>
-                      </td>
-                      <td className="app-td">
-                        <span className={area.isActive ? "text-success" : "text-warning"}>
-                          {area.isActive ? "Activa" : "Inactiva"}
-                        </span>
-                      </td>
-                      <td className="app-td">{area.activeMemberCount}</td>
-                      <td className="app-td">{area.activeProjectCount}</td>
-                      <td className="app-td">
-                        <div className="flex justify-end">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
-                                aria-label={`Acciones de ${area.name}`}
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem onClick={() => {
-                                void startEdit(area);
-                              }}>
-                                <Pencil className="size-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => setPendingDeleteArea(area)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="size-4" />
-                                Eliminar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {success && <p className="text-sm text-success">{success}</p>}
+
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Cargando areas...</div>
+        ) : areas.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No hay areas para este filtro.</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {paginatedAreas.map((area) => (
+                <article
+                  key={area.id}
+                  className="rounded-2xl border border-border bg-card p-4 shadow-[0_10px_30px_rgba(16,36,58,0.08)]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">{area.name}</p>
+                      <p className={`text-sm ${area.isActive ? "text-success" : "text-warning"}`}>
+                        {area.isActive ? "Activa" : "Inactiva"}
+                      </p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                          aria-label={`Acciones de ${area.name}`}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => {
+                          void startEdit(area);
+                        }}>
+                          <Pencil className="size-4" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setPendingDeleteArea(area)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {area.activeMemberCount} empleados · {area.activeProjectCount} proyectos
+                  </p>
+                </article>
+              ))}
             </div>
-          )}
-        </section>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  Anterior
+                </button>
+                <p className="text-sm text-muted-foreground">
+                  Pagina {currentPage} de {totalPages}
+                </p>
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <Dialog

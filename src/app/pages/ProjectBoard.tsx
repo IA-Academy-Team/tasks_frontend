@@ -105,7 +105,7 @@ export function ProjectBoard() {
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskEstimatedHours, setTaskEstimatedHours] = useState("");
   const [taskAreaId, setTaskAreaId] = useState("");
-  const [taskAssigneeMembershipId, setTaskAssigneeMembershipId] = useState("");
+  const [taskAssigneeEmployeeId, setTaskAssigneeEmployeeId] = useState("");
   const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
@@ -123,7 +123,7 @@ export function ProjectBoard() {
     setTaskDueDate("");
     setTaskEstimatedHours("");
     setTaskAreaId(project ? String(project.areaId) : "");
-    setTaskAssigneeMembershipId("");
+    setTaskAssigneeEmployeeId("");
   };
 
   const loadProject = useCallback(async () => {
@@ -149,7 +149,7 @@ export function ProjectBoard() {
   const loadMemberships = useCallback(async () => {
     if (!Number.isInteger(numericProjectId) || numericProjectId <= 0) return;
     try {
-      const response = await listProjectMemberships(numericProjectId, membershipStatusFilter);
+      const response = await listProjectMemberships(numericProjectId, "all");
       setMemberships(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -158,7 +158,7 @@ export function ProjectBoard() {
         setError("No fue posible cargar las membresias.");
       }
     }
-  }, [membershipStatusFilter, numericProjectId]);
+  }, [numericProjectId]);
 
   const loadTasks = useCallback(async () => {
     if (!Number.isInteger(numericProjectId) || numericProjectId <= 0) return;
@@ -197,7 +197,7 @@ export function ProjectBoard() {
 
   useEffect(() => {
     void loadMemberships();
-  }, [loadMemberships, membershipStatusFilter, projectId]);
+  }, [loadMemberships, projectId]);
 
   useEffect(() => {
     void loadTasks();
@@ -226,6 +226,18 @@ export function ProjectBoard() {
     [memberships],
   );
 
+  const visibleMemberships = useMemo(() => {
+    if (membershipStatusFilter === "active") {
+      return memberships.filter((membership) => membership.isActive);
+    }
+
+    if (membershipStatusFilter === "inactive") {
+      return memberships.filter((membership) => !membership.isActive);
+    }
+
+    return memberships;
+  }, [membershipStatusFilter, memberships]);
+
   const taskAreaOptions = useMemo(() => {
     const options = new Map<number, string>();
 
@@ -239,17 +251,27 @@ export function ProjectBoard() {
       }
     });
 
-    return [...options.entries()].map(([id, name]) => ({ id, name }));
-  }, [memberships, project]);
+    employees.forEach((employee) => {
+      if (employee.currentAreaId && employee.currentAreaName) {
+        options.set(employee.currentAreaId, employee.currentAreaName);
+      }
+    });
 
-  const assigneeMembershipOptions = useMemo(() => {
+    return [...options.entries()].map(([id, name]) => ({ id, name }));
+  }, [employees, memberships, project]);
+
+  const taskAssigneeEmployeeOptions = useMemo(() => {
     const selectedAreaId = Number(taskAreaId);
     if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
       return [];
     }
 
-    return activeMemberships.filter((membership) => membership.currentAreaId === selectedAreaId);
-  }, [activeMemberships, taskAreaId]);
+    return employees.filter((employee) => (
+      employee.role === "employee"
+      && employee.isActive
+      && employee.currentAreaId === selectedAreaId
+    ));
+  }, [employees, taskAreaId]);
 
   const kanbanTasks = useMemo(() => {
     const grouped: Record<TaskWorkflowStatus, TaskSummary[]> = {
@@ -417,7 +439,7 @@ export function ProjectBoard() {
           ? String(project.areaId)
           : "",
     );
-    setTaskAssigneeMembershipId(task.assigneeMembershipId ? String(task.assigneeMembershipId) : "");
+    setTaskAssigneeEmployeeId(task.assigneeEmployeeId ? String(task.assigneeEmployeeId) : "");
     setError("");
     setSuccess("");
     setIsTaskModalOpen(true);
@@ -452,8 +474,8 @@ export function ProjectBoard() {
     const estimatedHours = taskEstimatedHours.trim()
       ? Number(taskEstimatedHours)
       : null;
-    const assigneeMembershipId = taskAssigneeMembershipId
-      ? Number(taskAssigneeMembershipId)
+    const selectedEmployeeId = taskAssigneeEmployeeId
+      ? Number(taskAssigneeEmployeeId)
       : null;
     const estimatedMinutes = estimatedHours === null ? null : Math.round(estimatedHours * 60);
 
@@ -467,7 +489,7 @@ export function ProjectBoard() {
       return;
     }
 
-    if (assigneeMembershipId === null) {
+    if (selectedEmployeeId === null) {
       toast.error("Selecciona un empleado para asignar la tarea.");
       return;
     }
@@ -476,6 +498,19 @@ export function ProjectBoard() {
     setError("");
     setSuccess("");
     try {
+      let assigneeMembershipId = activeMemberships.find(
+        (membership) => membership.employeeId === selectedEmployeeId,
+      )?.id ?? null;
+
+      if (assigneeMembershipId === null) {
+        const membershipResponse = await assignProjectMembership(project.id, { employeeId: selectedEmployeeId });
+        assigneeMembershipId = membershipResponse?.data?.id ?? null;
+      }
+
+      if (!assigneeMembershipId) {
+        throw new Error("No se pudo determinar una membresia activa para el empleado seleccionado.");
+      }
+
       if (editingTaskId) {
         await updateTask(editingTaskId, {
           title: description.slice(0, 80),
@@ -503,7 +538,7 @@ export function ProjectBoard() {
 
       resetTaskForm();
       setIsTaskModalOpen(false);
-      await loadTasks();
+      await Promise.all([loadTasks(), loadMemberships()]);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
         setError(incomingError.message);
@@ -763,7 +798,7 @@ export function ProjectBoard() {
             </select>
           </div>
 
-          {memberships.length === 0 ? (
+          {visibleMemberships.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">No hay membresias para este filtro.</div>
           ) : (
             <div className="overflow-x-auto">
@@ -779,7 +814,7 @@ export function ProjectBoard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {memberships.map((membership) => (
+                  {visibleMemberships.map((membership) => (
                     <tr key={membership.id} className="app-row">
                       <td className="app-td">
                         <p className="font-medium">{membership.employeeName}</p>
@@ -834,16 +869,6 @@ export function ProjectBoard() {
                   <Plus className="size-4" />
                 </button>
               )}
-              <select
-                value={taskStatusFilter}
-                onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatusFilter)}
-                className="app-control h-9 min-w-40"
-              >
-                <option value="all">Todas</option>
-                <option value="assigned">Asignadas</option>
-                <option value="in_progress">En proceso</option>
-                <option value="done">Terminadas</option>
-              </select>
             </div>
           </div>
 
@@ -991,40 +1016,6 @@ export function ProjectBoard() {
               </table>
             </div>
           )}
-
-          <div className="app-band p-5 border-t border-border">
-            <h4 className="font-medium text-foreground mb-2">Historial de estados</h4>
-            {!selectedTask ? (
-              <p className="text-sm text-muted-foreground">
-                Selecciona una tarea en la tabla o en el Kanban para consultar su historial.
-              </p>
-            ) : isLoadingTaskHistory ? (
-              <p className="text-sm text-muted-foreground">Cargando historial de "{selectedTask.title}"...</p>
-            ) : taskHistory.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                La tarea "{selectedTask.title}" no tiene eventos de estado.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {taskHistory.map((entry) => (
-                  <article
-                    key={entry.id}
-                    className="rounded-lg border border-border bg-background p-3"
-                  >
-                    <p className="text-sm font-medium text-foreground">
-                      {entry.fromStatus ?? "Inicio"} → {entry.toStatus}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {new Date(entry.changedAt).toLocaleString()} · {entry.changedByName} ({entry.changedByEmail})
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Nota: {entry.notes ?? "Sin nota"}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            )}
-          </div>
         </section>
 
         {success && <p className="text-sm text-success">{success}</p>}
@@ -1073,7 +1064,7 @@ export function ProjectBoard() {
                 value={taskAreaId}
                 onChange={(event) => {
                   setTaskAreaId(event.target.value);
-                  setTaskAssigneeMembershipId("");
+                  setTaskAssigneeEmployeeId("");
                 }}
                 className="app-control"
               >
@@ -1106,21 +1097,21 @@ export function ProjectBoard() {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Empleado</label>
               <select
-                value={taskAssigneeMembershipId}
-                onChange={(event) => setTaskAssigneeMembershipId(event.target.value)}
+                value={taskAssigneeEmployeeId}
+                onChange={(event) => setTaskAssigneeEmployeeId(event.target.value)}
                 className="app-control"
-                disabled={assigneeMembershipOptions.length === 0}
+                disabled={taskAssigneeEmployeeOptions.length === 0}
               >
                 <option value="">Selecciona empleado</option>
-                {assigneeMembershipOptions.map((membership) => (
-                  <option key={membership.id} value={membership.id}>
-                    {membership.employeeName} ({membership.employeeEmail})
+                {taskAssigneeEmployeeOptions.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.name} ({employee.email})
                   </option>
                 ))}
               </select>
-              {taskAreaId && assigneeMembershipOptions.length === 0 && (
+              {taskAreaId && taskAssigneeEmployeeOptions.length === 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  No hay empleados activos del proyecto para el grupo/area seleccionado.
+                  No hay empleados activos asignados a esa area.
                 </p>
               )}
             </div>

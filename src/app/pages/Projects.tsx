@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import {
-  CalendarClock,
-  ChevronDown,
   Eye,
   FolderKanban,
-  ListChecks,
   MoreHorizontal,
   Pencil,
   Plus,
   Trash2,
-  Users,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
@@ -43,6 +39,8 @@ import {
 } from "../../modules/projects/api/projects.api";
 
 export function Projects() {
+  const PAGE_SIZE = 8;
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -51,6 +49,7 @@ export function Projects() {
   const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("all");
   const [areaFilter, setAreaFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
@@ -62,7 +61,6 @@ export function Projects() {
     project: ProjectSummary;
     status: ProjectStatusUpdate;
   } | null>(null);
-  const [expandedProjectId, setExpandedProjectId] = useState<number | null>(null);
 
   const [areaId, setAreaId] = useState("");
   const [name, setName] = useState("");
@@ -122,6 +120,13 @@ export function Projects() {
   useEffect(() => {
     void loadAreas();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, areaFilter, projects.length]);
+
+  const totalPages = Math.max(1, Math.ceil(projects.length / PAGE_SIZE));
+  const paginatedProjects = projects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const startEdit = (project: ProjectSummary) => {
     setEditingProjectId(project.id);
@@ -232,10 +237,6 @@ export function Projects() {
     }
   };
 
-  const toggleProjectCard = (projectId: number) => {
-    setExpandedProjectId((currentId) => (currentId === projectId ? null : projectId));
-  };
-
   return (
     <div className="app-shell">
       <PageHero
@@ -261,170 +262,134 @@ export function Projects() {
       />
 
       <div className="app-content">
-        <section className="app-panel overflow-hidden">
-          <div className="app-panel-header">
-            <h3 className="text-lg font-semibold text-foreground">Listado de proyectos</h3>
-            <div className="flex items-center gap-2">
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as ProjectStatusFilter)}
-                className="app-control h-9 min-w-36"
-              >
-                <option value="all">Todos</option>
-                <option value="active">Activos</option>
-                <option value="closed">Cerrados</option>
-                <option value="cancelled">Cancelados</option>
-              </select>
-              <select
-                value={areaFilter}
-                onChange={(event) => setAreaFilter(event.target.value)}
-                className="app-control h-9 min-w-44"
-              >
-                <option value="all">Todas las areas</option>
-                {areas.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-foreground">Listado de proyectos</h3>
+          <div className="flex items-center gap-2">
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as ProjectStatusFilter)}
+              className="app-control h-9 min-w-36"
+            >
+              <option value="all">Todos</option>
+              <option value="active">Activos</option>
+              <option value="closed">Cerrados</option>
+              <option value="cancelled">Cancelados</option>
+            </select>
+            <select
+              value={areaFilter}
+              onChange={(event) => setAreaFilter(event.target.value)}
+              className="app-control h-9 min-w-44"
+            >
+              <option value="all">Todas las areas</option>
+              {areas.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.name}
+                </option>
+              ))}
+            </select>
           </div>
-          {error && <p className="px-4 pt-4 text-sm text-destructive">{error}</p>}
-          {success && <p className="p-4 text-sm text-success">{success}</p>}
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {success && <p className="text-sm text-success">{success}</p>}
 
-          {isLoading ? (
-            <div className="p-6 text-sm text-muted-foreground">Cargando proyectos...</div>
-          ) : projects.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">No hay proyectos para este filtro.</div>
-          ) : (
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 p-4">
-              {projects.map((project) => {
-                const isExpanded = expandedProjectId === project.id;
-
-                return (
-                  <article
-                    key={project.id}
-                    className="rounded-2xl border border-border bg-card shadow-[0_8px_24px_rgba(16,36,58,0.08)] transition-colors hover:border-primary/50"
-                  >
-                    <div className="flex items-start gap-3 p-4">
-                      <button
-                        type="button"
-                        onClick={() => toggleProjectCard(project.id)}
-                        className="flex-1 text-left"
-                        aria-expanded={isExpanded}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h4 className="text-base font-semibold text-foreground truncate">{project.name}</h4>
-                          </div>
-                          <ChevronDown
-                            className={`mt-1 size-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-180" : ""}`}
-                          />
-                        </div>
-                      </button>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            onClick={(event) => event.stopPropagation()}
-                            className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
-                            aria-label={`Acciones de ${project.name}`}
-                          >
-                            <MoreHorizontal className="size-4" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-44">
-                          <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
-                            <Eye className="size-4" />
-                            Ver detalle
-                          </DropdownMenuItem>
-                          {isAdmin && (
-                            <>
-                              <DropdownMenuItem onClick={() => startEdit(project)}>
-                                <Pencil className="size-4" />
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
-                                Cerrar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
-                                Cancelar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
-                                Activar
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => setPendingDeleteProject(project)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="size-4" />
-                                Eliminar
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Cargando proyectos...</div>
+        ) : projects.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No hay proyectos para este filtro.</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {paginatedProjects.map((project) => (
+                <article
+                  key={project.id}
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                  className="cursor-pointer rounded-2xl border border-border bg-card p-4 shadow-[0_10px_30px_rgba(16,36,58,0.08)] transition-colors hover:border-primary/50"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">{project.name}</p>
+                      <p className="text-sm text-muted-foreground truncate">{project.areaName}</p>
                     </div>
 
-                    <div className="px-4 pb-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div className="rounded-xl border border-border bg-background px-3 py-2">
-                          <p className="text-xs text-muted-foreground">Area</p>
-                          <p className="text-sm font-medium text-foreground truncate">{project.areaName}</p>
-                        </div>
-                        <div className="rounded-xl border border-border bg-background px-3 py-2">
-                          <p className="text-xs text-muted-foreground">Estado</p>
-                          <p className={`text-sm font-medium ${getProjectStatusClass(project.status)}`}>{project.status}</p>
-                        </div>
-                        <div className="rounded-xl border border-border bg-background px-3 py-2">
-                          <p className="text-xs text-muted-foreground">Miembros activos</p>
-                          <p className="text-sm font-medium text-foreground">{project.activeMemberCount}</p>
-                        </div>
-                      </div>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={(event) => event.stopPropagation()}
+                          className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                          aria-label={`Acciones de ${project.name}`}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                          <Eye className="size-4" />
+                          Ver detalle
+                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <>
+                            <DropdownMenuItem onClick={() => startEdit(project)}>
+                              <Pencil className="size-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
+                              Cerrar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
+                              Cancelar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
+                              Activar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setPendingDeleteProject(project)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="size-4" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
 
-                    {isExpanded && (
-                      <div className="border-t border-border px-4 pb-4 pt-3 space-y-3 bg-background/50">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <div className="rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 text-sm text-foreground">
-                            <Users className="size-4 text-muted-foreground" />
-                            <span>{project.activeMemberCount} miembros activos</span>
-                          </div>
-                          <div className="rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 text-sm text-foreground">
-                            <ListChecks className="size-4 text-muted-foreground" />
-                            <span>{project.totalTaskCount} tareas totales</span>
-                          </div>
-                          <div className="rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 text-sm text-foreground">
-                            <CalendarClock className="size-4 text-muted-foreground" />
-                            <span>Inicio: {project.startDate ?? "-"}</span>
-                          </div>
-                          <div className="rounded-xl border border-border bg-card px-3 py-2 flex items-center gap-2 text-sm text-foreground">
-                            <CalendarClock className="size-4 text-muted-foreground" />
-                            <span>Fin: {project.endDate ?? "-"}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex justify-end">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/projects/${project.id}`)}
-                            className="app-btn-secondary"
-                          >
-                            <Eye className="size-4" />
-                            Abrir vista del proyecto
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </article>
-                );
-              })}
+                  <p className={`mt-3 text-sm ${getProjectStatusClass(project.status)}`}>{project.status}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {project.activeMemberCount} miembros · {project.totalTaskCount} tareas
+                  </p>
+                </article>
+              ))}
             </div>
-          )}
-        </section>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  Anterior
+                </button>
+                <p className="text-sm text-muted-foreground">
+                  Pagina {currentPage} de {totalPages}
+                </p>
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <Dialog

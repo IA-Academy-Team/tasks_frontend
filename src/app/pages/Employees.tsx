@@ -35,8 +35,11 @@ import {
 } from "../../modules/employees/api/employees.api";
 
 export function Employees() {
+  const PAGE_SIZE = 8;
+
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<EmployeeStatusFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
@@ -129,6 +132,10 @@ export function Employees() {
   useEffect(() => {
     void loadAreas();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, employees.length]);
 
   const startEdit = (employee: EmployeeSummary) => {
     setEditingEmployeeId(employee.id);
@@ -348,6 +355,9 @@ export function Employees() {
     ? employees.find((employee) => employee.id === selectedEmployeeId) ?? null
     : null;
 
+  const totalPages = Math.max(1, Math.ceil(employees.length / PAGE_SIZE));
+  const paginatedEmployees = employees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   return (
     <div className="app-shell">
       <PageHero
@@ -373,199 +383,119 @@ export function Employees() {
       />
 
       <div className="app-content">
-        <section className="app-panel overflow-hidden">
-          <div className="app-panel-header">
-            <h3 className="text-lg font-semibold text-foreground">Listado de empleados</h3>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as EmployeeStatusFilter)}
-              className="app-control h-9 min-w-40"
-            >
-              <option value="all">Todos</option>
-              <option value="active">Activos</option>
-              <option value="inactive">Inactivos</option>
-            </select>
-          </div>
-          {error && <p className="px-4 pt-4 text-sm text-destructive">{error}</p>}
-          {success && <p className="p-4 text-sm text-success">{success}</p>}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-foreground">Listado de empleados</h3>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as EmployeeStatusFilter)}
+            className="app-control h-9 min-w-40"
+          >
+            <option value="all">Todos</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+          </select>
+        </div>
+        {error && <p className="text-sm text-destructive">{error}</p>}
+        {success && <p className="text-sm text-success">{success}</p>}
 
-          {isLoading ? (
-            <div className="p-6 text-sm text-muted-foreground">Cargando empleados...</div>
-          ) : employees.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">No hay empleados para este filtro.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="app-table">
-                <thead className="app-table-head">
-                  <tr>
-                    <th className="app-th">Empleado</th>
-                    <th className="app-th">Area actual</th>
-                    <th className="app-th">Estado</th>
-                    <th className="app-th">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {employees.map((employee) => (
-                    <tr key={employee.id} className="app-row">
-                      <td className="app-td">
-                        <p className="font-medium">{employee.name}</p>
-                        <p className="text-muted-foreground">{employee.email}</p>
-                      </td>
-                      <td className="app-td">{employee.currentAreaName ?? "Sin area activa"}</td>
-                      <td className="app-td">
-                        <span className={employee.isActive ? "text-success" : "text-warning"}>
-                          {employee.isActive ? "Activo" : "Inactivo"}
-                        </span>
-                      </td>
-                      <td className="app-td">
-                        <div className="flex justify-end">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
-                                aria-label={`Acciones de ${employee.name}`}
-                              >
-                                <MoreHorizontal className="size-4" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-44">
-                              <DropdownMenuItem onClick={() => startEdit(employee)}>
-                                Editar
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  void handleOpenAssignments(employee);
-                                }}
-                              >
-                                Asignaciones
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              {employee.isActive ? (
-                                <DropdownMenuItem
-                                  onClick={() => setPendingStatusChange({ employee, nextIsActive: false })}
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  Desactivar
-                                </DropdownMenuItem>
-                              ) : (
-                                <DropdownMenuItem onClick={() => setPendingStatusChange({ employee, nextIsActive: true })}>
-                                  Activar
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => setPendingDeleteEmployee(employee)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="size-4" />
-                                Eliminar
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="app-panel app-panel-pad">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Asignaciones por empleado</h3>
-          {!selectedEmployee ? (
-            <p className="text-sm text-muted-foreground">
-              Selecciona un empleado desde la tabla para gestionar su area y revisar historial.
-            </p>
-          ) : (
-            <div className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm">
-                    <span className="font-medium">Empleado:</span> {selectedEmployee.name}
-                  </p>
-                  <p className="text-sm text-muted-foreground">{selectedEmployee.email}</p>
-                  <p className="text-sm mt-1">
-                    <span className="font-medium">Area actual:</span>{" "}
-                    {selectedEmployee.currentAreaName ?? "Sin area activa"}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium mb-2">Reasignar area</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      value={assignmentAreaId}
-                      onChange={(event) => setAssignmentAreaId(event.target.value)}
-                      className="app-control min-w-[220px]"
-                    >
-                      <option value="">Selecciona area</option>
-                      {areas.map((area) => (
-                        <option key={area.id} value={area.id}>
-                          {area.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        void handleAssignArea();
-                      }}
-                      className="app-btn-primary"
-                    >
-                      Reasignar
-                    </button>
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Cargando empleados...</div>
+        ) : employees.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No hay empleados para este filtro.</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {paginatedEmployees.map((employee) => (
+                <article
+                  key={employee.id}
+                  className="rounded-2xl border border-border bg-card p-4 shadow-[0_10px_30px_rgba(16,36,58,0.08)]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">{employee.name}</p>
+                      <p className="text-sm text-muted-foreground truncate">{employee.email}</p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                          aria-label={`Acciones de ${employee.name}`}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => startEdit(employee)}>
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            void handleOpenAssignments(employee);
+                          }}
+                        >
+                          Asignaciones
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {employee.isActive ? (
+                          <DropdownMenuItem
+                            onClick={() => setPendingStatusChange({ employee, nextIsActive: false })}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            Desactivar
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => setPendingStatusChange({ employee, nextIsActive: true })}>
+                            Activar
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setPendingDeleteEmployee(employee)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                </div>
+
+                  <p className="mt-3 text-sm text-muted-foreground truncate">
+                    {employee.currentAreaName ?? "Sin area activa"}
+                  </p>
+                  <p className={`text-sm ${employee.isActive ? "text-success" : "text-warning"}`}>
+                    {employee.isActive ? "Activo" : "Inactivo"}
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  Anterior
+                </button>
+                <p className="text-sm text-muted-foreground">
+                  Pagina {currentPage} de {totalPages}
+                </p>
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                >
+                  Siguiente
+                </button>
               </div>
-
-              {isLoadingAssignments ? (
-                <p className="text-sm text-muted-foreground">Cargando historial...</p>
-              ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="border border-border rounded-xl p-4">
-                    <h4 className="font-medium mb-3">Historial de areas</h4>
-                    {employeeAreaAssignments.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Sin asignaciones de area.</p>
-                    ) : (
-                      <ul className="space-y-2 text-sm">
-                        {employeeAreaAssignments.map((assignment) => (
-                          <li key={assignment.id} className="border border-border rounded-lg p-2">
-                            <p className="font-medium">{assignment.areaName}</p>
-                            <p className="text-muted-foreground">
-                              {assignment.isActive ? "Activa" : "Finalizada"} ·{" "}
-                              {new Date(assignment.assignedAt).toLocaleString()}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  <div className="border border-border rounded-xl p-4">
-                    <h4 className="font-medium mb-3">Historial de proyectos</h4>
-                    {employeeProjectMemberships.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Sin membresias de proyecto.</p>
-                    ) : (
-                      <ul className="space-y-2 text-sm">
-                        {employeeProjectMemberships.map((membership) => (
-                          <li key={membership.id} className="border border-border rounded-lg p-2">
-                            <p className="font-medium">{membership.projectName}</p>
-                            <p className="text-muted-foreground">
-                              {membership.isActive ? "Activa" : "Finalizada"} · {membership.projectStatus}
-                            </p>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </section>
+            )}
+          </>
+        )}
       </div>
 
       <Dialog
