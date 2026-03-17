@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, ChartPie, KanbanSquare, LayoutGrid, Plus } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
@@ -11,6 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "../components/ui/chart";
 import { listEmployees, type EmployeeSummary } from "../../modules/employees/api/employees.api";
 import {
   assignProjectMembership,
@@ -78,6 +85,24 @@ const getComplianceBadge = (task: TaskSummary): { label: string; className: stri
   return { label: "En tiempo", className: "text-success" };
 };
 
+type ProjectTaskViewMode = "grid" | "kanban" | "analytics";
+
+const statusChartConfig = {
+  Asignada: { label: "Asignada", color: "var(--chart-1)" },
+  "En proceso": { label: "En proceso", color: "var(--chart-4)" },
+  Terminada: { label: "Terminada", color: "var(--chart-2)" },
+} satisfies ChartConfig;
+
+const complianceChartConfig = {
+  "En tiempo": { label: "En tiempo", color: "var(--chart-2)" },
+  "Atraso estimado": { label: "Atraso estimado", color: "var(--chart-4)" },
+  "Atraso por fecha": { label: "Atraso por fecha", color: "var(--chart-5)" },
+} satisfies ChartConfig;
+
+const barChartConfig = {
+  tareas: { label: "Tareas", color: "var(--chart-1)" },
+} satisfies ChartConfig;
+
 export function ProjectBoard() {
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
@@ -91,6 +116,7 @@ export function ProjectBoard() {
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [membershipStatusFilter, setMembershipStatusFilter] = useState<MembershipStatusFilter>("all");
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatusFilter>("all");
+  const [taskViewMode, setTaskViewMode] = useState<ProjectTaskViewMode>("grid");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -288,6 +314,65 @@ export function ProjectBoard() {
     });
 
     return grouped;
+  }, [tasks]);
+
+  const taskStatusDistribution = useMemo(() => ([
+    { status: "Asignada", value: kanbanTasks.assigned.length, fill: "var(--chart-1)" },
+    { status: "En proceso", value: kanbanTasks.in_progress.length, fill: "var(--chart-4)" },
+    { status: "Terminada", value: kanbanTasks.done.length, fill: "var(--chart-2)" },
+  ]), [kanbanTasks]);
+
+  const taskComplianceDistribution = useMemo(() => {
+    const counters = {
+      onTime: 0,
+      estimateDelayed: 0,
+      dateOverdue: 0,
+    };
+
+    tasks.forEach((task) => {
+      if (task.isDateOverdue) {
+        counters.dateOverdue += 1;
+        return;
+      }
+
+      if (task.isEstimateDelayed === true) {
+        counters.estimateDelayed += 1;
+        return;
+      }
+
+      counters.onTime += 1;
+    });
+
+    return [
+      { status: "En tiempo", value: counters.onTime, fill: "var(--chart-2)" },
+      { status: "Atraso estimado", value: counters.estimateDelayed, fill: "var(--chart-4)" },
+      { status: "Atraso por fecha", value: counters.dateOverdue, fill: "var(--chart-5)" },
+    ];
+  }, [tasks]);
+
+  const taskPriorityDistribution = useMemo(() => {
+    const counters = new Map<string, number>();
+
+    tasks.forEach((task) => {
+      counters.set(task.priority, (counters.get(task.priority) ?? 0) + 1);
+    });
+
+    return [...counters.entries()].map(([name, tareas]) => ({ name, tareas }));
+  }, [tasks]);
+
+  const taskAssigneeWorkload = useMemo(() => {
+    const counters = new Map<string, number>();
+
+    tasks.forEach((task) => {
+      if (getStatusKeyFromTask(task) === "done") return;
+      const key = task.assigneeName ?? "Sin asignar";
+      counters.set(key, (counters.get(key) ?? 0) + 1);
+    });
+
+    return [...counters.entries()]
+      .map(([name, tareas]) => ({ name, tareas }))
+      .sort((a, b) => b.tareas - a.tareas)
+      .slice(0, 8);
   }, [tasks]);
 
   const selectedTask = useMemo(
@@ -860,6 +945,48 @@ export function ProjectBoard() {
           <div className="app-panel-header">
             <h3 className="text-lg font-semibold text-foreground">Tareas del proyecto</h3>
             <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-xl border border-border bg-background p-1">
+                <button
+                  type="button"
+                  onClick={() => setTaskViewMode("grid")}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                    taskViewMode === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <LayoutGrid className="size-3.5" />
+                  Cuadrícula
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTaskViewMode("kanban")}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                    taskViewMode === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <KanbanSquare className="size-3.5" />
+                  Kanban
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTaskViewMode("analytics")}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                    taskViewMode === "analytics" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <ChartPie className="size-3.5" />
+                  Gráficas
+                </button>
+              </div>
+              <select
+                value={taskStatusFilter}
+                onChange={(event) => setTaskStatusFilter(event.target.value as TaskStatusFilter)}
+                className="app-control h-9 min-w-40"
+              >
+                <option value="all">Todas</option>
+                <option value="assigned">Asignadas</option>
+                <option value="in_progress">En proceso</option>
+                <option value="done">Terminadas</option>
+              </select>
               {isAdmin && (
                 <button
                   type="button"
@@ -872,149 +999,240 @@ export function ProjectBoard() {
             </div>
           </div>
 
-          <div className="app-band p-5 border-b border-border">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <h4 className="font-medium text-foreground">Tablero Kanban</h4>
-              <p className="text-xs text-muted-foreground">
-                Flujo permitido: Asignada → En proceso → Terminada
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {KANBAN_COLUMNS.map((column) => (
-                <div
-                  key={column.key}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => handleColumnDrop(event, column.key)}
-                  className="rounded-xl border border-border bg-background/80 min-h-[220px] flex flex-col"
-                >
-                  <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center justify-between">
-                    <p className="text-sm font-semibold text-foreground">{column.title}</p>
-                    <span className="text-xs text-muted-foreground">
-                      {kanbanTasks[column.key].length}
-                    </span>
-                  </div>
-                  <div className="p-3 space-y-2 flex-1">
-                    {kanbanTasks[column.key].length === 0 ? (
-                      <p className="text-xs text-muted-foreground">Sin tareas</p>
-                    ) : (
-                      kanbanTasks[column.key].map((task) => (
-                        <article
-                          key={task.id}
-                          draggable={movingTaskId === null}
-                          onClick={() => handleSelectTask(task.id)}
-                          onDragStart={(event) => {
-                            event.dataTransfer.setData("application/task-id", String(task.id));
-                            event.dataTransfer.effectAllowed = "move";
-                          }}
-                          className={`rounded-lg border bg-card p-3 shadow-sm transition-opacity ${
-                            selectedTaskId === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
-                          } ${
-                            movingTaskId === task.id ? "opacity-50" : ""
-                          }`}
-                        >
-                          <p className="text-sm font-medium text-foreground">{task.title}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {task.assigneeName
-                              ? `${task.assigneeName} · ${task.priority}`
-                              : `Sin asignar · ${task.priority}`}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Limite: {task.dueDate}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Real: {formatMinutes(task.actualMinutes)}
-                          </p>
-                          <p className={`text-xs mt-1 ${getComplianceBadge(task).className}`}>
-                            {getComplianceBadge(task).label}
-                          </p>
-                        </article>
-                      ))
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {tasks.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">No hay tareas para este filtro.</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="app-table">
-                <thead className="app-table-head">
-                  <tr>
-                    <th className="app-th">Tarea</th>
-                    <th className="app-th">Estado</th>
-                    <th className="app-th">Prioridad</th>
-                    <th className="app-th">Asignado</th>
-                    <th className="app-th">Fechas</th>
-                    <th className="app-th">Estimado</th>
-                    <th className="app-th">Real</th>
-                    <th className="app-th">Cumplimiento</th>
-                    {isAdmin && <th className="app-th">Acciones</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tasks.map((task) => (
-                    <tr
-                      key={task.id}
-                      className={`app-row cursor-pointer ${
-                        selectedTaskId === task.id ? "bg-primary/5" : ""
-                      }`}
-                      onClick={() => handleSelectTask(task.id)}
-                    >
-                      <td className="app-td">
-                        <p className="font-medium">{task.title}</p>
-                        <p className="text-muted-foreground">{task.description ?? "Sin descripcion"}</p>
-                      </td>
-                      <td className="app-td">{task.status}</td>
-                      <td className="app-td">{task.priority}</td>
-                      <td className="app-td">
-                        {task.assigneeName ? `${task.assigneeName} (${task.assigneeEmail})` : "Sin asignar"}
-                      </td>
-                      <td className="app-td">
-                        <p>Inicio: {task.plannedStartDate}</p>
-                        <p>Limite: {task.dueDate}</p>
-                      </td>
-                      <td className="app-td">
-                        {task.estimatedMinutes ? `${task.estimatedMinutes} min` : "-"}
-                      </td>
-                      <td className="app-td">{formatMinutes(task.actualMinutes)}</td>
-                      <td className="app-td">
-                        <span className={getComplianceBadge(task).className}>
-                          {getComplianceBadge(task).label}
-                        </span>
-                        {task.deviationMinutes !== null && (
-                          <p className="text-xs text-muted-foreground">
-                            Desvio: {task.deviationMinutes > 0 ? "+" : ""}{task.deviationMinutes} min
-                          </p>
-                        )}
-                      </td>
-                      {isAdmin && (
-                        <td className="app-td">
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => startTaskEdit(task)}
-                              className="app-action-link"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setPendingDeleteTask(task)}
-                              className="app-action-link-danger"
-                            >
-                              Eliminar
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <>
+              {taskViewMode === "kanban" && (
+                <div className="app-band p-5 border-b border-border">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h4 className="font-medium text-foreground">Tablero Kanban</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Flujo permitido: Asignada → En proceso → Terminada
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {KANBAN_COLUMNS.map((column) => (
+                      <div
+                        key={column.key}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={(event) => handleColumnDrop(event, column.key)}
+                        className="rounded-xl border border-border bg-background/80 min-h-[220px] flex flex-col"
+                      >
+                        <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center justify-between">
+                          <p className="text-sm font-semibold text-foreground">{column.title}</p>
+                          <span className="text-xs text-muted-foreground">
+                            {kanbanTasks[column.key].length}
+                          </span>
+                        </div>
+                        <div className="p-3 space-y-2 flex-1">
+                          {kanbanTasks[column.key].length === 0 ? (
+                            <p className="text-xs text-muted-foreground">Sin tareas</p>
+                          ) : (
+                            kanbanTasks[column.key].map((task) => (
+                              <article
+                                key={task.id}
+                                draggable={movingTaskId === null}
+                                onClick={() => handleSelectTask(task.id)}
+                                onDragStart={(event) => {
+                                  event.dataTransfer.setData("application/task-id", String(task.id));
+                                  event.dataTransfer.effectAllowed = "move";
+                                }}
+                                className={`rounded-lg border bg-card p-3 shadow-sm transition-opacity ${
+                                  selectedTaskId === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
+                                } ${
+                                  movingTaskId === task.id ? "opacity-50" : ""
+                                }`}
+                              >
+                                <p className="text-sm font-medium text-foreground">{task.title}</p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {task.assigneeName
+                                    ? `${task.assigneeName} · ${task.priority}`
+                                    : `Sin asignar · ${task.priority}`}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Limite: {task.dueDate}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Real: {formatMinutes(task.actualMinutes)}
+                                </p>
+                                <p className={`text-xs mt-1 ${getComplianceBadge(task).className}`}>
+                                  {getComplianceBadge(task).label}
+                                </p>
+                              </article>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {taskViewMode === "grid" && (
+                <div className="overflow-x-auto">
+                  <table className="app-table">
+                    <thead className="app-table-head">
+                      <tr>
+                        <th className="app-th">Tarea</th>
+                        <th className="app-th">Estado</th>
+                        <th className="app-th">Prioridad</th>
+                        <th className="app-th">Asignado</th>
+                        <th className="app-th">Fechas</th>
+                        <th className="app-th">Estimado</th>
+                        <th className="app-th">Real</th>
+                        <th className="app-th">Cumplimiento</th>
+                        {isAdmin && <th className="app-th">Acciones</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tasks.map((task) => (
+                        <tr
+                          key={task.id}
+                          className={`app-row cursor-pointer ${
+                            selectedTaskId === task.id ? "bg-primary/5" : ""
+                          }`}
+                          onClick={() => handleSelectTask(task.id)}
+                        >
+                          <td className="app-td">
+                            <p className="font-medium">{task.title}</p>
+                            <p className="text-muted-foreground">{task.description ?? "Sin descripcion"}</p>
+                          </td>
+                          <td className="app-td">{task.status}</td>
+                          <td className="app-td">{task.priority}</td>
+                          <td className="app-td">
+                            {task.assigneeName ? `${task.assigneeName} (${task.assigneeEmail})` : "Sin asignar"}
+                          </td>
+                          <td className="app-td">
+                            <p>Inicio: {task.plannedStartDate}</p>
+                            <p>Limite: {task.dueDate}</p>
+                          </td>
+                          <td className="app-td">
+                            {task.estimatedMinutes ? `${task.estimatedMinutes} min` : "-"}
+                          </td>
+                          <td className="app-td">{formatMinutes(task.actualMinutes)}</td>
+                          <td className="app-td">
+                            <span className={getComplianceBadge(task).className}>
+                              {getComplianceBadge(task).label}
+                            </span>
+                            {task.deviationMinutes !== null && (
+                              <p className="text-xs text-muted-foreground">
+                                Desvio: {task.deviationMinutes > 0 ? "+" : ""}{task.deviationMinutes} min
+                              </p>
+                            )}
+                          </td>
+                          {isAdmin && (
+                            <td className="app-td">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => startTaskEdit(task)}
+                                  className="app-action-link"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setPendingDeleteTask(task)}
+                                  className="app-action-link-danger"
+                                >
+                                  Eliminar
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {taskViewMode === "analytics" && (
+                <div className="p-5 space-y-4">
+                  <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <article className="rounded-xl border border-border bg-background px-4 py-3">
+                      <p className="text-xs text-muted-foreground">Total de tareas</p>
+                      <p className="text-2xl font-semibold text-foreground">{tasks.length}</p>
+                    </article>
+                    <article className="rounded-xl border border-border bg-background px-4 py-3">
+                      <p className="text-xs text-muted-foreground">Pendientes</p>
+                      <p className="text-2xl font-semibold text-foreground">
+                        {kanbanTasks.assigned.length + kanbanTasks.in_progress.length}
+                      </p>
+                    </article>
+                    <article className="rounded-xl border border-border bg-background px-4 py-3">
+                      <p className="text-xs text-muted-foreground">Retrasadas / vencidas</p>
+                      <p className="text-2xl font-semibold text-foreground">
+                        {taskComplianceDistribution[1].value + taskComplianceDistribution[2].value}
+                      </p>
+                    </article>
+                  </section>
+
+                  <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                    <article className="rounded-xl border border-border bg-background p-4">
+                      <h4 className="text-sm font-semibold text-foreground mb-3">Distribución por estado</h4>
+                      <ChartContainer config={statusChartConfig} className="h-[260px] w-full">
+                        <PieChart>
+                          <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
+                          <Pie
+                            data={taskStatusDistribution}
+                            dataKey="value"
+                            nameKey="status"
+                            innerRadius={55}
+                            outerRadius={90}
+                            strokeWidth={2}
+                          />
+                        </PieChart>
+                      </ChartContainer>
+                    </article>
+
+                    <article className="rounded-xl border border-border bg-background p-4">
+                      <h4 className="text-sm font-semibold text-foreground mb-3">Cumplimiento de tiempos</h4>
+                      <ChartContainer config={complianceChartConfig} className="h-[260px] w-full">
+                        <PieChart>
+                          <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
+                          <Pie
+                            data={taskComplianceDistribution}
+                            dataKey="value"
+                            nameKey="status"
+                            innerRadius={55}
+                            outerRadius={90}
+                            strokeWidth={2}
+                          />
+                        </PieChart>
+                      </ChartContainer>
+                    </article>
+
+                    <article className="rounded-xl border border-border bg-background p-4">
+                      <h4 className="text-sm font-semibold text-foreground mb-3">Prioridad de tareas</h4>
+                      <ChartContainer config={barChartConfig} className="h-[260px] w-full">
+                        <BarChart data={taskPriorityDistribution}>
+                          <CartesianGrid vertical={false} />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                          <YAxis axisLine={false} tickLine={false} />
+                          <ChartTooltip content={<ChartTooltipContent formatter={(value) => `${value} tareas`} />} />
+                          <Bar dataKey="tareas" fill="var(--color-tareas)" radius={8} />
+                        </BarChart>
+                      </ChartContainer>
+                    </article>
+
+                    <article className="rounded-xl border border-border bg-background p-4">
+                      <h4 className="text-sm font-semibold text-foreground mb-3">Carga por responsable (activas)</h4>
+                      <ChartContainer config={barChartConfig} className="h-[260px] w-full">
+                        <BarChart data={taskAssigneeWorkload}>
+                          <CartesianGrid vertical={false} />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                          <YAxis axisLine={false} tickLine={false} />
+                          <ChartTooltip content={<ChartTooltipContent formatter={(value) => `${value} tareas`} />} />
+                          <Bar dataKey="tareas" fill="var(--color-tareas)" radius={8} />
+                        </BarChart>
+                      </ChartContainer>
+                    </article>
+                  </section>
+                </div>
+              )}
+            </>
           )}
         </section>
 

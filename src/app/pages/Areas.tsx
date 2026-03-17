@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Building2, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { Building2, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import {
+  DropdownMenuCheckboxItem,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -414,33 +415,76 @@ export function Areas() {
               ) : employees.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No hay empleados disponibles.</p>
               ) : (
-                <div className="max-h-56 overflow-y-auto rounded-xl border border-border p-2 space-y-2">
-                  {employees.map((employee) => {
-                    const isChecked = selectedEmployeeIds.includes(employee.id);
-                    const isDisabled = !employee.isActive && !isChecked;
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="app-btn-secondary"
+                          disabled={isSubmitting}
+                        >
+                          Seleccionar empleados
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-[360px] max-h-72 overflow-y-auto">
+                        {employees.map((employee) => {
+                          const isChecked = selectedEmployeeIds.includes(employee.id);
+                          const isDisabled = !employee.isActive && !isChecked;
 
-                    return (
-                      <label
-                        key={employee.id}
-                        className={`flex items-center gap-2 rounded-lg px-2 py-1.5 ${
-                          isDisabled ? "opacity-60" : "hover:bg-secondary/50"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleEmployeeSelection(employee.id)}
-                          disabled={isDisabled || isSubmitting}
-                        />
-                        <span className="text-sm text-foreground">
-                          {employee.name} ({employee.email})
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {employee.currentAreaName ? `· Actual: ${employee.currentAreaName}` : "· Sin area"}
-                        </span>
-                      </label>
-                    );
-                  })}
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={employee.id}
+                              checked={isChecked}
+                              disabled={isDisabled || isSubmitting}
+                              onCheckedChange={() => toggleEmployeeSelection(employee.id)}
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm text-foreground truncate">{employee.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {employee.email} · {employee.currentAreaName ?? "Sin area"}
+                                </p>
+                              </div>
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <p className="text-xs text-muted-foreground">
+                      Seleccionados: {selectedEmployeeIds.length}
+                    </p>
+                  </div>
+
+                  {selectedEmployeeIds.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No hay empleados seleccionados para esta area.
+                    </p>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto rounded-xl border border-border p-2 space-y-2">
+                      {selectedEmployeeIds.map((employeeId) => {
+                        const employee = employees.find((item) => item.id === employeeId);
+                        if (!employee) return null;
+
+                        return (
+                          <div key={employee.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-sm text-foreground truncate">{employee.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{employee.email}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleEmployeeSelection(employee.id)}
+                              className="inline-flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground"
+                              disabled={isSubmitting}
+                              aria-label={`Quitar a ${employee.name}`}
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

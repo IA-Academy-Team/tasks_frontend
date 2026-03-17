@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { Pie, PieChart } from "recharts";
 import {
   CalendarClock,
   CheckCircle2,
@@ -13,7 +14,12 @@ import { useAuth } from "../context/AuthContext";
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import { PageHero } from "../components/PageHero";
 import { DashboardMetrics } from "../components/dashboard/DashboardMetrics";
-import { TeamPerformanceSection, type TeamPerformanceItem } from "../components/dashboard/TeamPerformanceSection";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "../components/ui/chart";
 import { listEmployees, type EmployeeSummary } from "../../modules/employees/api/employees.api";
 import { listProjects, type ProjectSummary } from "../../modules/projects/api/projects.api";
 import {
@@ -48,6 +54,8 @@ const toEfficiencyRate = (estimatedMinutes: number, actualMinutes: number) => {
   return Math.max(0, Math.round((estimatedMinutes / actualMinutes) * 100));
 };
 
+const isDoneStatus = (status: string) => status.trim().toLowerCase() === "terminada";
+
 type AdminInsights = {
   efficiencyRate: number;
   statusDistribution: {
@@ -55,9 +63,31 @@ type AdminInsights = {
     value: number;
     fill: string;
   }[];
-  teamPerformance: TeamPerformanceItem[];
+  teamPerformance: {
+    employeeId: number;
+    employeeName: string;
+    doneTasks: number;
+    totalTasks: number;
+    completionRate: number;
+  }[];
+  upcomingTasksCount: number;
+  pendingTasksCount: number;
+  overdueTasks: Array<{
+    taskId: number;
+    title: string;
+    projectName: string;
+    dueDate: string;
+    reason: string;
+  }>;
   recentActivity: TaskComplianceReportData["rows"];
 };
+
+const pieChartConfig = {
+  Asignada: { label: "Asignadas", color: "var(--chart-1)" },
+  "En proceso": { label: "En proceso", color: "var(--chart-4)" },
+  Terminada: { label: "Terminadas", color: "var(--chart-2)" },
+  "Retrasada/Vencida": { label: "Retrasadas/Vencidas", color: "var(--chart-5)" },
+} satisfies ChartConfig;
 
 function StatCard(props: {
   title: string;
@@ -78,7 +108,6 @@ function StatCard(props: {
 }
 
 export function Dashboard() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isEmployee = user?.role === "employee";
@@ -136,14 +165,33 @@ export function Dashboard() {
       .map((employee) => ({
         employeeId: employee.employeeId,
         employeeName: employee.employeeName,
-        assignedTasks: employee.assignedTasks,
-        inProgressTasks: employee.inProgressTasks,
         doneTasks: employee.doneTasks,
         totalTasks: employee.totalTasks,
         completionRate: employee.completionRate,
-        efficiencyRate: toEfficiencyRate(employee.totalEstimatedMinutes, employee.totalActualMinutes),
       }))
       .sort((a, b) => b.completionRate - a.completionRate || b.doneTasks - a.doneTasks);
+
+    const now = new Date();
+    const nextSevenDays = new Date();
+    nextSevenDays.setDate(now.getDate() + 7);
+    const upcomingTasksCount = taskComplianceReport.rows.filter((row) => {
+      if (isDoneStatus(row.status)) return false;
+      const dueDate = new Date(row.dueDate);
+      return dueDate >= now && dueDate <= nextSevenDays;
+    }).length;
+
+    const pendingTasksCount = teamSummary.assignedTasks + teamSummary.inProgressTasks;
+
+    const overdueTasks = taskComplianceReport.rows
+      .filter((row) => row.isDateOverdue || row.isEstimateDelayed === true)
+      .map((row) => ({
+        taskId: row.taskId,
+        title: row.title,
+        projectName: row.projectName,
+        dueDate: row.dueDate,
+        reason: row.isDateOverdue ? "Vencida por fecha" : "Retrasada por estimado",
+      }))
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
     const recentActivity = [...taskComplianceReport.rows]
       .sort((a, b) => {
@@ -157,6 +205,9 @@ export function Dashboard() {
       efficiencyRate,
       statusDistribution,
       teamPerformance,
+      upcomingTasksCount,
+      pendingTasksCount,
+      overdueTasks,
       recentActivity,
     };
   }, [adminDashboard, taskComplianceReport]);
@@ -400,12 +451,129 @@ export function Dashboard() {
             <DashboardMetrics
               summary={adminDashboard.teamSummary}
               efficiencyRate={adminInsights.efficiencyRate}
-              statusDistribution={adminInsights.statusDistribution}
             />
-            <TeamPerformanceSection
-              team={adminInsights.teamPerformance}
-              onOpenEmployees={() => navigate("/employees")}
-            />
+            <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+              <article className="app-panel app-panel-pad">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-foreground">Distribución por estado</h2>
+                    <p className="text-sm text-muted-foreground">Vista general de estados de tarea.</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{adminDashboard.teamSummary.totalTasks} tareas</p>
+                </div>
+                <div className="mt-4 grid grid-cols-[170px_1fr] gap-2 items-center">
+                  <ul className="space-y-2">
+                    {adminInsights.statusDistribution.map((item) => (
+                      <li key={item.status} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="inline-flex items-center gap-2 text-muted-foreground">
+                          <span className="size-2.5 rounded-sm" style={{ backgroundColor: item.fill }} />
+                          {item.status}
+                        </span>
+                        <span className="font-medium text-foreground">{item.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <ChartContainer config={pieChartConfig} className="h-[220px] w-full">
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
+                      <Pie
+                        data={adminInsights.statusDistribution}
+                        dataKey="value"
+                        nameKey="status"
+                        innerRadius={52}
+                        outerRadius={82}
+                        strokeWidth={2}
+                      />
+                    </PieChart>
+                  </ChartContainer>
+                </div>
+              </article>
+
+              <article className="app-panel app-panel-pad">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 className="text-lg font-semibold text-foreground">Rendimiento por cumplimiento</h2>
+                </div>
+                {adminInsights.teamPerformance.length === 0 ? (
+                  <p className="mt-4 text-sm text-muted-foreground">Sin datos para los filtros activos.</p>
+                ) : (
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="app-table">
+                      <thead className="app-table-head">
+                        <tr>
+                          <th className="app-th">Empleado</th>
+                          <th className="app-th">Cumplimiento</th>
+                          <th className="app-th">Completadas</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminInsights.teamPerformance.slice(0, 8).map((row) => (
+                          <tr key={row.employeeId} className="app-row">
+                            <td className="app-td">{row.employeeName}</td>
+                            <td className="app-td">{row.completionRate}%</td>
+                            <td className="app-td">{row.doneTasks}/{row.totalTasks}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </article>
+
+              <article className="app-panel app-panel-pad space-y-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">Alertas operativas</h2>
+                  <p className="text-sm text-muted-foreground">Pendientes y tareas críticas.</p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="app-table">
+                    <thead className="app-table-head">
+                      <tr>
+                        <th className="app-th">Indicador</th>
+                        <th className="app-th">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="app-row">
+                        <td className="app-td">Próximas a vencerse (7 días)</td>
+                        <td className="app-td">{adminInsights.upcomingTasksCount}</td>
+                      </tr>
+                      <tr className="app-row">
+                        <td className="app-td">Pendientes (asignadas + en proceso)</td>
+                        <td className="app-td">{adminInsights.pendingTasksCount}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="app-table">
+                    <thead className="app-table-head">
+                      <tr>
+                        <th className="app-th">Tarea retrasada/vencida</th>
+                        <th className="app-th">Proyecto</th>
+                        <th className="app-th">Motivo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {adminInsights.overdueTasks.length === 0 ? (
+                        <tr className="app-row">
+                          <td className="app-td" colSpan={3}>Sin tareas retrasadas o vencidas.</td>
+                        </tr>
+                      ) : (
+                        adminInsights.overdueTasks.map((row) => (
+                          <tr key={row.taskId} className="app-row">
+                            <td className="app-td">{row.title}</td>
+                            <td className="app-td">{row.projectName}</td>
+                            <td className="app-td">{row.reason}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+            </section>
           </>
         )}
       </div>

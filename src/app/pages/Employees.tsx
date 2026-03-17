@@ -429,13 +429,6 @@ export function Employees() {
                         <DropdownMenuItem onClick={() => startEdit(employee)}>
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            void handleOpenAssignments(employee);
-                          }}
-                        >
-                          Asignaciones
-                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         {employee.isActive ? (
                           <DropdownMenuItem
