@@ -12,7 +12,6 @@ import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import { PageHero } from "../components/PageHero";
-import { DashboardAlerts } from "../components/dashboard/DashboardAlerts";
 import { DashboardMetrics } from "../components/dashboard/DashboardMetrics";
 import { ProjectHealthSection, type ProjectHealthItem } from "../components/dashboard/ProjectHealthSection";
 import { TeamPerformanceSection, type TeamPerformanceItem } from "../components/dashboard/TeamPerformanceSection";
@@ -24,13 +23,11 @@ import { listProjects, type ProjectSummary } from "../../modules/projects/api/pr
 import {
   getAdminDashboard,
   getEmployeeDashboard,
-  getOverdueAlerts,
   getTaskComplianceReport,
   type AdminDashboardData,
   type AdminDashboardQuery,
   type ComplianceFilter,
   type EmployeeDashboardData,
-  type OverdueAlertsData,
   type TaskComplianceReportData,
 } from "../../modules/dashboard/api/dashboard.api";
 
@@ -50,21 +47,6 @@ const formatDate = (value: string) =>
     year: "numeric",
   });
 
-const toIsoDate = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
-
-const todayIso = () => toIsoDate(new Date());
-
-const addDaysIso = (baseIso: string, days: number) => {
-  const baseDate = new Date(`${baseIso}T00:00:00`);
-  baseDate.setDate(baseDate.getDate() + days);
-  return toIsoDate(baseDate);
-};
-
 const toEfficiencyRate = (estimatedMinutes: number, actualMinutes: number) => {
   if (estimatedMinutes <= 0 || actualMinutes <= 0) return 0;
   return Math.max(0, Math.round((estimatedMinutes / actualMinutes) * 100));
@@ -74,9 +56,6 @@ const isDoneStatus = (status: string) => status.trim().toLowerCase() === "termin
 
 type AdminInsights = {
   efficiencyRate: number;
-  dueSoonTasks: number;
-  highDeviationTasks: number;
-  overloadedEmployees: number;
   overloadThreshold: number;
   statusDistribution: {
     status: string;
@@ -87,7 +66,6 @@ type AdminInsights = {
   teamPerformance: TeamPerformanceItem[];
   workload: WorkloadItem[];
   recentActivity: TaskComplianceReportData["rows"];
-  topOverloadedEmployeeId: number | null;
 };
 
 function StatCard(props: {
@@ -121,7 +99,6 @@ export function Dashboard() {
   const [employeeDashboard, setEmployeeDashboard] = useState<EmployeeDashboardData | null>(null);
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboardData | null>(null);
   const [taskComplianceReport, setTaskComplianceReport] = useState<TaskComplianceReportData | null>(null);
-  const [overdueAlerts, setOverdueAlerts] = useState<OverdueAlertsData | null>(null);
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [areas, setAreas] = useState<AreaSummary[]>([]);
@@ -149,7 +126,7 @@ export function Dashboard() {
   }), [adminQuery, complianceFilter]);
 
   const adminInsights: AdminInsights | null = useMemo(() => {
-    if (!adminDashboard || !taskComplianceReport || !overdueAlerts) {
+    if (!adminDashboard || !taskComplianceReport) {
       return null;
     }
 
@@ -161,21 +138,6 @@ export function Dashboard() {
     ];
 
     const efficiencyRate = toEfficiencyRate(teamSummary.totalEstimatedMinutes, teamSummary.totalActualMinutes);
-
-    const dueSoonTasks = taskComplianceReport.rows.filter((row) => {
-      if (isDoneStatus(row.status) || row.completedAt) return false;
-      if (row.isDateOverdue) return false;
-      const dueDate = new Date(`${row.dueDate}T00:00:00`);
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-      const due = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate()).getTime();
-      const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
-      return diffDays >= 0 && diffDays <= 3;
-    }).length;
-
-    const highDeviationTasks = taskComplianceReport.rows.filter(
-      (row) => row.deviationMinutes !== null && row.deviationMinutes >= 120,
-    ).length;
 
     const workloadMap = new Map<number, WorkloadItem>();
     taskComplianceReport.rows.forEach((row) => {
@@ -198,8 +160,6 @@ export function Dashboard() {
       ? 0
       : workload.reduce((acc, item) => acc + item.activeTasks, 0) / workload.length;
     const overloadThreshold = Math.max(3, Math.ceil(avgWorkload * 1.4));
-    const overloadedEmployees = workload.filter((item) => item.activeTasks >= overloadThreshold);
-    const topOverloadedEmployeeId = overloadedEmployees[0]?.employeeId ?? null;
 
     const teamPerformance = adminDashboard.employeeProductivity
       .map((employee) => ({
@@ -256,18 +216,14 @@ export function Dashboard() {
 
     return {
       efficiencyRate,
-      dueSoonTasks,
-      highDeviationTasks,
-      overloadedEmployees: overloadedEmployees.length,
       overloadThreshold,
       statusDistribution,
       projectHealth,
       teamPerformance,
       workload,
       recentActivity,
-      topOverloadedEmployeeId,
     };
-  }, [adminDashboard, overdueAlerts, taskComplianceReport]);
+  }, [adminDashboard, taskComplianceReport]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -307,22 +263,18 @@ export function Dashboard() {
           setEmployeeDashboard(response?.data ?? null);
           setAdminDashboard(null);
           setTaskComplianceReport(null);
-          setOverdueAlerts(null);
         } else if (isAdmin) {
-          const [adminResponse, reportResponse, alertsResponse] = await Promise.all([
+          const [adminResponse, reportResponse] = await Promise.all([
             getAdminDashboard(adminQuery),
             getTaskComplianceReport(reportQuery),
-            getOverdueAlerts({ ...adminQuery, limit: 25 }),
           ]);
           setAdminDashboard(adminResponse?.data ?? null);
           setTaskComplianceReport(reportResponse?.data ?? null);
-          setOverdueAlerts(alertsResponse?.data ?? null);
           setEmployeeDashboard(null);
         } else {
           setEmployeeDashboard(null);
           setAdminDashboard(null);
           setTaskComplianceReport(null);
-          setOverdueAlerts(null);
         }
       } catch (incomingError) {
         if (incomingError instanceof ApiError) {
@@ -345,33 +297,6 @@ export function Dashboard() {
     setAreaIdFilter("");
     setEmployeeIdFilter("");
     setComplianceFilter("all");
-  };
-
-  const applyQuickFilter = (kind: "overdue" | "dueSoon" | "highDeviation" | "overloaded") => {
-    if (!adminInsights) return;
-
-    switch (kind) {
-      case "overdue":
-        setComplianceFilter("date_overdue");
-        break;
-      case "highDeviation":
-        setComplianceFilter("estimate_delayed");
-        break;
-      case "dueSoon": {
-        const from = todayIso();
-        setDateFrom(from);
-        setDateTo(addDaysIso(from, 3));
-        setComplianceFilter("all");
-        break;
-      }
-      case "overloaded":
-        if (adminInsights.topOverloadedEmployeeId) {
-          setEmployeeIdFilter(String(adminInsights.topOverloadedEmployeeId));
-        }
-        break;
-      default:
-        break;
-    }
   };
 
   if (!user) {
@@ -483,7 +408,7 @@ export function Dashboard() {
           </>
         )}
 
-        {isAdmin && adminDashboard && taskComplianceReport && overdueAlerts && adminInsights && (
+        {isAdmin && adminDashboard && taskComplianceReport && adminInsights && (
           <>
             <section className="app-panel app-panel-pad">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
@@ -551,17 +476,6 @@ export function Dashboard() {
                 </button>
               </div>
             </section>
-
-            <DashboardAlerts
-              overdueTasks={overdueAlerts.counters.dateOverdueAlerts}
-              dueSoonTasks={adminInsights.dueSoonTasks}
-              highDeviationTasks={adminInsights.highDeviationTasks}
-              overloadedEmployees={adminInsights.overloadedEmployees}
-              alerts={overdueAlerts.alerts}
-              generatedAt={overdueAlerts.generatedAt}
-              onApplyQuickFilter={applyQuickFilter}
-              onOpenTask={(projectId, taskId) => navigate(`/projects/${projectId}?taskId=${taskId}`)}
-            />
 
             <DashboardMetrics
               summary={adminDashboard.teamSummary}

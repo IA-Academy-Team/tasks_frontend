@@ -211,7 +211,7 @@ export function Layout() {
   return (
     <div className="h-screen overflow-y-hidden overflow-x-visible flex bg-background">
       <aside
-        className={`hidden md:flex h-screen relative z-30 shrink-0 overflow-y-hidden overflow-x-visible border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#f6faff_0%,#ebf3fc_52%,#e1ebf8_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground flex-col shadow-[14px_0_28px_rgba(23,47,77,0.12)] dark:shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
+        className={`hidden md:flex h-screen relative z-30 shrink-0 overflow-y-hidden overflow-x-visible border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#e9f3ff_0%,#dcecff_52%,#d0e4fb_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground flex-col shadow-[14px_0_28px_rgba(23,47,77,0.12)] dark:shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
           isSidebarCollapsed ? "w-20" : "w-64"
         }`}
       >
@@ -246,7 +246,7 @@ export function Layout() {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/45" onClick={closeMobileMenu}>
           <aside
-            className="h-full w-72 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#f6faff_0%,#ebf3fc_52%,#e1ebf8_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground shadow-2xl p-4"
+            className="h-full w-72 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#e9f3ff_0%,#dcecff_52%,#d0e4fb_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground shadow-2xl p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-sidebar-border/80">
