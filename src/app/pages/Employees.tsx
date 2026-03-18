@@ -63,8 +63,6 @@ export function Employees() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEmployeeModalOpen, setIsEmployeeModalOpen] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [editingEmployeeId, setEditingEmployeeId] = useState<number | null>(null);
 
   const [name, setName] = useState("");
@@ -72,7 +70,6 @@ export function Employees() {
   const [password, setPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [image, setImage] = useState("");
-  const [emailVerified, setEmailVerified] = useState(false);
   const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
   const [assignmentAreaId, setAssignmentAreaId] = useState("");
@@ -92,19 +89,17 @@ export function Employees() {
     setPassword("");
     setPhoneNumber("");
     setImage("");
-    setEmailVerified(false);
   };
 
   const loadEmployees = useCallback(async () => {
     try {
-      setError("");
       const response = await listEmployees(statusFilter);
       setEmployees(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
+        toast.error(incomingError.message);
       } else {
-        setError("No fue posible cargar los empleados.");
+        toast.error("No fue posible cargar los empleados.");
       }
     } finally {
       setIsLoading(false);
@@ -132,9 +127,9 @@ export function Employees() {
       setEmployeeProjectMemberships(membershipsResponse?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
+        toast.error(incomingError.message);
       } else {
-        setError("No fue posible cargar las asignaciones del empleado.");
+        toast.error("No fue posible cargar las asignaciones del empleado.");
       }
       setEmployeeAreaAssignments([]);
       setEmployeeProjectMemberships([]);
@@ -162,16 +157,11 @@ export function Employees() {
     setPassword("");
     setPhoneNumber(employee.phoneNumber ?? "");
     setImage(employee.image ?? "");
-    setEmailVerified(employee.emailVerified);
-    setError("");
-    setSuccess("");
     setIsEmployeeModalOpen(true);
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError("");
-    setSuccess("");
 
     const trimmedName = name.trim();
     const trimmedEmail = email.trim().toLowerCase();
@@ -243,10 +233,7 @@ export function Employees() {
           name: trimmedName,
           phoneNumber: trimmedPhoneNumber || null,
           image: trimmedImage || null,
-          emailVerified,
         });
-
-        setSuccess("Empleado actualizado correctamente.");
       } else {
         await createEmployee({
           name: trimmedName,
@@ -254,20 +241,16 @@ export function Employees() {
           password: password.trim(),
           phoneNumber: trimmedPhoneNumber || null,
           image: trimmedImage || null,
-          emailVerified,
           isActive: true,
         });
-        setSuccess("Empleado creado correctamente.");
       }
 
       resetForm();
       setIsEmployeeModalOpen(false);
       await loadEmployees();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible guardar el empleado.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible guardar el empleado.");
       }
     } finally {
       setIsSubmitting(false);
@@ -275,17 +258,9 @@ export function Employees() {
   };
 
   const handleDeleteEmployee = async (employee: EmployeeSummary) => {
-    setError("");
-    setSuccess("");
     setIsSubmitting(true);
     try {
-      const response = await deleteEmployee(employee.id);
-      const mode = response?.data?.mode ?? "deleted";
-      setSuccess(
-        mode === "archived"
-          ? "Empleado archivado por historial existente."
-          : "Empleado eliminado correctamente.",
-      );
+      await deleteEmployee(employee.id);
 
       if (selectedEmployeeId === employee.id) {
         setSelectedEmployeeId(null);
@@ -295,10 +270,8 @@ export function Employees() {
 
       await loadEmployees();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible eliminar el empleado.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible eliminar el empleado.");
       }
     } finally {
       setIsSubmitting(false);
@@ -306,18 +279,13 @@ export function Employees() {
   };
 
   const handleEmployeeStatusUpdate = async (employee: EmployeeSummary, isActive: boolean) => {
-    setError("");
-    setSuccess("");
     setIsSubmitting(true);
     try {
       await updateEmployeeStatus(employee.id, { isActive });
-      setSuccess(isActive ? "Empleado activado correctamente." : "Empleado desactivado correctamente.");
       await loadEmployees();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible actualizar el estado del empleado.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible actualizar el estado del empleado.");
       }
     } finally {
       setIsSubmitting(false);
@@ -327,8 +295,6 @@ export function Employees() {
   const handleOpenAssignments = async (employee: EmployeeSummary) => {
     setSelectedEmployeeId(employee.id);
     setAssignmentAreaId("");
-    setError("");
-    setSuccess("");
     await loadEmployeeAssignments(employee.id);
   };
 
@@ -345,21 +311,16 @@ export function Employees() {
     }
 
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
     try {
       await assignEmployeeArea(selectedEmployeeId, { areaId: numericAreaId });
-      setSuccess("Area reasignada correctamente.");
       setAssignmentAreaId("");
       await Promise.all([
         loadEmployees(),
         loadEmployeeAssignments(selectedEmployeeId),
       ]);
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible reasignar el area.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible reasignar el area.");
       }
     } finally {
       setIsSubmitting(false);
@@ -412,8 +373,6 @@ export function Employees() {
               type="button"
               onClick={() => {
                 resetForm();
-                setError("");
-                setSuccess("");
                 setIsEmployeeModalOpen(true);
               }}
               className="app-btn-primary h-10 w-10 p-0 shadow-[0_10px_18px_rgba(15,118,110,0.24)]"
@@ -424,9 +383,6 @@ export function Employees() {
             </button>
           </div>
         </div>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        {success && <p className="text-sm text-success">{success}</p>}
 
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Cargando empleados...</div>
@@ -537,7 +493,6 @@ export function Employees() {
           setIsEmployeeModalOpen(open);
           if (!open && !isSubmitting) {
             resetForm();
-            setError("");
           }
         }}
       >
@@ -575,7 +530,7 @@ export function Employees() {
 
             {!editingEmployeeId && (
               <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Contrasena</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Contraseña</label>
                 <input
                   type="password"
                   value={password}
@@ -598,7 +553,7 @@ export function Employees() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen (URL)</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen de perfil (URL)</label>
               <input
                 type="url"
                 value={image}
@@ -606,17 +561,6 @@ export function Employees() {
                 className="app-control"
                 placeholder="https://..."
               />
-            </div>
-
-            <div className="md:col-span-2 flex flex-wrap items-center gap-4">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={emailVerified}
-                  onChange={(event) => setEmailVerified(event.target.checked)}
-                />
-                <span className="text-sm text-foreground">Correo verificado</span>
-              </label>
             </div>
             <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
               {editingEmployeeId && (

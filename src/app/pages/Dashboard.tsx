@@ -319,11 +319,6 @@ export function Dashboard() {
       />
 
       <div className="app-content">
-        {error && (
-          <section className="app-panel app-panel-pad">
-            <p className="text-sm text-destructive">{error}</p>
-          </section>
-        )}
 
         {isEmployee && employeeDashboard && (
           <>

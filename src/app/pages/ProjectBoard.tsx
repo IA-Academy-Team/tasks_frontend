@@ -833,11 +833,6 @@ export function ProjectBoard() {
       </div>
 
       <div className="app-content">
-        {error && (
-          <section className="app-panel app-panel-pad">
-            <p className="text-sm text-destructive">{error}</p>
-          </section>
-        )}
         <section className="app-panel overflow-hidden">
           <div className="app-panel-header">
             <h3 className="text-lg font-semibold text-foreground">Miembros del proyecto</h3>
@@ -1279,7 +1274,6 @@ export function ProjectBoard() {
           )}
         </section>
 
-        {success && <p className="text-sm text-success">{success}</p>}
       </div>
 
       <Dialog

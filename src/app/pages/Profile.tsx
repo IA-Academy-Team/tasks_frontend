@@ -170,17 +170,6 @@ export function Profile() {
               />
             </div>
 
-            {success && (
-              <p className="text-sm text-success bg-success/10 px-3 py-2 rounded-xl">
-                {success}
-              </p>
-            )}
-            {error && (
-              <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">
-                {error}
-              </p>
-            )}
-
             <button
               type="submit"
               disabled={isSaving}

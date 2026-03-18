@@ -71,8 +71,6 @@ export function Projects() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [pendingDeleteProject, setPendingDeleteProject] = useState<ProjectSummary | null>(null);
   const [pendingStatusUpdate, setPendingStatusUpdate] = useState<{
     project: ProjectSummary;
@@ -104,7 +102,6 @@ export function Projects() {
 
   const loadProjects = useCallback(async () => {
     try {
-      setError("");
       const response = await listProjects({
         status: statusFilter,
         areaId: areaFilter === "all" ? undefined : Number(areaFilter),
@@ -112,9 +109,9 @@ export function Projects() {
       setProjects(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
+        toast.error(incomingError.message);
       } else {
-        setError("No fue posible cargar los proyectos.");
+        toast.error("No fue posible cargar los proyectos.");
       }
     } finally {
       setIsLoading(false);
@@ -152,15 +149,11 @@ export function Projects() {
     setDescription(project.description ?? "");
     setStartDate(project.startDate ?? "");
     setEndDate(project.endDate ?? "");
-    setError("");
-    setSuccess("");
     setIsProjectModalOpen(true);
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError("");
-    setSuccess("");
 
     const trimmedName = name.trim();
     const numericAreaId = Number(areaId);
@@ -185,7 +178,6 @@ export function Projects() {
           startDate: startDate || null,
           endDate: endDate || null,
         });
-        setSuccess("Proyecto actualizado correctamente.");
       } else {
         await createProject({
           areaId: numericAreaId,
@@ -194,17 +186,14 @@ export function Projects() {
           startDate: startDate || null,
           endDate: endDate || null,
         });
-        setSuccess("Proyecto creado correctamente.");
       }
 
       resetForm();
       setIsProjectModalOpen(false);
       await loadProjects();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible guardar el proyecto.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible guardar el proyecto.");
       }
     } finally {
       setIsSubmitting(false);
@@ -213,22 +202,12 @@ export function Projects() {
 
   const handleDelete = async (project: ProjectSummary) => {
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
     try {
-      const response = await deleteProject(project.id);
-      const mode = response?.data?.mode ?? "deleted";
-      setSuccess(
-        mode === "archived"
-          ? "Proyecto archivado por historial existente."
-          : "Proyecto eliminado.",
-      );
+      await deleteProject(project.id);
       await loadProjects();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible eliminar el proyecto.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible eliminar el proyecto.");
       }
     } finally {
       setIsSubmitting(false);
@@ -237,17 +216,12 @@ export function Projects() {
 
   const handleStatusUpdate = async (project: ProjectSummary, status: ProjectStatusUpdate) => {
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
     try {
       await updateProjectStatus(project.id, { status });
-      setSuccess("Estado del proyecto actualizado.");
       await loadProjects();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible actualizar el estado.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible actualizar el estado.");
       }
     } finally {
       setIsSubmitting(false);
@@ -312,8 +286,6 @@ export function Projects() {
                 type="button"
                 onClick={() => {
                   resetForm();
-                  setError("");
-                  setSuccess("");
                   setIsProjectModalOpen(true);
                 }}
                 className="app-btn-primary h-10 w-10 p-0 shadow-[0_10px_18px_rgba(15,118,110,0.24)]"
@@ -325,9 +297,6 @@ export function Projects() {
             )}
           </div>
         </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        {success && <p className="text-sm text-success">{success}</p>}
-
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Cargando proyectos...</div>
         ) : projects.length === 0 ? (
@@ -437,7 +406,6 @@ export function Projects() {
           setIsProjectModalOpen(open);
           if (!open && !isSubmitting) {
             resetForm();
-            setError("");
           }
         }}
       >

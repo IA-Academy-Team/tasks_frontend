@@ -65,8 +65,6 @@ export function Areas() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
   const [pendingDeleteArea, setPendingDeleteArea] = useState<AreaSummary | null>(null);
   const [pendingStatusUpdateArea, setPendingStatusUpdateArea] = useState<{
@@ -92,14 +90,13 @@ export function Areas() {
 
   const loadAreas = useCallback(async () => {
     try {
-      setError("");
       const response = await listAreas(statusFilter);
       setAreas(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
+        toast.error(incomingError.message);
       } else {
-        setError("No fue posible cargar las areas.");
+        toast.error("No fue posible cargar las areas.");
       }
     } finally {
       setIsLoading(false);
@@ -139,8 +136,6 @@ export function Areas() {
 
   const openCreateAreaModal = async () => {
     resetForm();
-    setError("");
-    setSuccess("");
     const employeesData = await loadEmployees();
     setEmployees(employeesData);
     setSelectedEmployeeIds([]);
@@ -153,8 +148,6 @@ export function Areas() {
     setName(area.name);
     setDescription(area.description ?? "");
     setIsActive(area.isActive);
-    setSuccess("");
-    setError("");
     const employeesData = await loadEmployees();
     setEmployees(employeesData);
     const areaEmployeeIds = employeesData
@@ -170,8 +163,6 @@ export function Areas() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError("");
-    setSuccess("");
 
     const trimmedName = name.trim();
     const trimmedDescription = description.trim();
@@ -191,7 +182,6 @@ export function Areas() {
           description: trimmedDescription || null,
           isActive,
         });
-        setSuccess("Area actualizada correctamente.");
       } else {
         const createdAreaResponse = await createArea({
           name: trimmedName,
@@ -199,7 +189,6 @@ export function Areas() {
           isActive,
         });
         savedAreaId = createdAreaResponse?.data?.id ?? null;
-        setSuccess("Area creada correctamente.");
       }
 
       if (savedAreaId) {
@@ -221,7 +210,7 @@ export function Areas() {
           .length;
 
         if (failedCount > 0) {
-          setError(
+          toast.warning(
             `Se guardó el area, pero ${failedCount} cambio(s) de empleados no se pudo(ieron) aplicar.`,
           );
         }
@@ -232,10 +221,8 @@ export function Areas() {
       setIsAreaModalOpen(false);
       await loadAreas();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible guardar el area.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible guardar el area.");
       }
     } finally {
       setIsSubmitting(false);
@@ -244,22 +231,12 @@ export function Areas() {
 
   const handleDelete = async (area: AreaSummary) => {
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
     try {
-      const response = await deleteArea(area.id);
-      const mode = response?.data?.mode ?? "deleted";
-      if (mode === "archived") {
-        setSuccess("El area fue archivada porque tiene historial.");
-      } else {
-        setSuccess("El area fue eliminada.");
-      }
+      await deleteArea(area.id);
       await loadAreas();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible eliminar el area.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible eliminar el area.");
       }
     } finally {
       setIsSubmitting(false);
@@ -268,17 +245,12 @@ export function Areas() {
 
   const handleAreaStatusUpdate = async (area: AreaSummary, isActive: boolean) => {
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
     try {
       await updateAreaStatus(area.id, { isActive });
-      setSuccess(isActive ? "Area activada correctamente." : "Area inactivada correctamente.");
       await loadAreas();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible actualizar el estado del area.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible actualizar el estado del area.");
       }
     } finally {
       setIsSubmitting(false);
@@ -333,9 +305,6 @@ export function Areas() {
           </button>
           </div>
         </div>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        {success && <p className="text-sm text-success">{success}</p>}
 
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Cargando areas...</div>
@@ -444,7 +413,6 @@ export function Areas() {
           if (!open && !isSubmitting) {
             resetForm();
             setEmployees([]);
-            setError("");
           }
         }}
       >

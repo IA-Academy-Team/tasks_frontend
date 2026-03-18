@@ -60,8 +60,6 @@ export function StandaloneTasks() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -73,14 +71,13 @@ export function StandaloneTasks() {
 
   const loadTasks = useCallback(async () => {
     try {
-      setError("");
       const response = await listStandaloneTasks({ status: statusFilter });
       setTasks(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
+        toast.error(incomingError.message);
       } else {
-        setError("No fue posible cargar las tareas sueltas.");
+        toast.error("No fue posible cargar las tareas sueltas.");
       }
     } finally {
       setIsLoading(false);
@@ -121,8 +118,6 @@ export function StandaloneTasks() {
 
   const handleCreateTask = async (event: FormEvent) => {
     event.preventDefault();
-    setError("");
-    setSuccess("");
 
     const trimmedTitle = title.trim();
     if (!trimmedTitle) {
@@ -169,19 +164,15 @@ export function StandaloneTasks() {
       });
 
       const createdCount = response?.data?.createdCount ?? 1;
-      setSuccess(
-        createdCount > 1
-          ? `Se crearon ${createdCount} tareas sueltas.`
-          : "Tarea suelta creada correctamente.",
-      );
+      if (createdCount > 1) {
+        toast.info(`Se crearon ${createdCount} tareas sueltas.`);
+      }
       resetForm();
       setIsCreateModalOpen(false);
       await loadTasks();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible crear la tarea suelta.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible crear la tarea suelta.");
       }
     } finally {
       setIsSubmitting(false);
@@ -231,8 +222,6 @@ export function StandaloneTasks() {
               className="app-btn-primary h-10 w-10 p-0"
               onClick={() => {
                 resetForm();
-                setError("");
-                setSuccess("");
                 setIsCreateModalOpen(true);
               }}
               title="Crear tarea suelta"
@@ -242,9 +231,6 @@ export function StandaloneTasks() {
             </button>
           </div>
         </div>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        {success && <p className="text-sm text-success">{success}</p>}
 
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Cargando tareas sueltas...</div>
@@ -293,7 +279,6 @@ export function StandaloneTasks() {
           setIsCreateModalOpen(open);
           if (!open && !isSubmitting) {
             resetForm();
-            setError("");
           }
         }}
       >
