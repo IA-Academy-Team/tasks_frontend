@@ -40,6 +40,22 @@ export interface TaskResponse {
   data: TaskSummary;
 }
 
+export type TaskRecurrenceFrequency = "daily" | "weekly" | "monthly" | "range_interval";
+
+export interface TaskCreateRecurrence {
+  frequency: TaskRecurrenceFrequency;
+  every?: number;
+  untilDate: string;
+}
+
+export interface CreateTaskResponse {
+  data: {
+    task: TaskSummary;
+    createdCount: number;
+    createdTaskIds: number[];
+  };
+}
+
 export interface DeleteTaskResponse {
   data: {
     id: number;
@@ -94,6 +110,7 @@ export interface CreateTaskPayload {
   taskPriorityId?: number;
   assigneeMembershipId?: number | null;
   estimatedMinutes?: number | null;
+  recurrence?: TaskCreateRecurrence;
 }
 
 export interface UpdateTaskPayload {
@@ -144,7 +161,7 @@ export const getTaskById = (taskId: number) =>
   api.get<TaskResponse>(`${API_PREFIX}/tasks/${taskId}`);
 
 export const createTask = (payload: CreateTaskPayload) =>
-  api.post<TaskResponse>(`${API_PREFIX}/tasks`, {
+  api.post<CreateTaskResponse>(`${API_PREFIX}/tasks`, {
     projectId: payload.projectId,
     title: payload.title,
     description: withNullableString(payload.description),
@@ -153,6 +170,13 @@ export const createTask = (payload: CreateTaskPayload) =>
     taskPriorityId: payload.taskPriorityId ?? 2,
     assigneeMembershipId: withNullableInt(payload.assigneeMembershipId),
     estimatedMinutes: withNullableInt(payload.estimatedMinutes),
+    recurrence: payload.recurrence
+      ? {
+          frequency: payload.recurrence.frequency,
+          every: payload.recurrence.every ?? 1,
+          untilDate: payload.recurrence.untilDate,
+        }
+      : undefined,
   }, {
     toast: {
       successMessage: "Tarea creada correctamente.",

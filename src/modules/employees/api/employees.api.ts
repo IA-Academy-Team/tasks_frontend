@@ -18,6 +18,10 @@ export interface EmployeeSummary {
   deactivatedAt: string | null;
   currentAreaId: number | null;
   currentAreaName: string | null;
+  areaIds: number[];
+  areaNames: string[];
+  assignedAreaIds: number[];
+  assignedAreaNames: string[];
   createdAt: string;
   updatedAt: string;
 }

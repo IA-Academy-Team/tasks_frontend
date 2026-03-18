@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import {
+  Archive,
+  Building2,
+  CheckCircle2,
+  CircleSlash2,
   Eye,
   FolderKanban,
+  ListFilter,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -37,9 +42,21 @@ import {
   type ProjectSummary,
   type ProjectStatusUpdate,
 } from "../../modules/projects/api/projects.api";
+import { cn } from "../components/ui/utils";
 
 export function Projects() {
   const PAGE_SIZE = 8;
+  const statusFilterOptions: Array<{
+    value: ProjectStatusFilter;
+    label: string;
+    icon: typeof ListFilter;
+    activeClassName: string;
+  }> = [
+    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
+    { value: "active", label: "Activos", icon: CheckCircle2, activeClassName: "border-success/40 bg-success/15 text-success" },
+    { value: "closed", label: "Cerrados", icon: Archive, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
+    { value: "cancelled", label: "Cancelados", icon: CircleSlash2, activeClassName: "border-destructive/40 bg-destructive/10 text-destructive" },
+  ];
 
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -243,50 +260,69 @@ export function Projects() {
         title="Proyectos"
         subtitle="Gestion de proyectos por area"
         icon={<FolderKanban className="size-5" />}
-        actions={isAdmin ? (
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setError("");
-              setSuccess("");
-              setIsProjectModalOpen(true);
-            }}
-            className="app-btn-primary h-10 w-10 p-0"
-            aria-label="Crear proyecto"
-            title="Crear proyecto"
-          >
-            <Plus className="size-5" />
-          </button>
-        ) : undefined}
       />
 
       <div className="app-content">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-foreground">Listado de proyectos</h3>
-          <div className="flex items-center gap-2">
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as ProjectStatusFilter)}
-              className="app-control h-9 min-w-36"
-            >
-              <option value="all">Todos</option>
-              <option value="active">Activos</option>
-              <option value="closed">Cerrados</option>
-              <option value="cancelled">Cancelados</option>
-            </select>
-            <select
-              value={areaFilter}
-              onChange={(event) => setAreaFilter(event.target.value)}
-              className="app-control h-9 min-w-44"
-            >
-              <option value="all">Todas las areas</option>
-              {areas.map((area) => (
-                <option key={area.id} value={area.id}>
-                  {area.name}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {statusFilterOptions.map((option) => {
+              const Icon = option.icon;
+              const isSelected = statusFilter === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setStatusFilter(option.value)}
+                  className={cn(
+                    "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
+                    isSelected
+                      ? option.activeClassName
+                      : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                  )}
+                  aria-pressed={isSelected}
+                  title={`Ver proyectos ${option.label.toLowerCase()}`}
+                >
+                  <Icon className="size-4" />
+                  <span>{option.label}</span>
+                </button>
+              );
+            })}
+
+            <div className="relative">
+              <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                value={areaFilter}
+                onChange={(event) => setAreaFilter(event.target.value)}
+                className="app-control h-9 min-w-[190px] pl-9 pr-8"
+                title="Filtrar por area"
+              >
+                <option value="all">Todas las areas</option>
+                {areas.map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setError("");
+                  setSuccess("");
+                  setIsProjectModalOpen(true);
+                }}
+                className="app-btn-primary h-10 w-10 p-0 shadow-[0_10px_18px_rgba(15,118,110,0.24)]"
+                aria-label="Crear proyecto"
+                title="Crear proyecto"
+              >
+                <Plus className="size-5" />
+              </button>
+            )}
           </div>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -335,6 +371,7 @@ export function Projects() {
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
+                              <Archive className="size-4" />
                               Cerrar
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
@@ -524,11 +561,17 @@ export function Projects() {
         title="Actualizar estado del proyecto"
         description={
           pendingStatusUpdate
-            ? `Se cambiará el estado de "${pendingStatusUpdate.project.name}" a "${pendingStatusUpdate.status}".`
+            ? `Se cambiará el estado de "${pendingStatusUpdate.project.name}" a "${
+              pendingStatusUpdate.status === "active"
+                ? "activo"
+                : pendingStatusUpdate.status === "closed"
+                  ? "cerrado"
+                  : "cancelado"
+            }".`
             : ""
         }
         confirmLabel="Confirmar cambio"
-        variant={pendingStatusUpdate?.status === "cancelled" ? "destructive" : "default"}
+        variant={pendingStatusUpdate?.status === "active" ? "default" : "destructive"}
         isProcessing={isSubmitting}
         onConfirm={() => {
           if (!pendingStatusUpdate) {

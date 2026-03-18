@@ -40,6 +40,10 @@ export interface UpdateAreaPayload {
   isActive?: boolean;
 }
 
+export interface UpdateAreaStatusPayload {
+  isActive: boolean;
+}
+
 export const listAreas = (status: AreaStatusFilter) =>
   api.get<AreasResponse>(`${API_PREFIX}/areas?status=${status}`);
 
@@ -56,6 +60,14 @@ export const updateArea = (areaId: number, payload: UpdateAreaPayload) =>
     toast: {
       successMessage: "Area actualizada correctamente.",
       errorMessage: "No fue posible actualizar el area.",
+    },
+  });
+
+export const updateAreaStatus = (areaId: number, payload: UpdateAreaStatusPayload) =>
+  api.patch<AreaResponse>(`${API_PREFIX}/areas/${areaId}/status`, payload, {
+    toast: {
+      successMessage: payload.isActive ? "Area activada correctamente." : "Area inactivada correctamente.",
+      errorMessage: "No fue posible actualizar el estado del area.",
     },
   });
 

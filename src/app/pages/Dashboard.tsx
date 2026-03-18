@@ -461,19 +461,8 @@ export function Dashboard() {
                   </div>
                   <p className="text-xs text-muted-foreground">{adminDashboard.teamSummary.totalTasks} tareas</p>
                 </div>
-                <div className="mt-4 grid grid-cols-[170px_1fr] gap-2 items-center">
-                  <ul className="space-y-2">
-                    {adminInsights.statusDistribution.map((item) => (
-                      <li key={item.status} className="flex items-center justify-between gap-2 text-sm">
-                        <span className="inline-flex items-center gap-2 text-muted-foreground">
-                          <span className="size-2.5 rounded-sm" style={{ backgroundColor: item.fill }} />
-                          {item.status}
-                        </span>
-                        <span className="font-medium text-foreground">{item.value}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <ChartContainer config={pieChartConfig} className="h-[220px] w-full">
+                <div className="mt-4">
+                  <ChartContainer config={pieChartConfig} className="mx-auto h-[220px] w-full max-w-[260px]">
                     <PieChart>
                       <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
                       <Pie
@@ -486,6 +475,17 @@ export function Dashboard() {
                       />
                     </PieChart>
                   </ChartContainer>
+                  <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+                    {adminInsights.statusDistribution.map((item) => (
+                      <li key={item.status} className="flex items-center justify-between gap-2 text-sm">
+                        <span className="inline-flex items-center gap-2 text-muted-foreground">
+                          <span className="size-2.5 rounded-sm" style={{ backgroundColor: item.fill }} />
+                          {item.status}
+                        </span>
+                        <span className="font-medium text-foreground">{item.value}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </article>
 

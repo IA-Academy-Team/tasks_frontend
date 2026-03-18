@@ -86,6 +86,7 @@ const getComplianceBadge = (task: TaskSummary): { label: string; className: stri
 };
 
 type ProjectTaskViewMode = "grid" | "kanban" | "analytics";
+type TaskRecurrenceMode = "none" | "daily" | "weekly" | "monthly" | "range_interval";
 
 const statusChartConfig = {
   Asignada: { label: "Asignada", color: "var(--chart-1)" },
@@ -132,11 +133,15 @@ export function ProjectBoard() {
   const [taskEstimatedHours, setTaskEstimatedHours] = useState("");
   const [taskAreaId, setTaskAreaId] = useState("");
   const [taskAssigneeEmployeeId, setTaskAssigneeEmployeeId] = useState("");
+  const [taskRecurrenceMode, setTaskRecurrenceMode] = useState<TaskRecurrenceMode>("none");
+  const [taskRecurrenceEvery, setTaskRecurrenceEvery] = useState("1");
+  const [taskRecurrenceUntilDate, setTaskRecurrenceUntilDate] = useState("");
   const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
   const [pendingUnassignMembership, setPendingUnassignMembership] = useState<ProjectMembership | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
 
@@ -150,6 +155,9 @@ export function ProjectBoard() {
     setTaskEstimatedHours("");
     setTaskAreaId(project ? String(project.areaId) : "");
     setTaskAssigneeEmployeeId("");
+    setTaskRecurrenceMode("none");
+    setTaskRecurrenceEvery("1");
+    setTaskRecurrenceUntilDate("");
   };
 
   const loadProject = useCallback(async () => {
@@ -243,9 +251,8 @@ export function ProjectBoard() {
   }, [selectedTaskId, tasks]);
 
   const assignableEmployees = useMemo(() => {
-    if (!project) return [];
-    return employees.filter((employee) => employee.currentAreaId === project.areaId);
-  }, [employees, project]);
+    return employees.filter((employee) => employee.role === "employee" && employee.isActive);
+  }, [employees]);
 
   const activeMemberships = useMemo(
     () => memberships.filter((membership) => membership.isActive),
@@ -278,6 +285,16 @@ export function ProjectBoard() {
     });
 
     employees.forEach((employee) => {
+      if (employee.areaIds.length > 0 && employee.areaNames.length > 0) {
+        employee.areaIds.forEach((areaId, index) => {
+          const areaName = employee.areaNames[index];
+          if (areaName) {
+            options.set(areaId, areaName);
+          }
+        });
+        return;
+      }
+
       if (employee.currentAreaId && employee.currentAreaName) {
         options.set(employee.currentAreaId, employee.currentAreaName);
       }
@@ -295,7 +312,7 @@ export function ProjectBoard() {
     return employees.filter((employee) => (
       employee.role === "employee"
       && employee.isActive
-      && employee.currentAreaId === selectedAreaId
+      && (employee.currentAreaId === selectedAreaId || employee.areaIds.includes(selectedAreaId))
     ));
   }, [employees, taskAreaId]);
 
@@ -562,6 +579,10 @@ export function ProjectBoard() {
     const selectedEmployeeId = taskAssigneeEmployeeId
       ? Number(taskAssigneeEmployeeId)
       : null;
+    const recurrenceEveryValue = taskRecurrenceEvery.trim()
+      ? Number(taskRecurrenceEvery)
+      : 1;
+    const hasRecurrence = !editingTaskId && taskRecurrenceMode !== "none";
     const estimatedMinutes = estimatedHours === null ? null : Math.round(estimatedHours * 60);
 
     if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
@@ -577,6 +598,23 @@ export function ProjectBoard() {
     if (selectedEmployeeId === null) {
       toast.error("Selecciona un empleado para asignar la tarea.");
       return;
+    }
+
+    if (hasRecurrence) {
+      if (!Number.isInteger(recurrenceEveryValue) || recurrenceEveryValue <= 0) {
+        toast.error("La recurrencia debe tener un intervalo entero mayor a 0.");
+        return;
+      }
+
+      if (!taskRecurrenceUntilDate) {
+        toast.error("Define una fecha final para la recurrencia.");
+        return;
+      }
+
+      if (taskRecurrenceUntilDate < taskDueDate) {
+        toast.error("La fecha final de recurrencia debe ser mayor o igual a la fecha de fin.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -608,7 +646,7 @@ export function ProjectBoard() {
         });
         setSuccess("Tarea actualizada correctamente.");
       } else {
-        await createTask({
+        const createResponse = await createTask({
           projectId: project.id,
           title: description.slice(0, 80),
           description,
@@ -617,8 +655,20 @@ export function ProjectBoard() {
           taskPriorityId: 2,
           assigneeMembershipId,
           estimatedMinutes,
+          recurrence: hasRecurrence
+            ? {
+                frequency: taskRecurrenceMode,
+                every: recurrenceEveryValue,
+                untilDate: taskRecurrenceUntilDate,
+              }
+            : undefined,
         });
-        setSuccess("Tarea creada correctamente.");
+        const createdCount = createResponse?.data?.createdCount ?? 1;
+        setSuccess(
+          createdCount > 1
+            ? `Se crearon ${createdCount} tareas recurrentes.`
+            : "Tarea creada correctamente.",
+        );
       }
 
       resetTaskForm();
@@ -756,20 +806,29 @@ export function ProjectBoard() {
   return (
     <div className="app-shell">
       <div className="app-hero flex-shrink-0">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => navigate("/projects")}
+              className="p-2 hover:bg-secondary rounded-xl transition-colors text-foreground"
+            >
+              <ArrowLeft className="size-5 text-foreground" />
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-foreground">{project.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                Area: {project.areaName} · Estado: {project.status}
+              </p>
+            </div>
+          </div>
           <button
             type="button"
-            onClick={() => navigate("/projects")}
-            className="p-2 hover:bg-secondary rounded-xl transition-colors text-foreground"
+            onClick={() => setIsProjectDetailModalOpen(true)}
+            className="app-btn-secondary h-9 px-3"
           >
-            <ArrowLeft className="size-5 text-foreground" />
+            Ver detalle
           </button>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">{project.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              Area: {project.areaName} · Estado: {project.status}
-            </p>
-          </div>
         </div>
       </div>
 
@@ -779,96 +838,6 @@ export function ProjectBoard() {
             <p className="text-sm text-destructive">{error}</p>
           </section>
         )}
-        <section className="app-panel app-panel-pad">
-          <h3 className="text-lg font-semibold text-foreground mb-3">Detalle basico</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            <p><span className="font-medium">Descripcion:</span> {project.description ?? "Sin descripcion"}</p>
-            <p><span className="font-medium">Inicio:</span> {project.startDate ?? "-"}</p>
-            <p><span className="font-medium">Fin:</span> {project.endDate ?? "-"}</p>
-            <p><span className="font-medium">Cierre:</span> {project.closedAt ?? "-"}</p>
-            <p><span className="font-medium">Miembros activos:</span> {project.activeMemberCount}</p>
-            <p><span className="font-medium">Tareas activas:</span> {project.totalTaskCount}</p>
-          </div>
-        </section>
-
-        {isAdmin && (
-          <section className="app-panel app-panel-pad space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Asignaciones del proyecto</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium mb-2">Asignar empleado</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    value={assignEmployeeId}
-                    onChange={(event) => setAssignEmployeeId(event.target.value)}
-                    className="app-control min-w-[220px]"
-                  >
-                    <option value="">Selecciona empleado</option>
-                    {assignableEmployees.map((employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.name} ({employee.email})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => {
-                      void handleAssign();
-                    }}
-                    className="app-btn-primary"
-                  >
-                    Asignar
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Solo se listan empleados activos cuya area actual coincide con la del proyecto.
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium mb-2">Reasignar membresia activa</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    value={reassignMembershipId}
-                    onChange={(event) => setReassignMembershipId(event.target.value)}
-                    className="app-control min-w-[220px]"
-                  >
-                    <option value="">Selecciona membresia</option>
-                    {activeMemberships.map((membership) => (
-                      <option key={membership.id} value={membership.id}>
-                        {membership.employeeName} ({membership.employeeEmail})
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={reassignEmployeeId}
-                    onChange={(event) => setReassignEmployeeId(event.target.value)}
-                    className="app-control min-w-[220px]"
-                  >
-                    <option value="">Empleado destino</option>
-                    {assignableEmployees.map((employee) => (
-                      <option key={employee.id} value={employee.id}>
-                        {employee.name} ({employee.email})
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => {
-                      void handleReassign();
-                    }}
-                    className="app-btn-secondary disabled:opacity-70"
-                  >
-                    Reasignar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
         <section className="app-panel overflow-hidden">
           <div className="app-panel-header">
             <h3 className="text-lg font-semibold text-foreground">Miembros del proyecto</h3>
@@ -882,6 +851,80 @@ export function ProjectBoard() {
               <option value="inactive">Historicos</option>
             </select>
           </div>
+
+          {isAdmin && (
+            <div className="p-4 border-b border-border space-y-4">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium mb-2">Asignar empleado</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={assignEmployeeId}
+                      onChange={(event) => setAssignEmployeeId(event.target.value)}
+                      className="app-control min-w-[260px]"
+                    >
+                      <option value="">Selecciona empleado</option>
+                      {assignableEmployees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.name} ({employee.email})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        void handleAssign();
+                      }}
+                      className="app-btn-primary"
+                    >
+                      Asignar
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium mb-2">Reasignar membresia activa</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={reassignMembershipId}
+                      onChange={(event) => setReassignMembershipId(event.target.value)}
+                      className="app-control min-w-[240px]"
+                    >
+                      <option value="">Selecciona membresia</option>
+                      {activeMemberships.map((membership) => (
+                        <option key={membership.id} value={membership.id}>
+                          {membership.employeeName} ({membership.employeeEmail})
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={reassignEmployeeId}
+                      onChange={(event) => setReassignEmployeeId(event.target.value)}
+                      className="app-control min-w-[240px]"
+                    >
+                      <option value="">Empleado destino</option>
+                      {assignableEmployees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.name} ({employee.email})
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        void handleReassign();
+                      }}
+                      className="app-btn-secondary disabled:opacity-70"
+                    >
+                      Reasignar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {visibleMemberships.length === 0 ? (
             <div className="p-6 text-sm text-muted-foreground">No hay membresias para este filtro.</div>
@@ -1312,6 +1355,57 @@ export function ProjectBoard() {
                 className="app-control"
               />
             </div>
+            {!editingTaskId && (
+              <div className="md:col-span-2 rounded-xl border border-border bg-background/70 p-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Repetición (opcional)</label>
+                    <select
+                      value={taskRecurrenceMode}
+                      onChange={(event) => setTaskRecurrenceMode(event.target.value as TaskRecurrenceMode)}
+                      className="app-control"
+                    >
+                      <option value="none">No repetir</option>
+                      <option value="daily">Cada día</option>
+                      <option value="weekly">Cada semana</option>
+                      <option value="monthly">Cada mes</option>
+                      <option value="range_interval">Rango cada cierto tiempo</option>
+                    </select>
+                  </div>
+
+                  {taskRecurrenceMode !== "none" && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">
+                          Cada cuántos {taskRecurrenceMode === "weekly"
+                            ? "semanas"
+                            : taskRecurrenceMode === "monthly"
+                              ? "meses"
+                              : "días"}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={taskRecurrenceEvery}
+                          onChange={(event) => setTaskRecurrenceEvery(event.target.value)}
+                          className="app-control"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Repetir hasta</label>
+                        <input
+                          type="date"
+                          value={taskRecurrenceUntilDate}
+                          onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
+                          className="app-control"
+                        />
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Empleado</label>
               <select
@@ -1354,6 +1448,25 @@ export function ProjectBoard() {
               </button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isProjectDetailModalOpen} onOpenChange={setIsProjectDetailModalOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Detalle del proyecto</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+            <p><span className="font-medium">Nombre:</span> {project.name}</p>
+            <p><span className="font-medium">Area:</span> {project.areaName}</p>
+            <p><span className="font-medium">Estado:</span> {project.status}</p>
+            <p><span className="font-medium">Descripcion:</span> {project.description ?? "Sin descripcion"}</p>
+            <p><span className="font-medium">Inicio:</span> {project.startDate ?? "-"}</p>
+            <p><span className="font-medium">Fin:</span> {project.endDate ?? "-"}</p>
+            <p><span className="font-medium">Cierre:</span> {project.closedAt ?? "-"}</p>
+            <p><span className="font-medium">Miembros activos:</span> {project.activeMemberCount}</p>
+            <p><span className="font-medium">Tareas activas:</span> {project.totalTaskCount}</p>
+          </div>
         </DialogContent>
       </Dialog>
 

@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { MoreHorizontal, Plus, Trash2, Users2 } from "lucide-react";
+import {
+  ListFilter,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  UserCheck,
+  UserX,
+  Users2,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { ApiError } from "../../shared/api/api";
@@ -33,9 +42,20 @@ import {
   type EmployeeStatusFilter,
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
+import { cn } from "../components/ui/utils";
 
 export function Employees() {
   const PAGE_SIZE = 8;
+  const filterOptions: Array<{
+    value: EmployeeStatusFilter;
+    label: string;
+    icon: typeof ListFilter;
+    activeClassName: string;
+  }> = [
+    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
+    { value: "active", label: "Activos", icon: UserCheck, activeClassName: "border-success/40 bg-success/15 text-success" },
+    { value: "inactive", label: "Inactivos", icon: UserX, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
+  ];
 
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<EmployeeStatusFilter>("all");
@@ -53,18 +73,17 @@ export function Employees() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [image, setImage] = useState("");
   const [emailVerified, setEmailVerified] = useState(false);
-  const [isActive, setIsActive] = useState(true);
   const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
   const [assignmentAreaId, setAssignmentAreaId] = useState("");
   const [employeeAreaAssignments, setEmployeeAreaAssignments] = useState<EmployeeAreaAssignment[]>([]);
   const [employeeProjectMemberships, setEmployeeProjectMemberships] = useState<EmployeeProjectMembership[]>([]);
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
-  const [pendingStatusChange, setPendingStatusChange] = useState<{
-    employee: EmployeeSummary;
-    nextIsActive: boolean;
-  } | null>(null);
   const [pendingDeleteEmployee, setPendingDeleteEmployee] = useState<EmployeeSummary | null>(null);
+  const [pendingStatusUpdateEmployee, setPendingStatusUpdateEmployee] = useState<{
+    employee: EmployeeSummary;
+    isActive: boolean;
+  } | null>(null);
 
   const resetForm = () => {
     setEditingEmployeeId(null);
@@ -74,7 +93,6 @@ export function Employees() {
     setPhoneNumber("");
     setImage("");
     setEmailVerified(false);
-    setIsActive(true);
   };
 
   const loadEmployees = useCallback(async () => {
@@ -145,7 +163,6 @@ export function Employees() {
     setPhoneNumber(employee.phoneNumber ?? "");
     setImage(employee.image ?? "");
     setEmailVerified(employee.emailVerified);
-    setIsActive(employee.isActive);
     setError("");
     setSuccess("");
     setIsEmployeeModalOpen(true);
@@ -229,10 +246,6 @@ export function Employees() {
           emailVerified,
         });
 
-        if (isActive !== employees.find((item) => item.id === editingEmployeeId)?.isActive) {
-          await updateEmployeeStatus(editingEmployeeId, { isActive });
-        }
-
         setSuccess("Empleado actualizado correctamente.");
       } else {
         await createEmployee({
@@ -242,7 +255,7 @@ export function Employees() {
           phoneNumber: trimmedPhoneNumber || null,
           image: trimmedImage || null,
           emailVerified,
-          isActive,
+          isActive: true,
         });
         setSuccess("Empleado creado correctamente.");
       }
@@ -258,23 +271,6 @@ export function Employees() {
       }
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleStatusChange = async (employee: EmployeeSummary, nextIsActive: boolean) => {
-    setError("");
-    setSuccess("");
-
-    try {
-      await updateEmployeeStatus(employee.id, { isActive: nextIsActive });
-      setSuccess(nextIsActive ? "Empleado activado." : "Empleado desactivado.");
-      await loadEmployees();
-    } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible actualizar el estado del empleado.");
-      }
     }
   };
 
@@ -303,6 +299,25 @@ export function Employees() {
         setError(incomingError.message);
       } else {
         setError("No fue posible eliminar el empleado.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleEmployeeStatusUpdate = async (employee: EmployeeSummary, isActive: boolean) => {
+    setError("");
+    setSuccess("");
+    setIsSubmitting(true);
+    try {
+      await updateEmployeeStatus(employee.id, { isActive });
+      setSuccess(isActive ? "Empleado activado correctamente." : "Empleado desactivado correctamente.");
+      await loadEmployees();
+    } catch (incomingError) {
+      if (incomingError instanceof ApiError) {
+        setError(incomingError.message);
+      } else {
+        setError("No fue posible actualizar el estado del empleado.");
       }
     } finally {
       setIsSubmitting(false);
@@ -364,37 +379,52 @@ export function Employees() {
         title="Empleados"
         subtitle="Gestion de empleados y estado operativo"
         icon={<Users2 className="size-5" />}
-        actions={(
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setError("");
-              setSuccess("");
-              setIsEmployeeModalOpen(true);
-            }}
-            className="app-btn-primary h-10 w-10 p-0"
-            aria-label="Crear empleado"
-            title="Crear empleado"
-          >
-            <Plus className="size-5" />
-          </button>
-        )}
       />
 
       <div className="app-content">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-foreground">Listado de empleados</h3>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as EmployeeStatusFilter)}
-            className="app-control h-9 min-w-40"
-          >
-            <option value="all">Todos</option>
-            <option value="active">Activos</option>
-            <option value="inactive">Inactivos</option>
-          </select>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {filterOptions.map((option) => {
+              const Icon = option.icon;
+              const isSelected = statusFilter === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setStatusFilter(option.value)}
+                  className={cn(
+                    "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
+                    isSelected
+                      ? option.activeClassName
+                      : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                  )}
+                  aria-pressed={isSelected}
+                  title={`Ver empleados ${option.label.toLowerCase()}`}
+                >
+                  <Icon className="size-4" />
+                  <span>{option.label}</span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => {
+                resetForm();
+                setError("");
+                setSuccess("");
+                setIsEmployeeModalOpen(true);
+              }}
+              className="app-btn-primary h-10 w-10 p-0 shadow-[0_10px_18px_rgba(15,118,110,0.24)]"
+              aria-label="Crear empleado"
+              title="Crear empleado"
+            >
+              <Plus className="size-5" />
+            </button>
+          </div>
         </div>
+
         {error && <p className="text-sm text-destructive">{error}</p>}
         {success && <p className="text-sm text-success">{success}</p>}
 
@@ -427,21 +457,27 @@ export function Employees() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
                         <DropdownMenuItem onClick={() => startEdit(employee)}>
+                          <Pencil className="size-4" />
                           Editar
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {employee.isActive ? (
-                          <DropdownMenuItem
-                            onClick={() => setPendingStatusChange({ employee, nextIsActive: false })}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            Desactivar
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem onClick={() => setPendingStatusChange({ employee, nextIsActive: true })}>
-                            Activar
-                          </DropdownMenuItem>
-                        )}
+                        <DropdownMenuItem
+                          onClick={() => setPendingStatusUpdateEmployee({
+                            employee,
+                            isActive: !employee.isActive,
+                          })}
+                        >
+                          {employee.isActive ? (
+                            <>
+                              <UserX className="size-4" />
+                              Desactivar
+                            </>
+                          ) : (
+                            <>
+                              <UserCheck className="size-4" />
+                              Activar
+                            </>
+                          )}
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => setPendingDeleteEmployee(employee)}
@@ -454,8 +490,12 @@ export function Employees() {
                     </DropdownMenu>
                   </div>
 
-                  <p className="mt-3 text-sm text-muted-foreground truncate">
-                    {employee.currentAreaName ?? "Sin area activa"}
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {employee.assignedAreaNames.length > 0
+                      ? employee.assignedAreaNames.join(" · ")
+                      : employee.areaNames.length > 0
+                        ? employee.areaNames.join(" · ")
+                      : employee.currentAreaName ?? "Sin area activa"}
                   </p>
                   <p className={`text-sm ${employee.isActive ? "text-success" : "text-warning"}`}>
                     {employee.isActive ? "Activo" : "Inactivo"}
@@ -577,14 +617,6 @@ export function Employees() {
                 />
                 <span className="text-sm text-foreground">Correo verificado</span>
               </label>
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={isActive}
-                  onChange={(event) => setIsActive(event.target.checked)}
-                />
-                <span className="text-sm text-foreground">Empleado activo</span>
-              </label>
             </div>
             <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
               {editingEmployeeId && (
@@ -612,34 +644,28 @@ export function Employees() {
       </Dialog>
 
       <ConfirmActionDialog
-        open={pendingStatusChange !== null}
+        open={pendingStatusUpdateEmployee !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setPendingStatusChange(null);
+            setPendingStatusUpdateEmployee(null);
           }
         }}
-        title={
-          pendingStatusChange?.nextIsActive
-            ? "Activar empleado"
-            : "Desactivar empleado"
-        }
+        title="Actualizar estado del empleado"
         description={
-          pendingStatusChange
-            ? pendingStatusChange.nextIsActive
-              ? `Se activará la cuenta de ${pendingStatusChange.employee.name}.`
-              : `Se desactivará la cuenta de ${pendingStatusChange.employee.name}.`
+          pendingStatusUpdateEmployee
+            ? `Se ${pendingStatusUpdateEmployee.isActive ? "activará" : "desactivará"} a ${pendingStatusUpdateEmployee.employee.name}.`
             : ""
         }
-        confirmLabel={pendingStatusChange?.nextIsActive ? "Activar" : "Desactivar"}
-        variant={pendingStatusChange?.nextIsActive ? "default" : "destructive"}
+        confirmLabel="Confirmar cambio"
+        variant={pendingStatusUpdateEmployee?.isActive ? "default" : "destructive"}
         isProcessing={isSubmitting}
         onConfirm={() => {
-          if (!pendingStatusChange) {
+          if (!pendingStatusUpdateEmployee) {
             return;
           }
-          const { employee, nextIsActive } = pendingStatusChange;
-          setPendingStatusChange(null);
-          void handleStatusChange(employee, nextIsActive);
+          const { employee, isActive } = pendingStatusUpdateEmployee;
+          setPendingStatusUpdateEmployee(null);
+          void handleEmployeeStatusUpdate(employee, isActive);
         }}
       />
 

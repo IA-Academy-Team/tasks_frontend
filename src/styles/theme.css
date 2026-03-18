@@ -205,3 +205,91 @@
     line-height: 1.5;
   }
 }
+
+@keyframes app-dark-orb-drift {
+  0% {
+    transform: translate3d(-5%, -4%, 0) scale(1);
+  }
+
+  50% {
+    transform: translate3d(4%, 5%, 0) scale(1.06);
+  }
+
+  100% {
+    transform: translate3d(-2%, 2%, 0) scale(1.02);
+  }
+}
+
+@keyframes app-dark-grid-shift {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+
+  100% {
+    background-position: 150px 90px, -130px -100px;
+  }
+}
+
+@keyframes app-dark-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.24;
+  }
+
+  50% {
+    opacity: 0.36;
+  }
+}
+
+@layer components {
+  .dark .app-content {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .dark .app-content::before {
+    content: "";
+    position: absolute;
+    inset: -5rem -3rem;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(20, 184, 166, 0.12), transparent 42%),
+      radial-gradient(circle at 82% 14%, rgba(56, 189, 248, 0.1), transparent 46%),
+      radial-gradient(circle at 56% 86%, rgba(96, 165, 250, 0.08), transparent 40%);
+    filter: blur(28px) saturate(108%);
+    opacity: 0.5;
+    transition: opacity 220ms ease;
+    animation: app-dark-orb-drift 18s ease-in-out infinite alternate;
+  }
+
+  .dark .app-content::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(120deg, rgba(148, 163, 184, 0.05) 1px, transparent 1px),
+      linear-gradient(300deg, rgba(45, 212, 191, 0.035) 1px, transparent 1px);
+    background-size: 170px 170px, 220px 220px;
+    mask-image: radial-gradient(circle at center, black 32%, transparent 90%);
+    animation: app-dark-grid-shift 24s linear infinite, app-dark-glow-pulse 10s ease-in-out infinite;
+  }
+
+  .dark .app-content:hover::before {
+    opacity: 0.6;
+  }
+
+  .dark .app-content > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dark .app-content::before,
+  .dark .app-content::after {
+    animation: none;
+  }
+}

@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { Building2, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  Building2,
+  CheckCircle2,
+  CircleSlash2,
+  ListFilter,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
@@ -24,6 +34,7 @@ import {
   deleteArea,
   listAreas,
   updateArea,
+  updateAreaStatus,
   type AreaStatusFilter,
   type AreaSummary,
 } from "../../modules/areas/api/areas.api";
@@ -33,9 +44,20 @@ import {
   unassignEmployeeArea,
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
+import { cn } from "../components/ui/utils";
 
 export function Areas() {
   const PAGE_SIZE = 8;
+  const filterOptions: Array<{
+    value: AreaStatusFilter;
+    label: string;
+    icon: typeof ListFilter;
+    activeClassName: string;
+  }> = [
+    { value: "all", label: "Todas", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
+    { value: "active", label: "Activas", icon: CheckCircle2, activeClassName: "border-success/40 bg-success/15 text-success" },
+    { value: "inactive", label: "Inactivas", icon: CircleSlash2, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
+  ];
 
   const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<AreaStatusFilter>("all");
@@ -47,6 +69,10 @@ export function Areas() {
   const [success, setSuccess] = useState("");
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
   const [pendingDeleteArea, setPendingDeleteArea] = useState<AreaSummary | null>(null);
+  const [pendingStatusUpdateArea, setPendingStatusUpdateArea] = useState<{
+    area: AreaSummary;
+    isActive: boolean;
+  } | null>(null);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
   const [initialEmployeeIds, setInitialEmployeeIds] = useState<number[]>([]);
@@ -132,7 +158,10 @@ export function Areas() {
     const employeesData = await loadEmployees();
     setEmployees(employeesData);
     const areaEmployeeIds = employeesData
-      .filter((employee) => employee.currentAreaId === area.id)
+      .filter((employee) => (
+        employee.areaIds.includes(area.id)
+        || employee.currentAreaId === area.id
+      ))
       .map((employee) => employee.id);
     setSelectedEmployeeIds(areaEmployeeIds);
     setInitialEmployeeIds(areaEmployeeIds);
@@ -237,39 +266,72 @@ export function Areas() {
     }
   };
 
+  const handleAreaStatusUpdate = async (area: AreaSummary, isActive: boolean) => {
+    setIsSubmitting(true);
+    setError("");
+    setSuccess("");
+    try {
+      await updateAreaStatus(area.id, { isActive });
+      setSuccess(isActive ? "Area activada correctamente." : "Area inactivada correctamente.");
+      await loadAreas();
+    } catch (incomingError) {
+      if (incomingError instanceof ApiError) {
+        setError(incomingError.message);
+      } else {
+        setError("No fue posible actualizar el estado del area.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="app-shell">
       <PageHero
         title="Areas"
         subtitle="Gestion de areas operativas"
         icon={<Building2 className="size-5" />}
-        actions={(
-          <button
-            type="button"
-            onClick={() => {
-              void openCreateAreaModal();
-            }}
-            className="app-btn-primary h-10 w-10 p-0"
-            aria-label="Crear area"
-            title="Crear area"
-          >
-            <Plus className="size-5" />
-          </button>
-        )}
       />
 
       <div className="app-content">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-foreground">Listado de areas</h3>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as AreaStatusFilter)}
-            className="app-control h-9 min-w-40"
+          <div className="flex flex-wrap items-center justify-end gap-2">
+          {filterOptions.map((option) => {
+            const Icon = option.icon;
+            const isSelected = statusFilter === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setStatusFilter(option.value)}
+                className={cn(
+                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
+                  isSelected
+                    ? option.activeClassName
+                    : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                )}
+                aria-pressed={isSelected}
+                title={`Ver areas ${option.label.toLowerCase()}`}
+              >
+                <Icon className="size-4" />
+                <span>{option.label}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => {
+              void openCreateAreaModal();
+            }}
+            className="app-btn-primary h-10 w-10 p-0 shadow-[0_10px_18px_rgba(15,118,110,0.24)]"
+            aria-label="Crear area"
+            title="Crear area"
           >
-            <option value="all">Todas</option>
-            <option value="active">Activas</option>
-            <option value="inactive">Inactivas</option>
-          </select>
+            <Plus className="size-5" />
+          </button>
+          </div>
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
@@ -310,6 +372,24 @@ export function Areas() {
                         }}>
                           <Pencil className="size-4" />
                           Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setPendingStatusUpdateArea({
+                            area,
+                            isActive: !area.isActive,
+                          })}
+                        >
+                          {area.isActive ? (
+                            <>
+                              <CircleSlash2 className="size-4" />
+                              Inactivar
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="size-4" />
+                              Activar
+                            </>
+                          )}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -442,7 +522,9 @@ export function Areas() {
                               <div className="min-w-0">
                                 <p className="text-sm text-foreground truncate">{employee.name}</p>
                                 <p className="text-xs text-muted-foreground truncate">
-                                  {employee.email} · {employee.currentAreaName ?? "Sin area"}
+                                  {employee.email} · {employee.areaNames.length > 0
+                                    ? employee.areaNames.join(" · ")
+                                    : employee.currentAreaName ?? "Sin area"}
                                 </p>
                               </div>
                             </DropdownMenuCheckboxItem>
@@ -513,6 +595,32 @@ export function Areas() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <ConfirmActionDialog
+        open={pendingStatusUpdateArea !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingStatusUpdateArea(null);
+          }
+        }}
+        title="Actualizar estado del area"
+        description={
+          pendingStatusUpdateArea
+            ? `Se ${pendingStatusUpdateArea.isActive ? "activará" : "inactivará"} "${pendingStatusUpdateArea.area.name}".`
+            : ""
+        }
+        confirmLabel="Confirmar cambio"
+        variant={pendingStatusUpdateArea?.isActive ? "default" : "destructive"}
+        isProcessing={isSubmitting}
+        onConfirm={() => {
+          if (!pendingStatusUpdateArea) {
+            return;
+          }
+          const { area, isActive } = pendingStatusUpdateArea;
+          setPendingStatusUpdateArea(null);
+          void handleAreaStatusUpdate(area, isActive);
+        }}
+      />
 
       <ConfirmActionDialog
         open={pendingDeleteArea !== null}
