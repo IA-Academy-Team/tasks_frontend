@@ -138,6 +138,7 @@ const buildTasksQuery = (params: {
   projectId?: number;
   status: TaskStatusFilter;
   includeDeleted?: boolean;
+  includeStandalone?: boolean;
 }) => {
   const query = new URLSearchParams();
   query.set("status", params.status);
@@ -146,6 +147,9 @@ const buildTasksQuery = (params: {
   }
   if (params.includeDeleted !== undefined) {
     query.set("includeDeleted", String(params.includeDeleted));
+  }
+  if (params.includeStandalone !== undefined) {
+    query.set("includeStandalone", String(params.includeStandalone));
   }
   return query.toString();
 };
@@ -166,6 +170,7 @@ export const listTasks = (params: {
   projectId?: number;
   status: TaskStatusFilter;
   includeDeleted?: boolean;
+  includeStandalone?: boolean;
 }) => api.get<TasksResponse>(`${API_PREFIX}/tasks?${buildTasksQuery(params)}`);
 
 export const listStandaloneTasks = (params: {

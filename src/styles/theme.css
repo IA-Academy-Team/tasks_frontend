@@ -45,6 +45,10 @@
   --chart-3: #b86414;
   --chart-4: #0f766e;
   --chart-5: #61758a;
+  --pie-status-assigned: #0f83c5;
+  --pie-status-in-progress: #0f766e;
+  --pie-status-done: #16984f;
+  --pie-status-overdue: #d92d20;
   --radius: 0.8rem;
 
   --sidebar: #d9e9fb;
@@ -76,6 +80,10 @@
   --success: #22c55e;
   --warning: #f59e0b;
   --destructive: #f97316;
+  --pie-status-assigned: #38bdf8;
+  --pie-status-in-progress: #14b8a6;
+  --pie-status-done: #22c55e;
+  --pie-status-overdue: #fb7185;
   --destructive-foreground: #ffffff;
   --border: rgba(237, 242, 247, 0.13);
   --input: #223247;
