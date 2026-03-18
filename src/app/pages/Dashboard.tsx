@@ -70,12 +70,19 @@ type AdminInsights = {
     totalTasks: number;
     completionRate: number;
   }[];
-  upcomingTasksCount: number;
-  pendingTasksCount: number;
+  pendingTasks: Array<{
+    taskId: number;
+    title: string;
+    projectName: string;
+    assigneeName: string | null;
+    dueDate: string;
+    status: string;
+  }>;
   overdueTasks: Array<{
     taskId: number;
     title: string;
     projectName: string;
+    assigneeName: string | null;
     dueDate: string;
     reason: string;
   }>;
@@ -171,16 +178,17 @@ export function Dashboard() {
       }))
       .sort((a, b) => b.completionRate - a.completionRate || b.doneTasks - a.doneTasks);
 
-    const now = new Date();
-    const nextSevenDays = new Date();
-    nextSevenDays.setDate(now.getDate() + 7);
-    const upcomingTasksCount = taskComplianceReport.rows.filter((row) => {
-      if (isDoneStatus(row.status)) return false;
-      const dueDate = new Date(row.dueDate);
-      return dueDate >= now && dueDate <= nextSevenDays;
-    }).length;
-
-    const pendingTasksCount = teamSummary.assignedTasks + teamSummary.inProgressTasks;
+    const pendingTasks = taskComplianceReport.rows
+      .filter((row) => !isDoneStatus(row.status) && !row.isDateOverdue && row.isEstimateDelayed !== true)
+      .map((row) => ({
+        taskId: row.taskId,
+        title: row.title,
+        projectName: row.projectName,
+        assigneeName: row.assigneeName,
+        dueDate: row.dueDate,
+        status: row.status,
+      }))
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
     const overdueTasks = taskComplianceReport.rows
       .filter((row) => row.isDateOverdue || row.isEstimateDelayed === true)
@@ -188,6 +196,7 @@ export function Dashboard() {
         taskId: row.taskId,
         title: row.title,
         projectName: row.projectName,
+        assigneeName: row.assigneeName,
         dueDate: row.dueDate,
         reason: row.isDateOverdue ? "Vencida por fecha" : "Retrasada por estimado",
       }))
@@ -205,8 +214,7 @@ export function Dashboard() {
       efficiencyRate,
       statusDistribution,
       teamPerformance,
-      upcomingTasksCount,
-      pendingTasksCount,
+      pendingTasks,
       overdueTasks,
       recentActivity,
     };
@@ -522,26 +530,36 @@ export function Dashboard() {
               <article className="app-panel app-panel-pad space-y-4">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Alertas operativas</h2>
-                  <p className="text-sm text-muted-foreground">Pendientes y tareas críticas.</p>
+                  <p className="text-sm text-muted-foreground">Pendientes y tareas vencidas/retrasadas.</p>
                 </div>
 
                 <div className="overflow-x-auto">
                   <table className="app-table">
                     <thead className="app-table-head">
                       <tr>
-                        <th className="app-th">Indicador</th>
-                        <th className="app-th">Total</th>
+                        <th className="app-th">Tarea pendiente</th>
+                        <th className="app-th">Proyecto</th>
+                        <th className="app-th">Empleado</th>
+                        <th className="app-th">Estado</th>
+                        <th className="app-th">Vence</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr className="app-row">
-                        <td className="app-td">Próximas a vencerse (7 días)</td>
-                        <td className="app-td">{adminInsights.upcomingTasksCount}</td>
-                      </tr>
-                      <tr className="app-row">
-                        <td className="app-td">Pendientes (asignadas + en proceso)</td>
-                        <td className="app-td">{adminInsights.pendingTasksCount}</td>
-                      </tr>
+                      {adminInsights.pendingTasks.length === 0 ? (
+                        <tr className="app-row">
+                          <td className="app-td" colSpan={5}>Sin tareas pendientes para los filtros activos.</td>
+                        </tr>
+                      ) : (
+                        adminInsights.pendingTasks.slice(0, 8).map((row) => (
+                          <tr key={row.taskId} className="app-row">
+                            <td className="app-td">{row.title}</td>
+                            <td className="app-td">{row.projectName}</td>
+                            <td className="app-td">{row.assigneeName ?? "Sin asignar"}</td>
+                            <td className="app-td">{row.status}</td>
+                            <td className="app-td">{formatDate(row.dueDate)}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -552,20 +570,24 @@ export function Dashboard() {
                       <tr>
                         <th className="app-th">Tarea retrasada/vencida</th>
                         <th className="app-th">Proyecto</th>
+                        <th className="app-th">Empleado</th>
                         <th className="app-th">Motivo</th>
+                        <th className="app-th">Vence</th>
                       </tr>
                     </thead>
                     <tbody>
                       {adminInsights.overdueTasks.length === 0 ? (
                         <tr className="app-row">
-                          <td className="app-td" colSpan={3}>Sin tareas retrasadas o vencidas.</td>
+                          <td className="app-td" colSpan={5}>Sin tareas retrasadas o vencidas.</td>
                         </tr>
                       ) : (
-                        adminInsights.overdueTasks.map((row) => (
+                        adminInsights.overdueTasks.slice(0, 8).map((row) => (
                           <tr key={row.taskId} className="app-row">
                             <td className="app-td">{row.title}</td>
                             <td className="app-td">{row.projectName}</td>
+                            <td className="app-td">{row.assigneeName ?? "Sin asignar"}</td>
                             <td className="app-td">{row.reason}</td>
+                            <td className="app-td">{formatDate(row.dueDate)}</td>
                           </tr>
                         ))
                       )}

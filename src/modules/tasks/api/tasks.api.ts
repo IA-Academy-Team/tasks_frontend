@@ -113,6 +113,17 @@ export interface CreateTaskPayload {
   recurrence?: TaskCreateRecurrence;
 }
 
+export interface CreateStandaloneTaskPayload {
+  title: string;
+  description?: string | null;
+  plannedStartDate: string;
+  dueDate: string;
+  assigneeEmployeeId?: number | null;
+  taskPriorityId?: number;
+  estimatedMinutes?: number | null;
+  recurrence?: TaskCreateRecurrence;
+}
+
 export interface UpdateTaskPayload {
   title?: string;
   description?: string | null;
@@ -157,6 +168,11 @@ export const listTasks = (params: {
   includeDeleted?: boolean;
 }) => api.get<TasksResponse>(`${API_PREFIX}/tasks?${buildTasksQuery(params)}`);
 
+export const listStandaloneTasks = (params: {
+  status: TaskStatusFilter;
+  includeDeleted?: boolean;
+}) => api.get<TasksResponse>(`${API_PREFIX}/tasks/standalone?${buildTasksQuery(params)}`);
+
 export const getTaskById = (taskId: number) =>
   api.get<TaskResponse>(`${API_PREFIX}/tasks/${taskId}`);
 
@@ -181,6 +197,29 @@ export const createTask = (payload: CreateTaskPayload) =>
     toast: {
       successMessage: "Tarea creada correctamente.",
       errorMessage: "No fue posible crear la tarea.",
+    },
+  });
+
+export const createStandaloneTask = (payload: CreateStandaloneTaskPayload) =>
+  api.post<CreateTaskResponse>(`${API_PREFIX}/tasks/standalone`, {
+    title: payload.title,
+    description: withNullableString(payload.description),
+    plannedStartDate: payload.plannedStartDate,
+    dueDate: payload.dueDate,
+    assigneeEmployeeId: withNullableInt(payload.assigneeEmployeeId),
+    taskPriorityId: payload.taskPriorityId ?? 2,
+    estimatedMinutes: withNullableInt(payload.estimatedMinutes),
+    recurrence: payload.recurrence
+      ? {
+          frequency: payload.recurrence.frequency,
+          every: payload.recurrence.every ?? 1,
+          untilDate: payload.recurrence.untilDate,
+        }
+      : undefined,
+  }, {
+    toast: {
+      successMessage: "Tarea suelta creada correctamente.",
+      errorMessage: "No fue posible crear la tarea suelta.",
     },
   });
 

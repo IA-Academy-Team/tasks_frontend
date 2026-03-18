@@ -56,7 +56,7 @@ export function Areas() {
   }> = [
     { value: "all", label: "Todas", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
     { value: "active", label: "Activas", icon: CheckCircle2, activeClassName: "border-success/40 bg-success/15 text-success" },
-    { value: "inactive", label: "Inactivas", icon: CircleSlash2, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
+    { value: "inactive", label: "Desactivar", icon: CircleSlash2, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
   ];
 
   const [areas, setAreas] = useState<AreaSummary[]>([]);
@@ -382,7 +382,7 @@ export function Areas() {
                           {area.isActive ? (
                             <>
                               <CircleSlash2 className="size-4" />
-                              Inactivar
+                              Desactivar
                             </>
                           ) : (
                             <>

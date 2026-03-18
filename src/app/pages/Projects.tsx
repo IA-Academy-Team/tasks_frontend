@@ -375,9 +375,11 @@ export function Projects() {
                               Cerrar
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
+                              <CircleSlash2 className="size-4" />
                               Cancelar
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
+                              <CheckCircle2 className="size-4" />
                               Activar
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
