@@ -12,6 +12,7 @@ import { DashboardPage } from "../../modules/dashboard/pages/DashboardPage";
 import { ProjectsPage } from "../../modules/projects/pages/ProjectsPage";
 import { ProjectBoardPage } from "../../modules/projects/pages/ProjectBoardPage";
 import { EmployeesPage } from "../../modules/employees/pages/EmployeesPage";
+import { StandaloneTasksPage } from "../../modules/tasks/pages/StandaloneTasksPage";
 
 export function AppRouter() {
   return (
@@ -76,6 +77,14 @@ export function AppRouter() {
             element={(
               <ResourceGuard resource="projectBoard">
                 <ProjectBoardPage />
+              </ResourceGuard>
+            )}
+          />
+          <Route
+            path="tasks/standalone"
+            element={(
+              <ResourceGuard resource="standaloneTasks">
+                <StandaloneTasksPage />
               </ResourceGuard>
             )}
           />

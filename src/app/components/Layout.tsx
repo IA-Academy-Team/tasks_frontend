@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FolderKanban,
+  ClipboardList,
   Users,
   LayoutDashboard,
   Pencil,
@@ -59,6 +60,7 @@ export function Layout() {
 
   const isActive = (path: string) => location.pathname === path;
   const isProjectsActive = location.pathname === "/projects" || location.pathname.startsWith("/projects/");
+  const isStandaloneTasksActive = isActive("/tasks/standalone");
   const isDashboardActive = location.pathname === dashboardPath;
   const isAreasActive = isActive("/areas");
   const isEmployeesActive = isActive("/employees");
@@ -98,6 +100,14 @@ export function Layout() {
       icon: LayoutDashboard,
       isVisible: true,
       isActive: isDashboardActive,
+    },
+    {
+      key: "standalone-tasks",
+      label: "Tareas",
+      path: "/tasks/standalone",
+      icon: ClipboardList,
+      isVisible: true,
+      isActive: isStandaloneTasksActive,
     },
     {
       key: "projects",
