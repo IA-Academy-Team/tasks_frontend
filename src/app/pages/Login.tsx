@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { LogIn } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Lock, Mail, Shield } from 'lucide-react';
 import { ApiError } from '../../shared/api/api';
 import { getDefaultRouteForRole } from '../../modules/auth/lib/auth-routing';
 import { toast } from "react-toastify";
@@ -10,6 +10,7 @@ export function Login() {
   const navigate = useNavigate();
   const { user, login, isReady } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (isReady && user) {
@@ -18,6 +19,7 @@ export function Login() {
   }, [isReady, user, navigate]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
 
   const validateLoginInput = (rawEmail: string, rawPassword: string): string | null => {
     const trimmedEmail = rawEmail.trim();
@@ -116,68 +118,107 @@ export function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_5%,rgba(15,118,110,0.14),transparent_30%),radial-gradient(circle_at_95%_20%,rgba(11,110,168,0.14),transparent_34%)] pointer-events-none" />
-      <div className="absolute top-[-80px] right-[-60px] w-[320px] h-[320px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-      <div className="absolute bottom-[-80px] left-[-30px] w-[280px] h-[280px] rounded-full bg-accent/10 blur-3xl pointer-events-none" />
+    <div className="relative min-h-screen overflow-hidden bg-background-light dark:bg-background-dark px-4 py-8 flex items-center justify-center">
+      <div className="pointer-events-none absolute inset-0 opacity-50">
+        <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(80,72,229,0.16)_0%,rgba(8,16,40,0.65)_55%,rgba(8,16,40,0.9)_100%)]" />
+        <div className="absolute -top-20 -left-16 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+        <div className="absolute -bottom-24 -right-12 h-80 w-80 rounded-full bg-accent/20 blur-3xl" />
+      </div>
 
-      <div className="w-full max-w-md relative z-10">
-        <div className="app-panel overflow-hidden">
-          <div className="px-10 py-8 text-center border-b border-border/60 bg-[linear-gradient(130deg,#0d4663_0%,#0f766e_58%,#1f3c67_100%)]">
-            <h1 className="text-3xl font-bold text-foreground">Tasks</h1>
-            <p className="text-base text-foreground/90 mt-2">Inicia sesión en tu cuenta</p>
+      <div className="relative z-10 w-full max-w-[450px]">
+        <div className="rounded-2xl border border-slate-200/70 bg-white/95 p-8 shadow-2xl backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/60 md:p-10">
+          <div className="mb-8 flex flex-col items-center text-center">
+            <div className="mb-4 rounded-xl bg-primary p-3 text-white shadow-[0_12px_24px_rgba(80,72,229,0.3)]">
+              <Shield className="size-7" />
+            </div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Tasks</h1>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+              Plataforma profesional de gestión operativa
+            </p>
           </div>
-          <div className="p-10">
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <label htmlFor="login-user" className="block text-base font-semibold text-foreground mb-2">
-                  Correo electrónico
-                </label>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label htmlFor="login-user" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Correo electrónico
+              </label>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                  <Mail className="size-5" />
+                </span>
                 <input
                   id="login-user"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="app-control h-12 text-base"
-                  placeholder="tu@correo.com"
+                  className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/35 dark:border-slate-700 dark:bg-slate-800/60 dark:text-white"
+                  placeholder="nombre@empresa.com"
                   autoComplete="email"
                 />
               </div>
+            </div>
 
-              <div>
-                <label htmlFor="login-password" className="block text-base font-semibold text-foreground mb-2">
+            <div>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label htmlFor="login-password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                   Contraseña
                 </label>
+                <Link
+                  to="/recuperar-contraseña"
+                  className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
+              <div className="relative">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                  <Lock className="size-5" />
+                </span>
                 <input
                   id="login-password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="app-control h-12 text-base"
+                  className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-11 pr-12 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/35 dark:border-slate-700 dark:bg-slate-800/60 dark:text-white"
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
-              </div>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="app-btn-primary w-full py-3.5 text-base"
-              >
-                <LogIn className="size-5" />
-                {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
-              </button>
-            </form>
-
-            <div className="mt-7 space-y-3 text-center text-base">
-              <p>
-                <Link
-                  to="/recuperar-contraseña"
-                  className="app-auth-link"
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
-                  Recuperar contraseña
-                </Link>
-              </p>
+                  {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                </button>
+              </div>
             </div>
+
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-700"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+              />
+              <span className="text-xs text-slate-600 dark:text-slate-400">Mantener sesión activa</span>
+            </label>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70"
+            >
+              {isSubmitting ? 'Ingresando...' : 'Ingresar'}
+              <ArrowRight className="ml-2 size-4" />
+            </button>
+          </form>
+
+          <div className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-800">
+            <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+              ¿Necesitas acceso?{" "}
+              <span className="font-semibold text-primary">Contacta al administrador</span>
+            </p>
           </div>
         </div>
       </div>
