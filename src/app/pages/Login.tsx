@@ -209,7 +209,7 @@ export function Login() {
               disabled={isSubmitting}
               className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70"
             >
-              {isSubmitting ? 'Ingresando...' : 'Ingresar'}
+              {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
               <ArrowRight className="ml-2 size-4" />
             </button>
           </form>
