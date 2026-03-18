@@ -5,7 +5,6 @@ const appComponents = plugin(({ addComponents }) => {
   addComponents({
     ".app-shell": {
       width: "100%",
-      height: "100%",
       minHeight: "100%",
       display: "flex",
       flexDirection: "column",
@@ -15,41 +14,26 @@ const appComponents = plugin(({ addComponents }) => {
       position: "relative",
       overflow: "hidden",
       borderBottom: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
-      padding: "1.5rem",
-      boxShadow: "0 1px 0 rgba(16, 36, 58, 0.06)",
-      background: "linear-gradient(125deg, #0d4663 0%, #0f766e 56%, #1f3c67 100%)",
-    },
-    "@media (min-width: 768px)": {
-      ".app-hero": {
-        padding: "1.75rem 2rem",
-      },
+      minHeight: "5.4rem",
+      padding: "1rem clamp(1.25rem, 2.2vw, 2rem)",
+      boxShadow: "0 4px 14px rgba(18, 38, 59, 0.05)",
+      backgroundColor: "var(--card)",
     },
     ".app-content": {
       flex: "1 1 auto",
-      overflow: "auto",
-      padding: "1.5rem",
+      padding: "clamp(1.25rem, 2vw, 2rem)",
       display: "flex",
       flexDirection: "column",
       gap: "1.5rem",
-    },
-    "@media (min-width: 768px) and (max-width: 9999px)": {
-      ".app-content": {
-        padding: "2rem",
-      },
     },
     ".app-panel": {
       borderRadius: "1rem",
       border: "1px solid color-mix(in srgb, var(--border) 80%, transparent)",
       backgroundColor: "var(--card)",
-      boxShadow: "0 14px 28px rgba(16, 36, 58, 0.08)",
+      boxShadow: "0 10px 24px rgba(18, 38, 59, 0.07)",
     },
     ".app-panel-pad": {
-      padding: "1.25rem",
-    },
-    "@media (min-width: 768px) and (max-width: 9999px)": {
-      ".app-panel-pad": {
-        padding: "1.5rem",
-      },
+      padding: "clamp(1rem, 1.4vw, 1.5rem)",
     },
     ".app-panel-header": {
       display: "flex",
@@ -57,22 +41,22 @@ const appComponents = plugin(({ addComponents }) => {
       justifyContent: "space-between",
       gap: "0.75rem",
       borderBottom: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
-      backgroundColor: "color-mix(in srgb, var(--secondary) 45%, transparent)",
+      backgroundColor: "color-mix(in srgb, var(--secondary) 62%, transparent)",
       padding: "1rem 1.25rem",
     },
     ".app-band": {
       backgroundColor: "color-mix(in srgb, var(--secondary) 32%, transparent)",
     },
     ".app-title": {
-      fontSize: "1.5rem",
+      fontSize: "2rem",
       fontWeight: "700",
-      lineHeight: "1.2",
+      lineHeight: "1.1",
       letterSpacing: "-0.02em",
     },
     ".app-subtitle": {
-      marginTop: "0.25rem",
+      marginTop: "0.2rem",
       fontSize: "0.875rem",
-      lineHeight: "1.35",
+      lineHeight: "1.25",
       color: "var(--muted-foreground)",
     },
     ".app-icon-pill": {
@@ -82,9 +66,10 @@ const appComponents = plugin(({ addComponents }) => {
       alignItems: "center",
       justifyContent: "center",
       borderRadius: "0.75rem",
-      border: "1px solid rgba(255, 255, 255, 0.35)",
-      backgroundColor: "rgba(255, 255, 255, 0.2)",
-      backdropFilter: "blur(4px)",
+      border: "1px solid rgba(236, 249, 255, 0.42)",
+      backgroundColor: "rgba(255, 255, 255, 0.18)",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,0.32), 0 10px 24px rgba(2, 18, 36, 0.2)",
+      backdropFilter: "blur(6px)",
     },
     ".app-control": {
       width: "100%",
@@ -97,7 +82,7 @@ const appComponents = plugin(({ addComponents }) => {
       fontSize: "0.875rem",
       outline: "none",
       transition: "border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease",
-      boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.4)",
+      boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.55)",
     },
     ".app-control:focus-visible": {
       borderColor: "var(--ring)",
@@ -136,7 +121,7 @@ const appComponents = plugin(({ addComponents }) => {
       gap: "0.5rem",
       borderRadius: "0.75rem",
       border: "1px solid var(--border)",
-      backgroundColor: "var(--background)",
+      backgroundColor: "var(--card)",
       color: "var(--foreground)",
       fontSize: "0.875rem",
       fontWeight: "500",
@@ -155,7 +140,7 @@ const appComponents = plugin(({ addComponents }) => {
       fontSize: "0.875rem",
     },
     ".app-table-head": {
-      backgroundColor: "color-mix(in srgb, var(--secondary) 55%, transparent)",
+      backgroundColor: "color-mix(in srgb, var(--secondary) 72%, transparent)",
     },
     ".app-th": {
       padding: "0.75rem 1rem",
@@ -224,8 +209,8 @@ const config: Config = {
         "2xl": "1rem",
       },
       boxShadow: {
-        panel: "0 14px 28px rgba(16, 36, 58, 0.08)",
-        "panel-sm": "0 8px 18px rgba(16, 36, 58, 0.06)",
+        panel: "0 10px 24px rgba(18, 38, 59, 0.07)",
+        "panel-sm": "0 6px 16px rgba(18, 38, 59, 0.05)",
       },
     },
   },

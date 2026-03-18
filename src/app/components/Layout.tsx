@@ -1,8 +1,12 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
 import {
+  ChevronLeft,
+  ChevronRight,
   FolderKanban,
+  ClipboardList,
   Users,
   LayoutDashboard,
+  Pencil,
   LogOut,
   UserCircle2,
   Building2,
@@ -10,10 +14,12 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getDefaultRouteForRole } from "../../modules/auth/lib/auth-routing";
 import { canAccessResource } from "../../modules/auth/lib/access-policy";
+import { ProfileEditorModal } from "./ProfileEditorModal";
+import { NotificationsFloatingPanel } from "./NotificationsFloatingPanel";
 
 type NavItem = {
   key: string;
@@ -25,14 +31,14 @@ type NavItem = {
 };
 
 const baseNavButtonClass =
-  "w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors";
+  "group relative w-full flex items-center gap-3.5 rounded-xl px-4 py-3 text-base font-medium transition-all";
 
-const getNavButtonClass = (isActive: boolean) =>
+const getNavButtonClass = (isActive: boolean, isCollapsed = false) =>
   `${baseNavButtonClass} ${
     isActive
-      ? "bg-sidebar-accent text-sidebar-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]"
-      : "text-sidebar-foreground/88 hover:bg-sidebar-accent/80"
-  }`;
+      ? "bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-ring/45 shadow-[0_8px_20px_rgba(15,61,98,0.14)] dark:shadow-[0_10px_24px_rgba(2,12,24,0.24)]"
+      : "text-sidebar-foreground/78 hover:text-sidebar-foreground hover:bg-sidebar-accent/72"
+  } ${isCollapsed ? "justify-center px-3" : ""}`;
 
 export function Layout() {
   const navigate = useNavigate();
@@ -42,6 +48,10 @@ export function Layout() {
   const canManageEmployees = user ? canAccessResource(user.role, "employees") : false;
   const dashboardPath = user ? getDefaultRouteForRole(user.role) : "/";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const handleLogout = async () => {
     await logout();
@@ -50,8 +60,8 @@ export function Layout() {
 
   const isActive = (path: string) => location.pathname === path;
   const isProjectsActive = location.pathname === "/projects" || location.pathname.startsWith("/projects/");
+  const isStandaloneTasksActive = isActive("/tasks/standalone");
   const isDashboardActive = location.pathname === dashboardPath;
-  const isProfileActive = isActive("/profile");
   const isAreasActive = isActive("/areas");
   const isEmployeesActive = isActive("/employees");
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
@@ -59,6 +69,27 @@ export function Layout() {
   const navigateTo = (path: string) => {
     navigate(path);
     closeMobileMenu();
+    setIsUserMenuOpen(false);
+  };
+
+  useEffect(() => {
+    if (!isUserMenuOpen) {
+      return;
+    }
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && event.target instanceof Node && !userMenuRef.current.contains(event.target)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isUserMenuOpen]);
+
+  const handleOpenProfileModal = () => {
+    setIsUserMenuOpen(false);
+    setIsProfileModalOpen(true);
   };
 
   const navItems: NavItem[] = [
@@ -71,20 +102,20 @@ export function Layout() {
       isActive: isDashboardActive,
     },
     {
+      key: "standalone-tasks",
+      label: "Tareas",
+      path: "/tasks/standalone",
+      icon: ClipboardList,
+      isVisible: true,
+      isActive: isStandaloneTasksActive,
+    },
+    {
       key: "projects",
       label: "Proyectos",
       path: "/projects",
       icon: FolderKanban,
       isVisible: true,
       isActive: isProjectsActive,
-    },
-    {
-      key: "profile",
-      label: "Mi perfil",
-      path: "/profile",
-      icon: UserCircle2,
-      isVisible: true,
-      isActive: isProfileActive,
     },
     {
       key: "areas",
@@ -106,83 +137,150 @@ export function Layout() {
 
   const visibleNavItems = navItems.filter((item) => item.isVisible);
 
-  const renderNav = () => (
-    <nav className="flex-1 overflow-y-auto p-3 space-y-1.5">
+  const renderNav = (isCollapsed = false) => (
+    <nav className="flex-1 overflow-hidden px-3 py-4 space-y-1.5">
       {visibleNavItems.map((item) => {
         const Icon = item.icon;
         return (
           <button
             key={item.key}
             onClick={() => navigateTo(item.path)}
-            className={getNavButtonClass(item.isActive)}
+            className={getNavButtonClass(item.isActive, isCollapsed)}
+            aria-label={item.label}
+            title={isCollapsed ? item.label : undefined}
           >
-            <Icon className="size-4 shrink-0" />
-            <span className="flex-1 text-left">{item.label}</span>
+            <Icon className="size-5 shrink-0" />
+            {!isCollapsed && <span className="flex-1 text-left">{item.label}</span>}
           </button>
         );
       })}
     </nav>
   );
 
-  return (
-    <div className="min-h-screen flex bg-background">
-      <aside className="hidden md:flex w-72 shrink-0 border-r border-sidebar-border/80 bg-sidebar text-sidebar-foreground flex-col shadow-2xl">
-        <div className="p-5 border-b border-sidebar-border/80">
-          <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-          <p className="text-xs text-sidebar-foreground/80 mt-1">Gestión de proyectos</p>
-        </div>
+  const renderUserMenu = (isCollapsed = false) => (
+    <div ref={userMenuRef} className="relative z-40">
+      <button
+        type="button"
+        onClick={() => setIsUserMenuOpen((current) => !current)}
+        className={`${baseNavButtonClass} text-sidebar-foreground/82 hover:text-sidebar-foreground hover:bg-sidebar-accent/72 ${
+          isCollapsed ? "justify-center px-3" : ""
+        }`}
+        aria-label="Opciones de usuario"
+        title={isCollapsed ? "Opciones de usuario" : undefined}
+      >
+        <span className="size-9 shrink-0 rounded-full overflow-hidden border border-sidebar-border bg-sidebar-accent/65 flex items-center justify-center">
+          {user?.image ? (
+            <img src={user.image} alt={user.name} className="size-full object-cover" />
+          ) : (
+            <UserCircle2 className="size-6 text-sidebar-foreground" />
+          )}
+        </span>
+        {!isCollapsed && (
+          <span className="flex-1 min-w-0 text-left">
+            <span className="block truncate text-[15px] leading-5">{user?.name ?? "Usuario"}</span>
+            <span className="block truncate text-xs leading-5 text-sidebar-foreground/62">
+              {user?.email ?? "Sin correo"}
+            </span>
+          </span>
+        )}
+        {!isCollapsed && <LogOut className="size-5 shrink-0 text-sidebar-foreground/72" aria-hidden="true" />}
+      </button>
 
-        {renderNav()}
-
-        <div className="p-3 border-t border-sidebar-border/80">
+      {isUserMenuOpen && (
+        <div
+          className={`rounded-xl border border-border bg-card p-1 shadow-2xl ${
+            isCollapsed
+              ? "fixed left-[5.75rem] bottom-4 z-[1200] w-40"
+              : "absolute z-[1200] left-0 right-0 bottom-[calc(100%+0.5rem)]"
+          }`}
+        >
           <button
+            type="button"
+            onClick={handleOpenProfileModal}
+            className="w-full inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
+          >
+            <Pencil className="size-4" />
+            Editar perfil
+          </button>
+          <button
+            type="button"
             onClick={() => {
+              setIsUserMenuOpen(false);
               void handleLogout();
             }}
-            className={`${baseNavButtonClass} text-sidebar-foreground/88 hover:bg-sidebar-accent/80`}
+            className="w-full inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
           >
-            <LogOut className="size-4 shrink-0" />
+            <LogOut className="size-4" />
             Cerrar sesión
           </button>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="h-screen overflow-y-hidden overflow-x-visible flex bg-background">
+      <aside
+        className={`hidden md:flex h-screen relative z-30 shrink-0 overflow-y-hidden overflow-x-visible border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#e9f3ff_0%,#dcecff_52%,#d0e4fb_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground flex-col shadow-[14px_0_28px_rgba(23,47,77,0.12)] dark:shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
+          isSidebarCollapsed ? "w-20" : "w-64"
+        }`}
+      >
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,rgba(15,118,110,0.14),transparent_34%)] dark:bg-[radial-gradient(circle_at_18%_12%,rgba(34,211,238,0.14),transparent_36%)]" />
+        <div
+          className={`relative border-b border-sidebar-border/80 ${
+            isSidebarCollapsed ? "px-0 py-3 flex items-center justify-center" : "px-5 py-6"
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => setIsSidebarCollapsed((current) => !current)}
+            className={`z-20 inline-flex items-center justify-center transition-all ${
+              isSidebarCollapsed
+                ? "size-10 rounded-xl border border-sidebar-border bg-sidebar-accent text-sidebar-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.45)] hover:bg-sidebar-accent/85"
+                : "absolute right-2 top-1/2 size-11 -translate-y-1/2 text-sidebar-foreground/86 hover:rounded-lg hover:border hover:border-sidebar-border hover:bg-sidebar-accent/75 hover:text-sidebar-foreground"
+            }`}
+            aria-label={isSidebarCollapsed ? "Expandir sidebar" : "Colapsar sidebar"}
+          >
+            {isSidebarCollapsed ? <ChevronRight className="size-6" /> : <ChevronLeft className="size-6" />}
+          </button>
+          {!isSidebarCollapsed && <h1 className="pr-12 text-2xl font-bold tracking-tight leading-none">Tasks</h1>}
+        </div>
+
+        {renderNav(isSidebarCollapsed)}
+
+        <div className="relative p-3 border-t border-sidebar-border/80 mt-auto">
+          {renderUserMenu(isSidebarCollapsed)}
         </div>
       </aside>
 
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/45" onClick={closeMobileMenu}>
           <aside
-            className="h-full w-72 border-r border-sidebar-border/80 bg-sidebar text-sidebar-foreground shadow-2xl p-4"
+            className="h-full w-72 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#e9f3ff_0%,#dcecff_52%,#d0e4fb_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground shadow-2xl p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-sidebar-border/80">
               <div>
-                <h1 className="text-lg font-bold">Tasks</h1>
-                <p className="text-xs text-sidebar-foreground/80">Gestión de proyectos</p>
+                <h1 className="text-xl font-bold">Tasks</h1>
+                <p className="text-sm text-sidebar-foreground/80">Gestión de proyectos</p>
               </div>
               <button
                 type="button"
-                className="p-2 rounded-lg hover:bg-sidebar-accent/80 text-sidebar-foreground"
+                className="p-2.5 rounded-lg hover:bg-sidebar-accent/80 text-sidebar-foreground"
                 onClick={closeMobileMenu}
               >
-                <X className="size-5" />
+                <X className="size-6" />
               </button>
             </div>
-            <div className="pt-3">{renderNav()}</div>
+            <div className="pt-3">{renderNav(false)}</div>
             <div className="pt-4 mt-4 border-t border-sidebar-border/80">
-              <button
-                onClick={() => {
-                  void handleLogout();
-                }}
-                className={`${baseNavButtonClass} text-sidebar-foreground/88 hover:bg-sidebar-accent/80`}
-              >
-                <LogOut className="size-4 shrink-0" />
-                Cerrar sesión
-              </button>
+              {renderUserMenu(false)}
             </div>
           </aside>
         </div>
       )}
 
-      <main className="flex-1 flex flex-col min-h-0 overflow-auto">
+      <main className="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
         <header className="md:hidden flex items-center justify-between border-b border-border/70 px-4 py-3 bg-card/95 backdrop-blur-sm">
           <button
             type="button"
@@ -206,6 +304,12 @@ export function Layout() {
           <Outlet />
         </div>
       </main>
+
+      <ProfileEditorModal
+        open={isProfileModalOpen}
+        onOpenChange={setIsProfileModalOpen}
+      />
+      <NotificationsFloatingPanel />
     </div>
   );
 }

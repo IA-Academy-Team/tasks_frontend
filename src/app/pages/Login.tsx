@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { LogIn } from 'lucide-react';
 import { ApiError } from '../../shared/api/api';
 import { getDefaultRouteForRole } from '../../modules/auth/lib/auth-routing';
+import { toast } from "react-toastify";
 
 export function Login() {
   const navigate = useNavigate();
@@ -17,16 +18,68 @@ export function Login() {
   }, [isReady, user, navigate]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+
+  const validateLoginInput = (rawEmail: string, rawPassword: string): string | null => {
+    const trimmedEmail = rawEmail.trim();
+    const trimmedPassword = rawPassword.trim();
+
+    if (!trimmedEmail && !trimmedPassword) {
+      return 'Debes ingresar tu correo electrónico y tu contraseña.';
+    }
+
+    if (!trimmedEmail) {
+      return 'Debes ingresar tu correo electrónico.';
+    }
+
+    if (!trimmedPassword) {
+      return 'Debes ingresar tu contraseña.';
+    }
+
+    if (trimmedEmail.includes(' ')) {
+      return 'El correo electrónico no debe contener espacios.';
+    }
+
+    const atIndex = trimmedEmail.indexOf('@');
+    if (atIndex === -1) {
+      return "El correo debe incluir '@' y un dominio. Ejemplo: usuario@dominio.com.";
+    }
+
+    const localPart = trimmedEmail.slice(0, atIndex);
+    const domainPart = trimmedEmail.slice(atIndex + 1);
+
+    if (!localPart) {
+      return "Antes de '@' debes escribir tu usuario de correo.";
+    }
+
+    if (!domainPart) {
+      return "Falta el dominio del correo después de '@'.";
+    }
+
+    if (!domainPart.includes('.')) {
+      return 'El dominio del correo debe incluir un punto. Ejemplo: dominio.com.';
+    }
+
+    if (domainPart.startsWith('.') || domainPart.endsWith('.')) {
+      return 'El dominio del correo no puede iniciar ni terminar con punto.';
+    }
+
+    return null;
+  };
 
   const mapAuthError = (incomingError: unknown) => {
     if (incomingError instanceof ApiError) {
+      const normalizedMessage = incomingError.message.trim().toLowerCase();
+
       if (incomingError.code === 'USER_INACTIVE') {
         return 'Tu cuenta está inactiva. Contacta a un administrador.';
       }
 
       if (incomingError.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
         return 'Tu correo no tiene permiso para iniciar sesión en este entorno.';
+      }
+
+      if (incomingError.code === 'INVALID_CREDENTIALS' || normalizedMessage === 'invalid email or password') {
+        return 'Correo o contraseña incorrectos.';
       }
 
       return incomingError.message;
@@ -37,45 +90,47 @@ export function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    if (!email.trim() || !password) {
-      setError('Completa correo y contraseña');
+    const validationError = validateLoginInput(email, password);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
+
+    const normalizedEmail = email.trim().toLowerCase();
 
     setIsSubmitting(true);
 
     try {
-      const authenticatedUser = await login(email.trim(), password);
+      const authenticatedUser = await login(normalizedEmail, password);
       if (!authenticatedUser) {
-        setError('No fue posible recuperar tu sesión después del login.');
+        toast.error('No fue posible recuperar tu sesión después del login.');
         return;
       }
 
       navigate(getDefaultRouteForRole(authenticatedUser.role), { replace: true });
     } catch (incomingError) {
-      setError(mapAuthError(incomingError));
+      toast.error(mapAuthError(incomingError));
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-8 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_5%,rgba(15,118,110,0.14),transparent_30%),radial-gradient(circle_at_95%_20%,rgba(11,110,168,0.14),transparent_34%)] pointer-events-none" />
       <div className="absolute top-[-80px] right-[-60px] w-[320px] h-[320px] rounded-full bg-primary/10 blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-80px] left-[-30px] w-[280px] h-[280px] rounded-full bg-accent/10 blur-3xl pointer-events-none" />
 
-      <div className="w-full max-w-sm relative z-10">
+      <div className="w-full max-w-md relative z-10">
         <div className="app-panel overflow-hidden">
-          <div className="px-8 py-6 text-center border-b border-border/60 bg-[linear-gradient(130deg,#0d4663_0%,#0f766e_58%,#1f3c67_100%)]">
-            <h1 className="text-2xl font-bold text-primary-foreground">Tasks</h1>
-            <p className="text-sm text-primary-foreground/90 mt-1">Inicia sesión en tu cuenta</p>
+          <div className="px-10 py-8 text-center border-b border-border/60 bg-[linear-gradient(130deg,#0d4663_0%,#0f766e_58%,#1f3c67_100%)]">
+            <h1 className="text-3xl font-bold text-foreground">Tasks</h1>
+            <p className="text-base text-foreground/90 mt-2">Inicia sesión en tu cuenta</p>
           </div>
-          <div className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="p-10">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label htmlFor="login-user" className="block text-sm font-semibold text-foreground mb-1.5">
+                <label htmlFor="login-user" className="block text-base font-semibold text-foreground mb-2">
                   Correo electrónico
                 </label>
                 <input
@@ -83,14 +138,14 @@ export function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="app-control"
+                  className="app-control h-12 text-base"
                   placeholder="tu@correo.com"
                   autoComplete="email"
                 />
               </div>
 
               <div>
-                <label htmlFor="login-password" className="block text-sm font-semibold text-foreground mb-1.5">
+                <label htmlFor="login-password" className="block text-base font-semibold text-foreground mb-2">
                   Contraseña
                 </label>
                 <input
@@ -98,39 +153,28 @@ export function Login() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="app-control"
+                  className="app-control h-12 text-base"
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
               </div>
-
-              {error && (
-                <p className="text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-xl">{error}</p>
-              )}
-
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="app-btn-primary w-full py-3"
+                className="app-btn-primary w-full py-3.5 text-base"
               >
-                <LogIn className="size-4" />
+                <LogIn className="size-5" />
                 {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
               </button>
             </form>
 
-            <div className="mt-6 space-y-3 text-center text-sm">
+            <div className="mt-7 space-y-3 text-center text-base">
               <p>
                 <Link
                   to="/recuperar-contraseña"
                   className="app-auth-link"
                 >
                   Recuperar contraseña
-                </Link>
-              </p>
-              <p className="text-muted-foreground">
-                ¿No tienes cuenta?{' '}
-                <Link to="/registro" className="app-auth-link">
-                  Regístrate
                 </Link>
               </p>
             </div>

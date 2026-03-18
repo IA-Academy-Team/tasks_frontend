@@ -1,26 +1,80 @@
-import { useEffect, useState } from "react";
-import { Building2, Pencil, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Building2,
+  CheckCircle2,
+  CircleSlash2,
+  ListFilter,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  DropdownMenuCheckboxItem,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import {
   createArea,
   deleteArea,
   listAreas,
   updateArea,
+  updateAreaStatus,
   type AreaStatusFilter,
   type AreaSummary,
 } from "../../modules/areas/api/areas.api";
+import {
+  assignEmployeeArea,
+  listEmployees,
+  unassignEmployeeArea,
+  type EmployeeSummary,
+} from "../../modules/employees/api/employees.api";
+import { cn } from "../components/ui/utils";
 
 export function Areas() {
+  const PAGE_SIZE = 8;
+  const filterOptions: Array<{
+    value: AreaStatusFilter;
+    label: string;
+    icon: typeof ListFilter;
+    activeClassName: string;
+  }> = [
+    { value: "all", label: "Todas", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
+    { value: "active", label: "Activas", icon: CheckCircle2, activeClassName: "border-success/40 bg-success/15 text-success" },
+    { value: "inactive", label: "Desactivar", icon: CircleSlash2, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
+  ];
+
   const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<AreaStatusFilter>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
   const [editingAreaId, setEditingAreaId] = useState<number | null>(null);
   const [pendingDeleteArea, setPendingDeleteArea] = useState<AreaSummary | null>(null);
+  const [pendingStatusUpdateArea, setPendingStatusUpdateArea] = useState<{
+    area: AreaSummary;
+    isActive: boolean;
+  } | null>(null);
+  const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<number[]>([]);
+  const [initialEmployeeIds, setInitialEmployeeIds] = useState<number[]>([]);
+  const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
@@ -30,75 +84,145 @@ export function Areas() {
     setName("");
     setDescription("");
     setIsActive(true);
+    setSelectedEmployeeIds([]);
+    setInitialEmployeeIds([]);
   };
 
-  const loadAreas = async () => {
+  const loadAreas = useCallback(async () => {
     try {
-      setError("");
       const response = await listAreas(statusFilter);
       setAreas(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
+        toast.error(incomingError.message);
       } else {
-        setError("No fue posible cargar las areas.");
+        toast.error("No fue posible cargar las areas.");
       }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     void loadAreas();
-  }, [statusFilter]);
+  }, [loadAreas]);
 
-  const startEdit = (area: AreaSummary) => {
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, areas.length]);
+
+  const totalPages = Math.max(1, Math.ceil(areas.length / PAGE_SIZE));
+  const paginatedAreas = areas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const loadEmployees = async () => {
+    setIsLoadingEmployees(true);
+    try {
+      const response = await listEmployees("all");
+      return response?.data ?? [];
+    } catch {
+      return [] as EmployeeSummary[];
+    } finally {
+      setIsLoadingEmployees(false);
+    }
+  };
+
+  const toggleEmployeeSelection = (employeeId: number) => {
+    setSelectedEmployeeIds((current) => (
+      current.includes(employeeId)
+        ? current.filter((id) => id !== employeeId)
+        : [...current, employeeId]
+    ));
+  };
+
+  const openCreateAreaModal = async () => {
+    resetForm();
+    const employeesData = await loadEmployees();
+    setEmployees(employeesData);
+    setSelectedEmployeeIds([]);
+    setInitialEmployeeIds([]);
+    setIsAreaModalOpen(true);
+  };
+
+  const startEdit = async (area: AreaSummary) => {
     setEditingAreaId(area.id);
     setName(area.name);
     setDescription(area.description ?? "");
     setIsActive(area.isActive);
-    setSuccess("");
-    setError("");
+    const employeesData = await loadEmployees();
+    setEmployees(employeesData);
+    const areaEmployeeIds = employeesData
+      .filter((employee) => (
+        employee.areaIds.includes(area.id)
+        || employee.currentAreaId === area.id
+      ))
+      .map((employee) => employee.id);
+    setSelectedEmployeeIds(areaEmployeeIds);
+    setInitialEmployeeIds(areaEmployeeIds);
+    setIsAreaModalOpen(true);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError("");
-    setSuccess("");
 
     const trimmedName = name.trim();
     const trimmedDescription = description.trim();
 
     if (!trimmedName) {
-      setError("El nombre del area es obligatorio.");
+      toast.error("El nombre del area es obligatorio.");
       return;
     }
 
     setIsSubmitting(true);
     try {
+      let savedAreaId = editingAreaId;
+
       if (editingAreaId) {
         await updateArea(editingAreaId, {
           name: trimmedName,
           description: trimmedDescription || null,
           isActive,
         });
-        setSuccess("Area actualizada correctamente.");
       } else {
-        await createArea({
+        const createdAreaResponse = await createArea({
           name: trimmedName,
           description: trimmedDescription || null,
           isActive,
         });
-        setSuccess("Area creada correctamente.");
+        savedAreaId = createdAreaResponse?.data?.id ?? null;
+      }
+
+      if (savedAreaId) {
+        const selectedSet = new Set(selectedEmployeeIds);
+        const initialSet = new Set(initialEmployeeIds);
+
+        const toUnassign = initialEmployeeIds.filter((employeeId) => !selectedSet.has(employeeId));
+        const toAssign = selectedEmployeeIds.filter((employeeId) => !initialSet.has(employeeId));
+
+        const unassignResults = await Promise.allSettled(
+          toUnassign.map((employeeId) => unassignEmployeeArea(employeeId, { areaId: savedAreaId! })),
+        );
+        const assignResults = await Promise.allSettled(
+          toAssign.map((employeeId) => assignEmployeeArea(employeeId, { areaId: savedAreaId! })),
+        );
+
+        const failedCount = [...unassignResults, ...assignResults]
+          .filter((result) => result.status === "rejected")
+          .length;
+
+        if (failedCount > 0) {
+          toast.warning(
+            `Se guardó el area, pero ${failedCount} cambio(s) de empleados no se pudo(ieron) aplicar.`,
+          );
+        }
       }
 
       resetForm();
+      setEmployees([]);
+      setIsAreaModalOpen(false);
       await loadAreas();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible guardar el area.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible guardar el area.");
       }
     } finally {
       setIsSubmitting(false);
@@ -107,22 +231,26 @@ export function Areas() {
 
   const handleDelete = async (area: AreaSummary) => {
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
     try {
-      const response = await deleteArea(area.id);
-      const mode = response?.data?.mode ?? "deleted";
-      if (mode === "archived") {
-        setSuccess("El area fue archivada porque tiene historial.");
-      } else {
-        setSuccess("El area fue eliminada.");
-      }
+      await deleteArea(area.id);
       await loadAreas();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible eliminar el area.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible eliminar el area.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAreaStatusUpdate = async (area: AreaSummary, isActive: boolean) => {
+    setIsSubmitting(true);
+    try {
+      await updateAreaStatus(area.id, { isActive });
+      await loadAreas();
+    } catch (incomingError) {
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible actualizar el estado del area.");
       }
     } finally {
       setIsSubmitting(false);
@@ -138,10 +266,164 @@ export function Areas() {
       />
 
       <div className="app-content">
-        <section className="app-panel app-panel-pad">
-          <h3 className="text-lg font-semibold text-foreground mb-4">
-            {editingAreaId ? "Editar area" : "Crear area"}
-          </h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-foreground">Listado de areas</h3>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+          {filterOptions.map((option) => {
+            const Icon = option.icon;
+            const isSelected = statusFilter === option.value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setStatusFilter(option.value)}
+                className={cn(
+                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
+                  isSelected
+                    ? option.activeClassName
+                    : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                )}
+                aria-pressed={isSelected}
+                title={`Ver areas ${option.label.toLowerCase()}`}
+              >
+                <Icon className="size-4" />
+                <span>{option.label}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => {
+              void openCreateAreaModal();
+            }}
+            className="app-btn-primary h-10 w-10 p-0 shadow-[0_10px_18px_rgba(15,118,110,0.24)]"
+            aria-label="Crear area"
+            title="Crear area"
+          >
+            <Plus className="size-5" />
+          </button>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Cargando areas...</div>
+        ) : areas.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No hay areas para este filtro.</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {paginatedAreas.map((area) => (
+                <article
+                  key={area.id}
+                  className="rounded-2xl border border-border bg-card p-4 shadow-[0_10px_30px_rgba(16,36,58,0.08)]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">{area.name}</p>
+                      <p className={`text-sm ${area.isActive ? "text-success" : "text-warning"}`}>
+                        {area.isActive ? "Activa" : "Inactiva"}
+                      </p>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                          aria-label={`Acciones de ${area.name}`}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => {
+                          void startEdit(area);
+                        }}>
+                          <Pencil className="size-4" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setPendingStatusUpdateArea({
+                            area,
+                            isActive: !area.isActive,
+                          })}
+                        >
+                          {area.isActive ? (
+                            <>
+                              <CircleSlash2 className="size-4" />
+                              Desactivar
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="size-4" />
+                              Activar
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setPendingDeleteArea(area)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="size-4" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    {area.activeMemberCount} empleados · {area.activeProjectCount} proyectos
+                  </p>
+                </article>
+              ))}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  Anterior
+                </button>
+                <p className="text-sm text-muted-foreground">
+                  Pagina {currentPage} de {totalPages}
+                </p>
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <Dialog
+        open={isAreaModalOpen}
+        onOpenChange={(open) => {
+          setIsAreaModalOpen(open);
+          if (!open && !isSubmitting) {
+            resetForm();
+            setEmployees([]);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingAreaId ? "Editar area" : "Crear area"}</DialogTitle>
+            <DialogDescription>
+              Define la informacion principal del area y sus empleados.
+            </DialogDescription>
+          </DialogHeader>
+
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
@@ -165,16 +447,110 @@ export function Areas() {
             </div>
             <div className="md:col-span-2 flex items-center gap-2">
               <input
-                id="area-is-active"
+                id="area-modal-is-active"
                 type="checkbox"
                 checked={isActive}
                 onChange={(event) => setIsActive(event.target.checked)}
               />
-              <label htmlFor="area-is-active" className="text-sm text-foreground">
+              <label htmlFor="area-modal-is-active" className="text-sm text-foreground">
                 Area activa
               </label>
             </div>
-            <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Empleados del area</label>
+              {isLoadingEmployees ? (
+                <p className="text-sm text-muted-foreground">Cargando empleados...</p>
+              ) : employees.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay empleados disponibles.</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="app-btn-secondary"
+                          disabled={isSubmitting}
+                        >
+                          Seleccionar empleados
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-[360px] max-h-72 overflow-y-auto">
+                        {employees.map((employee) => {
+                          const isChecked = selectedEmployeeIds.includes(employee.id);
+                          const isDisabled = !employee.isActive && !isChecked;
+
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={employee.id}
+                              checked={isChecked}
+                              disabled={isDisabled || isSubmitting}
+                              onCheckedChange={() => toggleEmployeeSelection(employee.id)}
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm text-foreground truncate">{employee.name}</p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {employee.email} · {employee.areaNames.length > 0
+                                    ? employee.areaNames.join(" · ")
+                                    : employee.currentAreaName ?? "Sin area"}
+                                </p>
+                              </div>
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <p className="text-xs text-muted-foreground">
+                      Seleccionados: {selectedEmployeeIds.length}
+                    </p>
+                  </div>
+
+                  {selectedEmployeeIds.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No hay empleados seleccionados para esta area.
+                    </p>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto rounded-xl border border-border p-2 space-y-2">
+                      {selectedEmployeeIds.map((employeeId) => {
+                        const employee = employees.find((item) => item.id === employeeId);
+                        if (!employee) return null;
+
+                        return (
+                          <div key={employee.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="text-sm text-foreground truncate">{employee.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{employee.email}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => toggleEmployeeSelection(employee.id)}
+                              className="inline-flex size-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground"
+                              disabled={isSubmitting}
+                              aria-label={`Quitar a ${employee.name}`}
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
+              {editingAreaId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    setIsAreaModalOpen(false);
+                  }}
+                  className="app-btn-secondary"
+                >
+                  Cancelar edicion
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={isSubmitting}
@@ -183,93 +559,36 @@ export function Areas() {
                 <Plus className="size-4" />
                 {isSubmitting ? "Guardando..." : editingAreaId ? "Actualizar" : "Crear"}
               </button>
-              {editingAreaId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="app-btn-secondary"
-                >
-                  Cancelar edicion
-                </button>
-              )}
             </div>
           </form>
-          {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
-          {success && <p className="mt-4 text-sm text-success">{success}</p>}
-        </section>
+        </DialogContent>
+      </Dialog>
 
-        <section className="app-panel overflow-hidden">
-          <div className="app-panel-header">
-            <h3 className="text-lg font-semibold text-foreground">Listado de areas</h3>
-            <select
-              value={statusFilter}
-              onChange={(event) => setStatusFilter(event.target.value as AreaStatusFilter)}
-              className="app-control h-9 min-w-40"
-            >
-              <option value="all">Todas</option>
-              <option value="active">Activas</option>
-              <option value="inactive">Inactivas</option>
-            </select>
-          </div>
-
-          {isLoading ? (
-            <div className="p-6 text-sm text-muted-foreground">Cargando areas...</div>
-          ) : areas.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">No hay areas para este filtro.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="app-table">
-                <thead className="app-table-head">
-                  <tr>
-                    <th className="app-th">Nombre</th>
-                    <th className="app-th">Estado</th>
-                    <th className="app-th">Miembros activos</th>
-                    <th className="app-th">Proyectos activos</th>
-                    <th className="app-th">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {areas.map((area) => (
-                    <tr key={area.id} className="app-row">
-                      <td className="app-td">
-                        <p className="font-medium">{area.name}</p>
-                        <p className="text-muted-foreground">{area.description ?? "Sin descripcion"}</p>
-                      </td>
-                      <td className="app-td">
-                        <span className={area.isActive ? "text-success" : "text-warning"}>
-                          {area.isActive ? "Activa" : "Inactiva"}
-                        </span>
-                      </td>
-                      <td className="app-td">{area.activeMemberCount}</td>
-                      <td className="app-td">{area.activeProjectCount}</td>
-                      <td className="app-td">
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => startEdit(area)}
-                            className="app-action-link inline-flex items-center gap-1"
-                          >
-                            <Pencil className="size-4" />
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPendingDeleteArea(area)}
-                            className="app-action-link-danger inline-flex items-center gap-1"
-                          >
-                            <Trash2 className="size-4" />
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      </div>
+      <ConfirmActionDialog
+        open={pendingStatusUpdateArea !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingStatusUpdateArea(null);
+          }
+        }}
+        title="Actualizar estado del area"
+        description={
+          pendingStatusUpdateArea
+            ? `Se ${pendingStatusUpdateArea.isActive ? "activará" : "inactivará"} "${pendingStatusUpdateArea.area.name}".`
+            : ""
+        }
+        confirmLabel="Confirmar cambio"
+        variant={pendingStatusUpdateArea?.isActive ? "default" : "destructive"}
+        isProcessing={isSubmitting}
+        onConfirm={() => {
+          if (!pendingStatusUpdateArea) {
+            return;
+          }
+          const { area, isActive } = pendingStatusUpdateArea;
+          setPendingStatusUpdateArea(null);
+          void handleAreaStatusUpdate(area, isActive);
+        }}
+      />
 
       <ConfirmActionDialog
         open={pendingDeleteArea !== null}
@@ -287,6 +606,7 @@ export function Areas() {
         confirmLabel="Eliminar"
         variant="destructive"
         isProcessing={isSubmitting}
+        confirmDelaySeconds={5}
         onConfirm={() => {
           if (!pendingDeleteArea) {
             return;

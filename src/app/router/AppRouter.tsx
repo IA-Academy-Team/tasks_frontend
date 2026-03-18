@@ -5,7 +5,6 @@ import { ProtectedRoute } from "../components/ProtectedRoute";
 import { RoleGuard } from "../guards/RoleGuard";
 import { ResourceGuard } from "../guards/ResourceGuard";
 import { LoginPage } from "../../modules/auth/pages/LoginPage";
-import { RegisterPage } from "../../modules/auth/pages/RegisterPage";
 import { ForgotPasswordPage } from "../../modules/auth/pages/ForgotPasswordPage";
 import { AuthHomeRedirect } from "../../modules/auth/components/AuthHomeRedirect";
 import { AreasPage } from "../../modules/areas/pages/AreasPage";
@@ -13,7 +12,7 @@ import { DashboardPage } from "../../modules/dashboard/pages/DashboardPage";
 import { ProjectsPage } from "../../modules/projects/pages/ProjectsPage";
 import { ProjectBoardPage } from "../../modules/projects/pages/ProjectBoardPage";
 import { EmployeesPage } from "../../modules/employees/pages/EmployeesPage";
-import { ProfilePage } from "../../modules/users/pages/ProfilePage";
+import { StandaloneTasksPage } from "../../modules/tasks/pages/StandaloneTasksPage";
 
 export function AppRouter() {
   return (
@@ -21,7 +20,6 @@ export function AppRouter() {
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/registro" element={<RegisterPage />} />
           <Route path="/recuperar-contraseña" element={<ForgotPasswordPage />} />
         </Route>
 
@@ -83,13 +81,14 @@ export function AppRouter() {
             )}
           />
           <Route
-            path="profile"
+            path="tasks/standalone"
             element={(
-              <ResourceGuard resource="profile">
-                <ProfilePage />
+              <ResourceGuard resource="standaloneTasks">
+                <StandaloneTasksPage />
               </ResourceGuard>
             )}
           />
+          <Route path="profile" element={<Navigate to="/" replace />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

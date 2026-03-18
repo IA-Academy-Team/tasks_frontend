@@ -1,30 +1,49 @@
 import { useEffect, useState } from "react";
-import { UserCircle2, Save } from "lucide-react";
+import { Save, UserCircle2 } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
-import { PageHero } from "../components/PageHero";
 import {
   getMyProfile,
   updateMyProfile,
   type UserProfile,
 } from "../../modules/users/api/profile.api";
 import { useSession } from "../../modules/auth/providers/SessionProvider";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
-export function Profile() {
+type ProfileEditorModalProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
+
+export function ProfileEditorModal({
+  open,
+  onOpenChange,
+}: ProfileEditorModalProps) {
   const { refreshSession } = useSession();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [name, setName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [image, setImage] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
+    if (!open) {
+      return;
+    }
+
     const loadProfile = async () => {
+      setIsLoading(true);
+      setError("");
+      setSuccess("");
       try {
-        setError("");
         const response = await getMyProfile();
         const nextProfile = response?.data ?? null;
         setProfile(nextProfile);
@@ -43,7 +62,7 @@ export function Profile() {
     };
 
     void loadProfile();
-  }, []);
+  }, [open]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -84,31 +103,26 @@ export function Profile() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="size-full flex items-center justify-center bg-background">
-        <p className="text-muted-foreground">Cargando perfil...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="app-shell">
-      <PageHero
-        title="Mi perfil"
-        subtitle="Actualiza tu informacion basica de usuario"
-        icon={<UserCircle2 className="size-5" />}
-      />
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserCircle2 className="size-5 text-primary" />
+            Editar perfil
+          </DialogTitle>
+        </DialogHeader>
 
-      <div className="app-content">
-        <div className="max-w-2xl app-panel app-panel-pad">
+        {isLoading ? (
+          <div className="py-6 text-sm text-muted-foreground">Cargando perfil...</div>
+        ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="profile-name" className="block text-sm font-semibold text-foreground mb-1.5">
+              <label htmlFor="profile-modal-name" className="block text-sm font-semibold text-foreground mb-1.5">
                 Nombre
               </label>
               <input
-                id="profile-name"
+                id="profile-modal-name"
                 type="text"
                 value={name}
                 onChange={(event) => setName(event.target.value)}
@@ -119,9 +133,7 @@ export function Profile() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Correo
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-1">Correo</label>
                 <input
                   type="text"
                   value={profile?.email ?? ""}
@@ -130,9 +142,7 @@ export function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-foreground mb-1">
-                  Rol
-                </label>
+                <label className="block text-sm font-medium text-foreground mb-1">Rol</label>
                 <input
                   type="text"
                   value={profile?.role === "admin" ? "Administrador" : "Empleado"}
@@ -143,11 +153,11 @@ export function Profile() {
             </div>
 
             <div>
-              <label htmlFor="profile-phone" className="block text-sm font-semibold text-foreground mb-1.5">
+              <label htmlFor="profile-modal-phone" className="block text-sm font-semibold text-foreground mb-1.5">
                 Telefono
               </label>
               <input
-                id="profile-phone"
+                id="profile-modal-phone"
                 type="text"
                 value={phoneNumber}
                 onChange={(event) => setPhoneNumber(event.target.value)}
@@ -157,11 +167,11 @@ export function Profile() {
             </div>
 
             <div>
-              <label htmlFor="profile-image" className="block text-sm font-semibold text-foreground mb-1.5">
+              <label htmlFor="profile-modal-image" className="block text-sm font-semibold text-foreground mb-1.5">
                 URL de imagen
               </label>
               <input
-                id="profile-image"
+                id="profile-modal-image"
                 type="url"
                 value={image}
                 onChange={(event) => setImage(event.target.value)}
@@ -179,8 +189,8 @@ export function Profile() {
               {isSaving ? "Guardando..." : "Guardar cambios"}
             </button>
           </form>
-        </div>
-      </div>
-    </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

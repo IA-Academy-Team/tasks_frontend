@@ -102,6 +102,7 @@ export interface ReassignProjectMembershipPayload {
 
 const withNullableDate = (value?: string | null): string | null | undefined => {
   if (value === undefined) return undefined;
+  if (value === null) return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
 };
@@ -131,6 +132,11 @@ export const createProject = (payload: CreateProjectPayload) =>
     description: payload.description ?? null,
     startDate: withNullableDate(payload.startDate),
     endDate: withNullableDate(payload.endDate),
+  }, {
+    toast: {
+      successMessage: "Proyecto creado correctamente.",
+      errorMessage: "No fue posible crear el proyecto.",
+    },
   });
 
 export const updateProject = (projectId: number, payload: UpdateProjectPayload) =>
@@ -140,16 +146,31 @@ export const updateProject = (projectId: number, payload: UpdateProjectPayload) 
     description: payload.description,
     startDate: withNullableDate(payload.startDate),
     endDate: withNullableDate(payload.endDate),
+  }, {
+    toast: {
+      successMessage: "Proyecto actualizado correctamente.",
+      errorMessage: "No fue posible actualizar el proyecto.",
+    },
   });
 
 export const updateProjectStatus = (projectId: number, payload: UpdateProjectStatusPayload) =>
   api.patch<ProjectResponse>(`${API_PREFIX}/projects/${projectId}/status`, {
     status: payload.status,
     endDate: withNullableDate(payload.endDate),
+  }, {
+    toast: {
+      successMessage: "Estado del proyecto actualizado.",
+      errorMessage: "No fue posible actualizar el estado del proyecto.",
+    },
   });
 
 export const deleteProject = (projectId: number) =>
-  api.delete<DeleteProjectResponse>(`${API_PREFIX}/projects/${projectId}`);
+  api.delete<DeleteProjectResponse>(`${API_PREFIX}/projects/${projectId}`, {
+    toast: {
+      successMessage: "Proyecto procesado correctamente.",
+      errorMessage: "No fue posible eliminar el proyecto.",
+    },
+  });
 
 export const listProjectMemberships = (
   projectId: number,
@@ -157,12 +178,23 @@ export const listProjectMemberships = (
 ) => api.get<ProjectMembershipsResponse>(`${API_PREFIX}/projects/${projectId}/memberships?status=${status}`);
 
 export const assignProjectMembership = (projectId: number, payload: AssignProjectMembershipPayload) =>
-  api.post<ProjectMembershipResponse>(`${API_PREFIX}/projects/${projectId}/memberships`, payload);
+  api.post<ProjectMembershipResponse>(`${API_PREFIX}/projects/${projectId}/memberships`, payload, {
+    toast: {
+      successMessage: "Miembro asignado al proyecto.",
+      errorMessage: "No fue posible asignar el miembro al proyecto.",
+    },
+  });
 
 export const unassignProjectMembership = (projectId: number, membershipId: number) =>
   api.patch<ProjectMembershipResponse>(
     `${API_PREFIX}/projects/${projectId}/memberships/${membershipId}/unassign`,
     {},
+    {
+      toast: {
+        successMessage: "Membresia desasignada correctamente.",
+        errorMessage: "No fue posible desasignar la membresia.",
+      },
+    },
   );
 
 export const reassignProjectMembership = (
@@ -172,4 +204,10 @@ export const reassignProjectMembership = (
 ) => api.patch<ReassignProjectMembershipResponse>(
   `${API_PREFIX}/projects/${projectId}/memberships/${membershipId}/reassign`,
   payload,
+  {
+    toast: {
+      successMessage: "Membresia reasignada correctamente.",
+      errorMessage: "No fue posible reasignar la membresia.",
+    },
+  },
 );

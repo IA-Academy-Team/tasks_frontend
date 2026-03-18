@@ -1,3 +1,4 @@
+import { toast } from "react-toastify";
 type RuntimeEnv = Record<string, string | boolean | undefined>;
 
 const getRuntimeEnv = (): RuntimeEnv => {
@@ -22,6 +23,13 @@ export const API_URL =
 
 interface RequestOptions extends RequestInit {
     data?: unknown;
+    toast?: {
+        enabled?: boolean;
+        showSuccess?: boolean;
+        showError?: boolean;
+        successMessage?: string;
+        errorMessage?: string;
+    };
 }
 
 export class ApiError extends Error {
@@ -55,44 +63,106 @@ const toStringOrUndefined = (value: unknown): string | undefined => {
     return undefined;
 };
 
+const MUTATION_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+
+const DEFAULT_SUCCESS_MESSAGE = "Accion realizada correctamente.";
+const DEFAULT_NETWORK_ERROR_MESSAGE = "No fue posible conectar con el servidor.";
+
+const getRequestMethod = (options: RequestOptions): string =>
+    (options.method ?? "GET").toUpperCase();
+
+const shouldShowSuccessToast = (options: RequestOptions): boolean => {
+    const method = getRequestMethod(options);
+    const isMutation = MUTATION_METHODS.has(method);
+    const toastOptions = options.toast;
+    const enabled = toastOptions?.enabled ?? isMutation;
+    return enabled && (toastOptions?.showSuccess ?? isMutation);
+};
+
+const shouldShowErrorToast = (options: RequestOptions): boolean => {
+    const toastOptions = options.toast;
+    const enabled = toastOptions?.enabled ?? true;
+    return enabled && (toastOptions?.showError ?? true);
+};
+
+const emitSuccessToast = (options: RequestOptions, endpoint: string) => {
+    if (!shouldShowSuccessToast(options)) {
+        return;
+    }
+
+    const successMessage = options.toast?.successMessage ?? DEFAULT_SUCCESS_MESSAGE;
+    toast.success(successMessage, {
+        toastId: `api-success-${getRequestMethod(options)}-${endpoint}-${successMessage}`,
+    });
+};
+
+const emitErrorToast = (message: string, options: RequestOptions, endpoint: string, status?: number, code?: string) => {
+    if (!shouldShowErrorToast(options)) {
+        return;
+    }
+
+    const errorMessage = options.toast?.errorMessage ?? message;
+    toast.error(errorMessage, {
+        toastId: `api-error-${getRequestMethod(options)}-${endpoint}-${status ?? "network"}-${code ?? "unknown"}-${errorMessage}`,
+    });
+};
+
 export const apiFetch = async <T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<T | null> => {
+    const { data, ...requestOptions } = options;
     const headers = new Headers(options.headers || {});
     headers.set('Content-Type', 'application/json');
 
     const config: RequestInit = {
         credentials: 'include',
-        ...options,
+        ...requestOptions,
         headers,
     };
 
-    if (options.data) {
-        config.body = JSON.stringify(options.data);
+    if (data !== undefined) {
+        config.body = JSON.stringify(data);
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, config);
+    let response: Response;
+    try {
+        response = await fetch(`${API_URL}${endpoint}`, config);
+    } catch {
+        emitErrorToast(DEFAULT_NETWORK_ERROR_MESSAGE, options, endpoint);
+        throw new ApiError({
+            message: DEFAULT_NETWORK_ERROR_MESSAGE,
+            endpoint,
+        });
+    }
 
     if (!response.ok) {
         const parsedError = await response.json().catch(() => ({}));
         const errorData = isRecord(parsedError) ? parsedError : {};
+        const errorMessage =
+            toStringOrUndefined(errorData.error) ||
+            toStringOrUndefined(errorData.message) ||
+            'Algo salió mal';
+        const errorCode =
+            toStringOrUndefined(errorData.code) ||
+            toStringOrUndefined(errorData.errorCode);
+
+        emitErrorToast(errorMessage, options, endpoint, response.status, errorCode);
+
         throw new ApiError({
-            message:
-                toStringOrUndefined(errorData.error) ||
-                toStringOrUndefined(errorData.message) ||
-                'Algo salió mal',
+            message: errorMessage,
             status: response.status,
-            code:
-                toStringOrUndefined(errorData.code) ||
-                toStringOrUndefined(errorData.errorCode),
+            code: errorCode,
             details: errorData.details,
             endpoint,
         });
     }
 
     if (response.status === 204) {
+        emitSuccessToast(options, endpoint);
         return null;
     }
 
-    return (await response.json()) as T;
+    const parsedData = (await response.json()) as T;
+    emitSuccessToast(options, endpoint);
+    return parsedData;
 };
 
 export const api = {
@@ -113,14 +183,30 @@ export const api = {
 
     getBlob: async (endpoint: string, options: RequestOptions = {}) => {
         const headers = new Headers(options.headers || {});
-        const response = await fetch(`${API_URL}${endpoint}`, {
-            credentials: 'include',
-            ...options,
-            method: 'GET',
-            headers,
-        });
+        let response: Response;
+        try {
+            response = await fetch(`${API_URL}${endpoint}`, {
+                credentials: 'include',
+                ...options,
+                method: 'GET',
+                headers,
+            });
+        } catch {
+            emitErrorToast(DEFAULT_NETWORK_ERROR_MESSAGE, options, endpoint);
+            throw new ApiError({
+                message: DEFAULT_NETWORK_ERROR_MESSAGE,
+                endpoint,
+            });
+        }
+
         if (!response.ok) {
-            throw new Error('Error downloading file');
+            const message = 'No fue posible descargar el archivo.';
+            emitErrorToast(message, options, endpoint, response.status);
+            throw new ApiError({
+                message,
+                status: response.status,
+                endpoint,
+            });
         }
         return response.blob();
     }

@@ -1,11 +1,37 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
-import { FolderKanban, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+  Archive,
+  Building2,
+  CheckCircle2,
+  CircleSlash2,
+  Eye,
+  FolderKanban,
+  ListFilter,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { toast } from "react-toastify";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import {
   createProject,
   deleteProject,
@@ -16,8 +42,22 @@ import {
   type ProjectSummary,
   type ProjectStatusUpdate,
 } from "../../modules/projects/api/projects.api";
+import { cn } from "../components/ui/utils";
 
 export function Projects() {
+  const PAGE_SIZE = 8;
+  const statusFilterOptions: Array<{
+    value: ProjectStatusFilter;
+    label: string;
+    icon: typeof ListFilter;
+    activeClassName: string;
+  }> = [
+    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
+    { value: "active", label: "Activos", icon: CheckCircle2, activeClassName: "border-success/40 bg-success/15 text-success" },
+    { value: "closed", label: "Cerrados", icon: Archive, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
+    { value: "cancelled", label: "Cancelados", icon: CircleSlash2, activeClassName: "border-destructive/40 bg-destructive/10 text-destructive" },
+  ];
+
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -26,11 +66,11 @@ export function Projects() {
   const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("all");
   const [areaFilter, setAreaFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [editingProjectId, setEditingProjectId] = useState<number | null>(null);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [pendingDeleteProject, setPendingDeleteProject] = useState<ProjectSummary | null>(null);
   const [pendingStatusUpdate, setPendingStatusUpdate] = useState<{
     project: ProjectSummary;
@@ -43,6 +83,14 @@ export function Projects() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
+  const getProjectStatusClass = (status: string) => {
+    const normalized = status.toLowerCase();
+    if (normalized === "active" || normalized === "activo") return "text-success";
+    if (normalized === "cancelled" || normalized === "cancelado") return "text-destructive";
+    if (normalized === "closed" || normalized === "cerrado") return "text-warning";
+    return "text-muted-foreground";
+  };
+
   const resetForm = () => {
     setEditingProjectId(null);
     setAreaId("");
@@ -52,9 +100,8 @@ export function Projects() {
     setEndDate("");
   };
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     try {
-      setError("");
       const response = await listProjects({
         status: statusFilter,
         areaId: areaFilter === "all" ? undefined : Number(areaFilter),
@@ -62,14 +109,14 @@ export function Projects() {
       setProjects(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
+        toast.error(incomingError.message);
       } else {
-        setError("No fue posible cargar los proyectos.");
+        toast.error("No fue posible cargar los proyectos.");
       }
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [areaFilter, statusFilter]);
 
   const loadAreas = async () => {
     try {
@@ -82,11 +129,18 @@ export function Projects() {
 
   useEffect(() => {
     void loadProjects();
-  }, [statusFilter, areaFilter]);
+  }, [loadProjects]);
 
   useEffect(() => {
     void loadAreas();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, areaFilter, projects.length]);
+
+  const totalPages = Math.max(1, Math.ceil(projects.length / PAGE_SIZE));
+  const paginatedProjects = projects.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const startEdit = (project: ProjectSummary) => {
     setEditingProjectId(project.id);
@@ -95,25 +149,22 @@ export function Projects() {
     setDescription(project.description ?? "");
     setStartDate(project.startDate ?? "");
     setEndDate(project.endDate ?? "");
-    setError("");
-    setSuccess("");
+    setIsProjectModalOpen(true);
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setError("");
-    setSuccess("");
 
     const trimmedName = name.trim();
     const numericAreaId = Number(areaId);
 
     if (!trimmedName) {
-      setError("El nombre del proyecto es obligatorio.");
+      toast.error("El nombre del proyecto es obligatorio.");
       return;
     }
 
     if (!Number.isInteger(numericAreaId) || numericAreaId <= 0) {
-      setError("Debes seleccionar un area valida.");
+      toast.error("Debes seleccionar un area valida.");
       return;
     }
 
@@ -127,7 +178,6 @@ export function Projects() {
           startDate: startDate || null,
           endDate: endDate || null,
         });
-        setSuccess("Proyecto actualizado correctamente.");
       } else {
         await createProject({
           areaId: numericAreaId,
@@ -136,16 +186,14 @@ export function Projects() {
           startDate: startDate || null,
           endDate: endDate || null,
         });
-        setSuccess("Proyecto creado correctamente.");
       }
 
       resetForm();
+      setIsProjectModalOpen(false);
       await loadProjects();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible guardar el proyecto.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible guardar el proyecto.");
       }
     } finally {
       setIsSubmitting(false);
@@ -154,22 +202,12 @@ export function Projects() {
 
   const handleDelete = async (project: ProjectSummary) => {
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
     try {
-      const response = await deleteProject(project.id);
-      const mode = response?.data?.mode ?? "deleted";
-      setSuccess(
-        mode === "archived"
-          ? "Proyecto archivado por historial existente."
-          : "Proyecto eliminado.",
-      );
+      await deleteProject(project.id);
       await loadProjects();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible eliminar el proyecto.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible eliminar el proyecto.");
       }
     } finally {
       setIsSubmitting(false);
@@ -178,17 +216,12 @@ export function Projects() {
 
   const handleStatusUpdate = async (project: ProjectSummary, status: ProjectStatusUpdate) => {
     setIsSubmitting(true);
-    setError("");
-    setSuccess("");
     try {
       await updateProjectStatus(project.id, { status });
-      setSuccess("Estado del proyecto actualizado.");
       await loadProjects();
     } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible actualizar el estado.");
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible actualizar el estado.");
       }
     } finally {
       setIsSubmitting(false);
@@ -204,108 +237,40 @@ export function Projects() {
       />
 
       <div className="app-content">
-        {isAdmin && (
-          <section className="app-panel app-panel-pad">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              {editingProjectId ? "Editar proyecto" : "Crear proyecto"}
-            </h3>
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Area</label>
-                <select
-                  value={areaId}
-                  onChange={(event) => setAreaId(event.target.value)}
-                  className="app-control"
-                >
-                  <option value="">Selecciona un area</option>
-                  {areas.filter((area) => area.isActive).map((area) => (
-                    <option key={area.id} value={area.id}>
-                      {area.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  className="app-control"
-                  placeholder="Nombre del proyecto"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Descripcion</label>
-                <input
-                  type="text"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  className="app-control"
-                  placeholder="Descripcion"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
-                  className="app-control"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                  className="app-control"
-                />
-              </div>
-              <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="app-btn-primary"
-                >
-                  <Plus className="size-4" />
-                  {isSubmitting ? "Guardando..." : editingProjectId ? "Actualizar" : "Crear"}
-                </button>
-                {editingProjectId && (
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="app-btn-secondary"
-                >
-                  Cancelar edicion
-                </button>
-                )}
-              </div>
-            </form>
-            {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
-            {success && <p className="mt-4 text-sm text-success">{success}</p>}
-          </section>
-        )}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-foreground">Listado de proyectos</h3>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {statusFilterOptions.map((option) => {
+              const Icon = option.icon;
+              const isSelected = statusFilter === option.value;
 
-        <section className="app-panel overflow-hidden">
-          <div className="app-panel-header">
-            <h3 className="text-lg font-semibold text-foreground">Listado de proyectos</h3>
-            <div className="flex items-center gap-2">
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as ProjectStatusFilter)}
-                className="app-control h-9 min-w-36"
-              >
-                <option value="all">Todos</option>
-                <option value="active">Activos</option>
-                <option value="closed">Cerrados</option>
-                <option value="cancelled">Cancelados</option>
-              </select>
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setStatusFilter(option.value)}
+                  className={cn(
+                    "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
+                    isSelected
+                      ? option.activeClassName
+                      : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                  )}
+                  aria-pressed={isSelected}
+                  title={`Ver proyectos ${option.label.toLowerCase()}`}
+                >
+                  <Icon className="size-4" />
+                  <span>{option.label}</span>
+                </button>
+              );
+            })}
+
+            <div className="relative">
+              <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <select
                 value={areaFilter}
                 onChange={(event) => setAreaFilter(event.target.value)}
-                className="app-control h-9 min-w-44"
+                className="app-control h-9 min-w-[190px] pl-9 pr-8"
+                title="Filtrar por area"
               >
                 <option value="all">Todas las areas</option>
                 {areas.map((area) => (
@@ -315,103 +280,219 @@ export function Projects() {
                 ))}
               </select>
             </div>
-          </div>
-          {error && !isAdmin && <p className="p-4 text-sm text-destructive">{error}</p>}
-          {success && !isAdmin && <p className="p-4 text-sm text-success">{success}</p>}
 
-          {isLoading ? (
-            <div className="p-6 text-sm text-muted-foreground">Cargando proyectos...</div>
-          ) : projects.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">No hay proyectos para este filtro.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="app-table">
-                <thead className="app-table-head">
-                  <tr>
-                    <th className="app-th">Proyecto</th>
-                    <th className="app-th">Area</th>
-                    <th className="app-th">Estado</th>
-                    <th className="app-th">Miembros</th>
-                    <th className="app-th">Tareas</th>
-                    <th className="app-th">Fechas</th>
-                    <th className="app-th">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {projects.map((project) => (
-                    <tr key={project.id} className="app-row">
-                      <td className="app-td">
-                        <p className="font-medium">{project.name}</p>
-                        <p className="text-muted-foreground">{project.description ?? "Sin descripcion"}</p>
-                      </td>
-                      <td className="app-td">{project.areaName}</td>
-                      <td className="app-td">{project.status}</td>
-                      <td className="app-td">{project.activeMemberCount}</td>
-                      <td className="app-td">{project.totalTaskCount}</td>
-                      <td className="app-td">
-                        <p>Inicio: {project.startDate ?? "-"}</p>
-                        <p>Fin: {project.endDate ?? "-"}</p>
-                      </td>
-                      <td className="app-td">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/projects/${project.id}`)}
-                            className="app-action-link"
-                          >
-                            Ver detalle
-                          </button>
-                          {isAdmin && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => startEdit(project)}
-                                className="app-action-link inline-flex items-center gap-1"
-                              >
-                                <Pencil className="size-4" />
-                                Editar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingDeleteProject(project)}
-                                className="app-action-link-danger inline-flex items-center gap-1"
-                              >
-                                <Trash2 className="size-4" />
-                                Eliminar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingStatusUpdate({ project, status: "closed" })}
-                                className="app-action-link"
-                              >
-                                Cerrar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}
-                                className="app-action-link-danger"
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setPendingStatusUpdate({ project, status: "active" })}
-                                className="app-action-link"
-                              >
-                                Activar
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setIsProjectModalOpen(true);
+                }}
+                className="app-btn-primary h-10 w-10 p-0 shadow-[0_10px_18px_rgba(15,118,110,0.24)]"
+                aria-label="Crear proyecto"
+                title="Crear proyecto"
+              >
+                <Plus className="size-5" />
+              </button>
+            )}
+          </div>
+        </div>
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground">Cargando proyectos...</div>
+        ) : projects.length === 0 ? (
+          <div className="text-sm text-muted-foreground">No hay proyectos para este filtro.</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {paginatedProjects.map((project) => (
+                <article
+                  key={project.id}
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                  className="cursor-pointer rounded-2xl border border-border bg-card p-4 shadow-[0_10px_30px_rgba(16,36,58,0.08)] transition-colors hover:border-primary/50"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-foreground truncate">{project.name}</p>
+                      <p className="text-sm text-muted-foreground truncate">{project.areaName}</p>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={(event) => event.stopPropagation()}
+                          className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                          aria-label={`Acciones de ${project.name}`}
+                        >
+                          <MoreHorizontal className="size-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => navigate(`/projects/${project.id}`)}>
+                          <Eye className="size-4" />
+                          Ver detalle
+                        </DropdownMenuItem>
+                        {isAdmin && (
+                          <>
+                            <DropdownMenuItem onClick={() => startEdit(project)}>
+                              <Pencil className="size-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
+                              <Archive className="size-4" />
+                              Cerrar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
+                              <CircleSlash2 className="size-4" />
+                              Cancelar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
+                              <CheckCircle2 className="size-4" />
+                              Activar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setPendingDeleteProject(project)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="size-4" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <p className={`mt-3 text-sm ${getProjectStatusClass(project.status)}`}>{project.status}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {project.activeMemberCount} miembros · {project.totalTaskCount} tareas
+                  </p>
+                </article>
+              ))}
             </div>
-          )}
-        </section>
+
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  Anterior
+                </button>
+                <p className="text-sm text-muted-foreground">
+                  Pagina {currentPage} de {totalPages}
+                </p>
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
+
+      <Dialog
+        open={isProjectModalOpen}
+        onOpenChange={(open) => {
+          setIsProjectModalOpen(open);
+          if (!open && !isSubmitting) {
+            resetForm();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{editingProjectId ? "Editar proyecto" : "Crear proyecto"}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Area</label>
+              <select
+                value={areaId}
+                onChange={(event) => setAreaId(event.target.value)}
+                className="app-control"
+              >
+                <option value="">Selecciona un area</option>
+                {areas.filter((area) => area.isActive).map((area) => (
+                  <option key={area.id} value={area.id}>
+                    {area.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                className="app-control"
+                placeholder="Nombre del proyecto"
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Descripcion</label>
+              <input
+                type="text"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                className="app-control"
+                placeholder="Descripcion"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(event) => setStartDate(event.target.value)}
+                className="app-control"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(event) => setEndDate(event.target.value)}
+                className="app-control"
+              />
+            </div>
+            <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
+              {editingProjectId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetForm();
+                    setIsProjectModalOpen(false);
+                  }}
+                  className="app-btn-secondary"
+                >
+                  Cancelar edicion
+                </button>
+              )}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="app-btn-primary"
+              >
+                <Plus className="size-4" />
+                {isSubmitting ? "Guardando..." : editingProjectId ? "Actualizar" : "Crear"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmActionDialog
         open={pendingDeleteProject !== null}
@@ -429,6 +510,7 @@ export function Projects() {
         confirmLabel="Eliminar"
         variant="destructive"
         isProcessing={isSubmitting}
+        confirmDelaySeconds={5}
         onConfirm={() => {
           if (!pendingDeleteProject) {
             return;
@@ -449,11 +531,17 @@ export function Projects() {
         title="Actualizar estado del proyecto"
         description={
           pendingStatusUpdate
-            ? `Se cambiará el estado de "${pendingStatusUpdate.project.name}" a "${pendingStatusUpdate.status}".`
+            ? `Se cambiará el estado de "${pendingStatusUpdate.project.name}" a "${
+              pendingStatusUpdate.status === "active"
+                ? "activo"
+                : pendingStatusUpdate.status === "closed"
+                  ? "cerrado"
+                  : "cancelado"
+            }".`
             : ""
         }
         confirmLabel="Confirmar cambio"
-        variant={pendingStatusUpdate?.status === "cancelled" ? "destructive" : "default"}
+        variant={pendingStatusUpdate?.status === "active" ? "default" : "destructive"}
         isProcessing={isSubmitting}
         onConfirm={() => {
           if (!pendingStatusUpdate) {

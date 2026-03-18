@@ -20,5 +20,9 @@ export const getMyProfile = () =>
   api.get<UserProfileResponse>(`${API_PREFIX}/me`);
 
 export const updateMyProfile = (payload: UpdateUserProfilePayload) =>
-  api.patch<UserProfileResponse>(`${API_PREFIX}/me`, payload);
-
+  api.patch<UserProfileResponse>(`${API_PREFIX}/me`, payload, {
+    toast: {
+      successMessage: "Perfil actualizado correctamente.",
+      errorMessage: "No fue posible actualizar el perfil.",
+    },
+  });
