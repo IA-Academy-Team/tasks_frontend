@@ -287,12 +287,9 @@ export function Areas() {
       <div className="app-content flex-1 min-h-0 overflow-hidden gap-3 py-3 md:gap-3 md:py-4">
         <section className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 mt-4">
               <h3 className="text-2xl font-bold tracking-tight text-foreground">Estructura organizacional</h3>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Visualiza y administra todos los equipos operativos activos.
-            </p>
           </div>
 
           <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end">
@@ -318,7 +315,7 @@ export function Areas() {
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2 my-2">
               {filterOptions.map((option) => {
                 const Icon = option.icon;
                 const isSelected = statusFilter === option.value;
@@ -451,7 +448,7 @@ export function Areas() {
           )}
         </section>
 
-        <section className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 mt-auto mb-8">
+        <section className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 mt-auto mb-20">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="grid grid-cols-3 gap-3 sm:gap-6">
               <div className="text-center">
