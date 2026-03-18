@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { ClipboardList, Clock3, ListFilter, Plus } from "lucide-react";
+import { ChevronDown, ClipboardList, Clock3, ListFilter, Plus, Search, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
@@ -11,12 +11,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
 import { cn } from "../components/ui/utils";
 import {
   createStandaloneTask,
+  listTasks,
   listStandaloneTasks,
+  transitionTaskStatus,
   type TaskStatusFilter,
   type TaskSummary,
+  type TaskWorkflowStatus,
+  updateTask,
 } from "../../modules/tasks/api/tasks.api";
 import {
   listEmployees,
@@ -39,6 +50,63 @@ const formatMinutes = (minutes: number | null) => {
   return `${hours}h ${remaining}m`;
 };
 
+const toInputDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const inferDateRangeFromHours = (hours: number) => {
+  const start = new Date();
+  const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+  return {
+    plannedStartDate: toInputDate(start),
+    dueDate: toInputDate(end),
+  };
+};
+
+const getStatusBadgeClassName = (status: string) => {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "terminada") return "border-success/25 bg-success/12 text-success";
+  if (normalized === "en proceso") return "border-primary/25 bg-primary/12 text-primary";
+  return "border-warning/25 bg-warning/12 text-warning";
+};
+
+const getPriorityBadgeClassName = (priority: string) => {
+  const normalized = priority.trim().toLowerCase();
+  if (normalized === "alta") return "border-destructive/25 bg-destructive/10 text-destructive";
+  if (normalized === "baja") return "border-muted-foreground/20 bg-muted/40 text-muted-foreground";
+  return "border-warning/25 bg-warning/10 text-warning";
+};
+
+const getInitials = (value: string | null) => {
+  if (!value) return "SA";
+  const initials = value
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+  return initials || "SA";
+};
+
+type PriorityFilter = "all" | "high" | "medium" | "low";
+type TaskStatusLabel = "Asignada" | "En proceso" | "Terminada";
+
+const toWorkflowStatus = (status: string): TaskWorkflowStatus => {
+  const normalized = status.trim().toLowerCase();
+  if (normalized === "en proceso") return "in_progress";
+  if (normalized === "terminada") return "done";
+  return "assigned";
+};
+
+const toStatusLabel = (status: TaskWorkflowStatus): TaskStatusLabel => {
+  if (status === "in_progress") return "En proceso";
+  if (status === "done") return "Terminada";
+  return "Asignada";
+};
+
 export function StandaloneTasks() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
@@ -46,20 +114,35 @@ export function StandaloneTasks() {
   const filterOptions: Array<{
     value: TaskStatusFilter;
     label: string;
-    activeClassName: string;
   }> = [
-    { value: "all", label: "Todas", activeClassName: "border-accent/40 bg-accent/15 text-accent" },
-    { value: "assigned", label: "Asignadas", activeClassName: "border-warning/40 bg-warning/15 text-warning" },
-    { value: "in_progress", label: "En proceso", activeClassName: "border-primary/40 bg-primary/15 text-primary" },
-    { value: "done", label: "Terminadas", activeClassName: "border-success/40 bg-success/15 text-success" },
+    { value: "all", label: "Todas" },
+    { value: "assigned", label: "Asignadas" },
+    { value: "in_progress", label: "En proceso" },
+    { value: "done", label: "Terminadas" },
+  ];
+
+  const priorityFilterOptions: Array<{
+    value: PriorityFilter;
+    label: string;
+  }> = [
+    { value: "all", label: "Todas" },
+    { value: "high", label: "Alta" },
+    { value: "medium", label: "Media" },
+    { value: "low", label: "Baja" },
   ];
 
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
+  const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isDetailSaving, setIsDetailSaving] = useState(false);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedTask, setSelectedTask] = useState<TaskSummary | null>(null);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -68,21 +151,30 @@ export function StandaloneTasks() {
   const [estimatedHours, setEstimatedHours] = useState("");
   const [priorityId, setPriorityId] = useState("2");
   const [assigneeEmployeeId, setAssigneeEmployeeId] = useState("");
+  const [detailTitle, setDetailTitle] = useState("");
+  const [detailDescription, setDetailDescription] = useState("");
+  const [detailStartDate, setDetailStartDate] = useState("");
+  const [detailDueDate, setDetailDueDate] = useState("");
+  const [detailPriorityId, setDetailPriorityId] = useState("2");
+  const [detailEstimatedHours, setDetailEstimatedHours] = useState("");
+  const [detailStatus, setDetailStatus] = useState<TaskWorkflowStatus>("assigned");
 
   const loadTasks = useCallback(async () => {
     try {
-      const response = await listStandaloneTasks({ status: statusFilter });
+      const response = isAdmin
+        ? await listTasks({ status: statusFilter, includeStandalone: true })
+        : await listStandaloneTasks({ status: statusFilter });
       setTasks(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
         toast.error(incomingError.message);
       } else {
-        toast.error("No fue posible cargar las tareas sueltas.");
+        toast.error("No fue posible cargar las tareas.");
       }
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, [isAdmin, statusFilter]);
 
   useEffect(() => {
     void loadTasks();
@@ -116,6 +208,29 @@ export function StandaloneTasks() {
     setAssigneeEmployeeId("");
   };
 
+  const openTaskDetail = (task: TaskSummary) => {
+    setSelectedTask(task);
+    setDetailTitle(task.title);
+    setDetailDescription(task.description ?? "");
+    setDetailStartDate(task.plannedStartDate.slice(0, 10));
+    setDetailDueDate(task.dueDate.slice(0, 10));
+    setDetailPriorityId(String(task.taskPriorityId));
+    setDetailEstimatedHours(task.estimatedMinutes ? String(task.estimatedMinutes / 60) : "");
+    setDetailStatus(toWorkflowStatus(task.status));
+    setIsDetailModalOpen(true);
+  };
+
+  const resetTaskDetail = () => {
+    setSelectedTask(null);
+    setDetailTitle("");
+    setDetailDescription("");
+    setDetailStartDate("");
+    setDetailDueDate("");
+    setDetailPriorityId("2");
+    setDetailEstimatedHours("");
+    setDetailStatus("assigned");
+  };
+
   const handleCreateTask = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -124,15 +239,6 @@ export function StandaloneTasks() {
       toast.error("El título es obligatorio.");
       return;
     }
-    if (!plannedStartDate || !dueDate) {
-      toast.error("Debes completar fecha de inicio y fin.");
-      return;
-    }
-    if (new Date(dueDate).getTime() < new Date(plannedStartDate).getTime()) {
-      toast.error("La fecha fin no puede ser menor a la fecha inicio.");
-      return;
-    }
-
     if (isAdmin) {
       const numericAssigneeEmployeeId = Number(assigneeEmployeeId);
       if (!Number.isInteger(numericAssigneeEmployeeId) || numericAssigneeEmployeeId <= 0) {
@@ -151,13 +257,38 @@ export function StandaloneTasks() {
       estimatedMinutes = Math.round(numericHours * 60);
     }
 
+    let resolvedPlannedStartDate = plannedStartDate;
+    let resolvedDueDate = dueDate;
+
+    if (!resolvedPlannedStartDate || !resolvedDueDate) {
+      if (!estimatedHours.trim()) {
+        toast.error("Si no defines fechas, la estimación de horas es obligatoria.");
+        return;
+      }
+
+      const numericHours = Number(estimatedHours);
+      if (!Number.isFinite(numericHours) || numericHours <= 0) {
+        toast.error("La estimación de horas debe ser mayor a 0.");
+        return;
+      }
+
+      const inferred = inferDateRangeFromHours(numericHours);
+      resolvedPlannedStartDate = resolvedPlannedStartDate || inferred.plannedStartDate;
+      resolvedDueDate = resolvedDueDate || inferred.dueDate;
+    }
+
+    if (new Date(resolvedDueDate).getTime() < new Date(resolvedPlannedStartDate).getTime()) {
+      toast.error("La fecha fin no puede ser menor a la fecha inicio.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await createStandaloneTask({
         title: trimmedTitle,
         description: description.trim() || null,
-        plannedStartDate,
-        dueDate,
+        plannedStartDate: resolvedPlannedStartDate,
+        dueDate: resolvedDueDate,
         assigneeEmployeeId: isAdmin ? Number(assigneeEmployeeId) : null,
         taskPriorityId: Number(priorityId),
         estimatedMinutes,
@@ -179,47 +310,195 @@ export function StandaloneTasks() {
     }
   };
 
-  const sortedTasks = useMemo(
-    () => [...tasks].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()),
-    [tasks],
-  );
+  const handleSaveTaskDetail = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selectedTask) return;
+
+    const trimmedTitle = detailTitle.trim();
+    if (!trimmedTitle) {
+      toast.error("El título es obligatorio.");
+      return;
+    }
+    if (!detailStartDate || !detailDueDate) {
+      toast.error("Debes completar fecha de inicio y fin.");
+      return;
+    }
+    if (new Date(detailDueDate).getTime() < new Date(detailStartDate).getTime()) {
+      toast.error("La fecha fin no puede ser menor a la fecha inicio.");
+      return;
+    }
+
+    let estimatedMinutes: number | null | undefined = undefined;
+    if (detailEstimatedHours.trim()) {
+      const numericHours = Number(detailEstimatedHours);
+      if (!Number.isFinite(numericHours) || numericHours <= 0) {
+        toast.error("La estimación de horas debe ser mayor a 0.");
+        return;
+      }
+      estimatedMinutes = Math.round(numericHours * 60);
+    }
+
+    const statusChanged = detailStatus !== toWorkflowStatus(selectedTask.status);
+    const fieldsChanged = (
+      trimmedTitle !== selectedTask.title
+      || detailDescription.trim() !== (selectedTask.description ?? "")
+      || detailStartDate !== selectedTask.plannedStartDate.slice(0, 10)
+      || detailDueDate !== selectedTask.dueDate.slice(0, 10)
+      || Number(detailPriorityId) !== selectedTask.taskPriorityId
+      || ((estimatedMinutes ?? null) !== (selectedTask.estimatedMinutes ?? null))
+    );
+
+    if (!statusChanged && !fieldsChanged) {
+      toast.info("No hay cambios para guardar.");
+      return;
+    }
+
+    setIsDetailSaving(true);
+    try {
+      if (fieldsChanged) {
+        await updateTask(selectedTask.id, {
+          title: trimmedTitle,
+          description: detailDescription.trim() || null,
+          plannedStartDate: detailStartDate,
+          dueDate: detailDueDate,
+          taskPriorityId: Number(detailPriorityId),
+          estimatedMinutes: estimatedMinutes ?? null,
+        });
+      }
+
+      if (statusChanged) {
+        await transitionTaskStatus(selectedTask.id, {
+          toStatus: detailStatus,
+          notes: "Actualización de estado desde el modal de detalle.",
+        });
+      }
+
+      await loadTasks();
+      setIsDetailModalOpen(false);
+      resetTaskDetail();
+    } catch (incomingError) {
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible guardar los cambios de la tarea.");
+      }
+    } finally {
+      setIsDetailSaving(false);
+    }
+  };
+
+  const sortedTasks = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const filtered = tasks.filter((task) => {
+      const priorityName = task.priority.trim().toLowerCase();
+      const passesPriority = priorityFilter === "all"
+        || (priorityFilter === "high" && priorityName === "alta")
+        || (priorityFilter === "medium" && priorityName === "media")
+        || (priorityFilter === "low" && priorityName === "baja");
+      if (!passesPriority) return false;
+
+      if (!isAdmin || !normalizedSearch) return true;
+      const inTitle = task.title.toLowerCase().includes(normalizedSearch);
+      const inDescription = (task.description ?? "").toLowerCase().includes(normalizedSearch);
+      const inProject = task.projectName.toLowerCase().includes(normalizedSearch);
+      const inAssignee = (task.assigneeName ?? "").toLowerCase().includes(normalizedSearch);
+      return inTitle || inDescription || inProject || inAssignee;
+    });
+
+    return [...filtered].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  }, [isAdmin, priorityFilter, searchTerm, tasks]);
+
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(sortedTasks.length / pageSize));
+  const paginatedTasks = useMemo(() => {
+    const offset = (currentPage - 1) * pageSize;
+    return sortedTasks.slice(offset, offset + pageSize);
+  }, [currentPage, sortedTasks]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [priorityFilter, searchTerm, statusFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   return (
     <div className="app-shell">
       <PageHero
         title="Tareas"
-        subtitle="Crea y consulta tareas independientes sin necesidad de proyecto."
+        subtitle={isAdmin
+          ? "Audita y consulta todas las tareas operativas del sistema."
+          : "Crea y consulta tareas independientes sin necesidad de proyecto."}
         icon={<ClipboardList className="size-5" />}
       />
 
       <div className="app-content">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-foreground">Listado de tareas</h3>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground">Listado de tareas</h3>
+          </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
-            {filterOptions.map((option) => {
-              const isSelected = statusFilter === option.value;
-
-              return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <button
-                  key={option.value}
                   type="button"
-                  onClick={() => setStatusFilter(option.value)}
-                  className={cn(
-                    "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
-                    isSelected
-                      ? option.activeClassName
-                      : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
-                  )}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-secondary/25 px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/65"
                 >
-                  <ListFilter className="size-4" />
-                  {option.label}
+                  <ListFilter className="size-4 text-muted-foreground" />
+                  Estado: {filterOptions.find((option) => option.value === statusFilter)?.label ?? "Todas"}
+                  <ChevronDown className="size-4 text-muted-foreground" />
                 </button>
-              );
-            })}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as TaskStatusFilter)}>
+                  {filterOptions.map((option) => (
+                    <DropdownMenuRadioItem key={option.value} value={option.value}>
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-secondary/25 px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/65"
+                >
+                  <ListFilter className="size-4 text-muted-foreground" />
+                  Prioridad: {priorityFilterOptions.find((option) => option.value === priorityFilter)?.label ?? "Todas"}
+                  <ChevronDown className="size-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuRadioGroup value={priorityFilter} onValueChange={(value) => setPriorityFilter(value as PriorityFilter)}>
+                  {priorityFilterOptions.map((option) => (
+                    <DropdownMenuRadioItem key={option.value} value={option.value}>
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {isAdmin && (
+              <label className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="h-9 w-[220px] rounded-xl border border-border/70 bg-card pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/55 focus:ring-2 focus:ring-primary/15"
+                  placeholder="Buscar tarea..."
+                />
+              </label>
+            )}
 
             <button
               type="button"
-              className="app-btn-primary h-10 w-10 p-0"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary-hover"
               onClick={() => {
                 resetForm();
                 setIsCreateModalOpen(true);
@@ -233,42 +512,121 @@ export function StandaloneTasks() {
         </div>
 
         {isLoading ? (
-          <div className="text-sm text-muted-foreground">Cargando tareas sueltas...</div>
+          <div className="text-sm text-muted-foreground">Cargando tareas...</div>
         ) : sortedTasks.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No hay tareas sueltas para este filtro.</div>
+          <div className="rounded-2xl border border-dashed border-border/80 bg-card/70 px-4 py-8 text-sm text-muted-foreground">
+            {isAdmin ? "No hay tareas para este filtro." : "No hay tareas sueltas para este filtro."}
+          </div>
         ) : (
-          <div className="app-panel overflow-x-auto">
-            <table className="app-table">
-              <thead className="app-table-head">
+          <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[980px] text-left">
+              <thead className="border-b border-border/80 bg-secondary/45">
                 <tr>
-                  <th className="app-th">Tarea</th>
-                  <th className="app-th">Estado</th>
-                  <th className="app-th">Prioridad</th>
-                  <th className="app-th">Inicio</th>
-                  <th className="app-th">Fin</th>
-                  <th className="app-th">Estimado</th>
-                  <th className="app-th">Real</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Tarea</th>
+                  {isAdmin && <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Proyecto</th>}
+                  {isAdmin && <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Responsable</th>}
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Estado</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Prioridad</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Inicio</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Fin</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Estimado</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Real</th>
                 </tr>
               </thead>
-              <tbody>
-                {sortedTasks.map((task) => (
-                  <tr key={task.id} className="app-row">
-                    <td className="app-td">
+              <tbody className="divide-y divide-border/70">
+                {paginatedTasks.map((task) => (
+                  <tr
+                    key={task.id}
+                    className="cursor-pointer transition-colors hover:bg-secondary/30"
+                    onClick={() => openTaskDetail(task)}
+                  >
+                    <td className="px-4 py-3 align-top">
                       <p className="font-medium text-foreground">{task.title}</p>
                       {task.description ? (
                         <p className="text-xs text-muted-foreground line-clamp-1">{task.description}</p>
                       ) : null}
                     </td>
-                    <td className="app-td">{task.status}</td>
-                    <td className="app-td">{task.priority}</td>
-                    <td className="app-td">{formatDate(task.plannedStartDate)}</td>
-                    <td className="app-td">{formatDate(task.dueDate)}</td>
-                    <td className="app-td">{formatMinutes(task.estimatedMinutes)}</td>
-                    <td className="app-td">{formatMinutes(task.actualMinutes)}</td>
+                    {isAdmin && (
+                      <td className="px-4 py-3 text-sm text-foreground/90">
+                        <span className={cn(
+                          "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
+                          task.projectId > 0
+                            ? "border border-primary/20 bg-primary/10 text-primary"
+                            : "border border-border bg-secondary/50 text-muted-foreground",
+                        )}
+                        >
+                          {task.projectId > 0 ? task.projectName : "Tarea suelta"}
+                        </span>
+                      </td>
+                    )}
+                    {isAdmin && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary/12 text-[10px] font-semibold text-primary">
+                            {getInitials(task.assigneeName)}
+                          </span>
+                          <span className="text-sm text-foreground/90">{task.assigneeName ?? "Sin asignar"}</span>
+                        </div>
+                      </td>
+                    )}
+                    <td className="px-4 py-3">
+                      <span className={cn(
+                        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+                        getStatusBadgeClassName(task.status),
+                      )}
+                      >
+                        {task.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn(
+                        "inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
+                        getPriorityBadgeClassName(task.priority),
+                      )}
+                      >
+                        {task.priority}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-foreground/90">{formatDate(task.plannedStartDate)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground/90">{formatDate(task.dueDate)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground/90">{formatMinutes(task.estimatedMinutes)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground/90">{formatMinutes(task.actualMinutes)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/80 bg-secondary/30 px-4 py-3">
+              <p className="text-xs text-muted-foreground">Vista optimizada para auditoría operativa</p>
+              <div className="flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <UserRound className="size-3.5" />
+                  {sortedTasks.length} tareas listadas
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))}
+                    disabled={currentPage === 1}
+                    className="rounded-lg border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Anterior
+                  </button>
+                  <span className="px-1 text-xs text-muted-foreground">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage((previous) => Math.min(totalPages, previous + 1))}
+                    disabled={currentPage >= totalPages}
+                    className="rounded-lg border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -402,6 +760,147 @@ export function StandaloneTasks() {
               </button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isDetailModalOpen}
+        onOpenChange={(open) => {
+          setIsDetailModalOpen(open);
+          if (!open && !isDetailSaving) {
+            resetTaskDetail();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Detalle de tarea</DialogTitle>
+            <DialogDescription>
+              Visualiza y edita la información principal de la tarea seleccionada.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedTask ? (
+            <form onSubmit={handleSaveTaskDetail} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Título</label>
+                <input
+                  type="text"
+                  value={detailTitle}
+                  onChange={(event) => setDetailTitle(event.target.value)}
+                  className="app-control"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Descripción</label>
+                <textarea
+                  value={detailDescription}
+                  onChange={(event) => setDetailDescription(event.target.value)}
+                  className="app-control min-h-[90px]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
+                <input
+                  type="date"
+                  value={detailStartDate}
+                  onChange={(event) => setDetailStartDate(event.target.value)}
+                  className="app-control"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
+                <input
+                  type="date"
+                  value={detailDueDate}
+                  onChange={(event) => setDetailDueDate(event.target.value)}
+                  className="app-control"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Estado</label>
+                <select
+                  value={detailStatus}
+                  onChange={(event) => setDetailStatus(event.target.value as TaskWorkflowStatus)}
+                  className="app-control"
+                >
+                  <option value="assigned">{toStatusLabel("assigned")}</option>
+                  <option value="in_progress">{toStatusLabel("in_progress")}</option>
+                  <option value="done">{toStatusLabel("done")}</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Prioridad</label>
+                <select
+                  value={detailPriorityId}
+                  onChange={(event) => setDetailPriorityId(event.target.value)}
+                  className="app-control"
+                >
+                  <option value="1">Alta</option>
+                  <option value="2">Media</option>
+                  <option value="3">Baja</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Estimación (horas)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.5"
+                  value={detailEstimatedHours}
+                  onChange={(event) => setDetailEstimatedHours(event.target.value)}
+                  className="app-control"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Proyecto</label>
+                <input
+                  type="text"
+                  value={selectedTask.projectId > 0 ? selectedTask.projectName : "Tarea suelta"}
+                  className="app-control bg-muted"
+                  disabled
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Responsable</label>
+                <input
+                  type="text"
+                  value={selectedTask.assigneeName ?? "Sin asignar"}
+                  className="app-control bg-muted"
+                  disabled
+                />
+              </div>
+
+              <div className="md:col-span-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  onClick={() => {
+                    setIsDetailModalOpen(false);
+                    resetTaskDetail();
+                  }}
+                  disabled={isDetailSaving}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="app-btn-primary"
+                  disabled={isDetailSaving}
+                >
+                  {isDetailSaving ? "Guardando..." : "Guardar cambios"}
+                </button>
+              </div>
+            </form>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

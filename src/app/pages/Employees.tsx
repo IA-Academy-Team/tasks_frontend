@@ -1,19 +1,20 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ListFilter,
-  MoreHorizontal,
+  MoreVertical,
   Pencil,
   Plus,
+  Search,
   Trash2,
   UserCheck,
   UserX,
   Users2,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -29,16 +30,11 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import {
-  assignEmployeeArea,
   createEmployee,
   deleteEmployee,
-  listEmployeeAreaAssignments,
   listEmployees,
-  listEmployeeProjectMemberships,
   updateEmployee,
   updateEmployeeStatus,
-  type EmployeeAreaAssignment,
-  type EmployeeProjectMembership,
   type EmployeeStatusFilter,
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
@@ -70,12 +66,7 @@ export function Employees() {
   const [password, setPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [image, setImage] = useState("");
-  const [areas, setAreas] = useState<AreaSummary[]>([]);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
-  const [assignmentAreaId, setAssignmentAreaId] = useState("");
-  const [employeeAreaAssignments, setEmployeeAreaAssignments] = useState<EmployeeAreaAssignment[]>([]);
-  const [employeeProjectMemberships, setEmployeeProjectMemberships] = useState<EmployeeProjectMembership[]>([]);
-  const [isLoadingAssignments, setIsLoadingAssignments] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
   const [pendingDeleteEmployee, setPendingDeleteEmployee] = useState<EmployeeSummary | null>(null);
   const [pendingStatusUpdateEmployee, setPendingStatusUpdateEmployee] = useState<{
     employee: EmployeeSummary;
@@ -92,6 +83,7 @@ export function Employees() {
   };
 
   const loadEmployees = useCallback(async () => {
+    setIsLoading(true);
     try {
       const response = await listEmployees(statusFilter);
       setEmployees(response?.data ?? []);
@@ -106,49 +98,13 @@ export function Employees() {
     }
   }, [statusFilter]);
 
-  const loadAreas = async () => {
-    try {
-      const response = await listAreas("active");
-      setAreas(response?.data ?? []);
-    } catch {
-      setAreas([]);
-    }
-  };
-
-  const loadEmployeeAssignments = async (employeeId: number) => {
-    setIsLoadingAssignments(true);
-    try {
-      const [areaAssignmentsResponse, membershipsResponse] = await Promise.all([
-        listEmployeeAreaAssignments(employeeId, "all"),
-        listEmployeeProjectMemberships(employeeId, "all"),
-      ]);
-
-      setEmployeeAreaAssignments(areaAssignmentsResponse?.data ?? []);
-      setEmployeeProjectMemberships(membershipsResponse?.data ?? []);
-    } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        toast.error(incomingError.message);
-      } else {
-        toast.error("No fue posible cargar las asignaciones del empleado.");
-      }
-      setEmployeeAreaAssignments([]);
-      setEmployeeProjectMemberships([]);
-    } finally {
-      setIsLoadingAssignments(false);
-    }
-  };
-
   useEffect(() => {
     void loadEmployees();
   }, [loadEmployees]);
 
   useEffect(() => {
-    void loadAreas();
-  }, []);
-
-  useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, employees.length]);
+  }, [statusFilter, searchTerm]);
 
   const startEdit = (employee: EmployeeSummary) => {
     setEditingEmployeeId(employee.id);
@@ -165,6 +121,7 @@ export function Employees() {
 
     const trimmedName = name.trim();
     const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
     const trimmedPhoneNumber = phoneNumber.trim();
     const trimmedImage = image.trim();
 
@@ -206,14 +163,22 @@ export function Employees() {
         return;
       }
 
-      if (!password.trim()) {
+      if (!trimmedPassword) {
         toast.error("La contrasena es obligatoria para crear un empleado.");
         return;
       }
-      if (password.trim().length < 8) {
+      if (trimmedPassword.length < 8) {
         toast.error("La contrasena debe tener minimo 8 caracteres.");
         return;
       }
+    } else if (trimmedPassword && trimmedPassword.length < 8) {
+      toast.error("La nueva contrasena debe tener minimo 8 caracteres.");
+      return;
+    }
+
+    if (trimmedPassword && trimmedPassword.length > 72) {
+      toast.error("La contrasena no puede superar 72 caracteres.");
+      return;
     }
 
     if (trimmedPhoneNumber && trimmedPhoneNumber.length > 30) {
@@ -231,6 +196,7 @@ export function Employees() {
       if (editingEmployeeId) {
         await updateEmployee(editingEmployeeId, {
           name: trimmedName,
+          ...(trimmedPassword ? { password: trimmedPassword } : {}),
           phoneNumber: trimmedPhoneNumber || null,
           image: trimmedImage || null,
         });
@@ -238,7 +204,7 @@ export function Employees() {
         await createEmployee({
           name: trimmedName,
           email: trimmedEmail,
-          password: password.trim(),
+          password: trimmedPassword,
           phoneNumber: trimmedPhoneNumber || null,
           image: trimmedImage || null,
           isActive: true,
@@ -261,13 +227,6 @@ export function Employees() {
     setIsSubmitting(true);
     try {
       await deleteEmployee(employee.id);
-
-      if (selectedEmployeeId === employee.id) {
-        setSelectedEmployeeId(null);
-        setEmployeeAreaAssignments([]);
-        setEmployeeProjectMemberships([]);
-      }
-
       await loadEmployees();
     } catch (incomingError) {
       if (!(incomingError instanceof ApiError)) {
@@ -292,47 +251,55 @@ export function Employees() {
     }
   };
 
-  const handleOpenAssignments = async (employee: EmployeeSummary) => {
-    setSelectedEmployeeId(employee.id);
-    setAssignmentAreaId("");
-    await loadEmployeeAssignments(employee.id);
-  };
-
-  const handleAssignArea = async () => {
-    if (!selectedEmployeeId) {
-      toast.error("Selecciona primero un empleado.");
-      return;
+  const filteredEmployees = useMemo(() => {
+    const normalizedTerm = searchTerm.trim().toLowerCase();
+    if (!normalizedTerm) {
+      return employees;
     }
 
-    const numericAreaId = Number(assignmentAreaId);
-    if (!Number.isInteger(numericAreaId) || numericAreaId <= 0) {
-      toast.error("Selecciona un area valida para reasignar.");
-      return;
+    return employees.filter((employee) => {
+      const areaNames = employee.assignedAreaNames.length > 0
+        ? employee.assignedAreaNames
+        : employee.areaNames.length > 0
+          ? employee.areaNames
+          : employee.currentAreaName
+            ? [employee.currentAreaName]
+            : [];
+
+      return employee.name.toLowerCase().includes(normalizedTerm)
+        || employee.email.toLowerCase().includes(normalizedTerm)
+        || areaNames.some((areaName) => areaName.toLowerCase().includes(normalizedTerm));
+    });
+  }, [employees, searchTerm]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / PAGE_SIZE));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
     }
+  }, [currentPage, totalPages]);
 
-    setIsSubmitting(true);
-    try {
-      await assignEmployeeArea(selectedEmployeeId, { areaId: numericAreaId });
-      setAssignmentAreaId("");
-      await Promise.all([
-        loadEmployees(),
-        loadEmployeeAssignments(selectedEmployeeId),
-      ]);
-    } catch (incomingError) {
-      if (!(incomingError instanceof ApiError)) {
-        toast.error("No fue posible reasignar el area.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const visibleStart = filteredEmployees.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const visibleEnd = Math.min(currentPage * PAGE_SIZE, filteredEmployees.length);
 
-  const selectedEmployee = selectedEmployeeId
-    ? employees.find((employee) => employee.id === selectedEmployeeId) ?? null
-    : null;
+  const getEmployeeAreas = (employee: EmployeeSummary) => (
+    employee.assignedAreaNames.length > 0
+      ? employee.assignedAreaNames
+      : employee.areaNames.length > 0
+        ? employee.areaNames
+        : employee.currentAreaName
+          ? [employee.currentAreaName]
+          : []
+  );
 
-  const totalPages = Math.max(1, Math.ceil(employees.length / PAGE_SIZE));
-  const paginatedEmployees = employees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const getEmployeeInitials = (employeeName: string) => employeeName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
 
   return (
     <div className="app-shell">
@@ -343,148 +310,223 @@ export function Employees() {
       />
 
       <div className="app-content">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-foreground">Listado de empleados</h3>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {filterOptions.map((option) => {
-              const Icon = option.icon;
-              const isSelected = statusFilter === option.value;
-
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setStatusFilter(option.value)}
-                  className={cn(
-                    "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
-                    isSelected
-                      ? option.activeClassName
-                      : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
-                  )}
-                  aria-pressed={isSelected}
-                  title={`Ver empleados ${option.label.toLowerCase()}`}
-                >
-                  <Icon className="size-4" />
-                  <span>{option.label}</span>
-                </button>
-              );
-            })}
-            <button
-              type="button"
-              onClick={() => {
-                resetForm();
-                setIsEmployeeModalOpen(true);
-              }}
-              className="app-btn-primary h-10 w-10 p-0 shadow-[0_10px_18px_rgba(15,118,110,0.24)]"
-              aria-label="Crear empleado"
-              title="Crear empleado"
-            >
-              <Plus className="size-5" />
-            </button>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="text-sm text-muted-foreground">Cargando empleados...</div>
-        ) : employees.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No hay empleados para este filtro.</div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-              {paginatedEmployees.map((employee) => (
-                <article
-                  key={employee.id}
-                  className="rounded-2xl border border-border bg-card p-4 shadow-[0_10px_30px_rgba(16,36,58,0.08)]"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">{employee.name}</p>
-                      <p className="text-sm text-muted-foreground truncate">{employee.email}</p>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
-                          aria-label={`Acciones de ${employee.name}`}
-                        >
-                          <MoreHorizontal className="size-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onClick={() => startEdit(employee)}>
-                          <Pencil className="size-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setPendingStatusUpdateEmployee({
-                            employee,
-                            isActive: !employee.isActive,
-                          })}
-                        >
-                          {employee.isActive ? (
-                            <>
-                              <UserX className="size-4" />
-                              Desactivar
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="size-4" />
-                              Activar
-                            </>
-                          )}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setPendingDeleteEmployee(employee)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="size-4" />
-                          Eliminar
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <p className="mt-3 text-sm text-muted-foreground">
-                    {employee.assignedAreaNames.length > 0
-                      ? employee.assignedAreaNames.join(" · ")
-                      : employee.areaNames.length > 0
-                        ? employee.areaNames.join(" · ")
-                      : employee.currentAreaName ?? "Sin area activa"}
-                  </p>
-                  <p className={`text-sm ${employee.isActive ? "text-success" : "text-warning"}`}>
-                    {employee.isActive ? "Activo" : "Inactivo"}
-                  </p>
-                </article>
-              ))}
+        <section className="space-y-4">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between mb-8">
+            <div className="space-y-1">
+              <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de empleados</h3>
             </div>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {filterOptions.map((option) => {
+                const Icon = option.icon;
+                const isSelected = statusFilter === option.value;
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-3">
-                <button
-                  type="button"
-                  className="app-btn-secondary"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                >
-                  Anterior
-                </button>
-                <p className="text-sm text-muted-foreground">
-                  Pagina {currentPage} de {totalPages}
-                </p>
-                <button
-                  type="button"
-                  className="app-btn-secondary"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                >
-                  Siguiente
-                </button>
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setStatusFilter(option.value)}
+                    className={cn(
+                      "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
+                      isSelected
+                        ? option.activeClassName
+                        : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                    )}
+                    aria-pressed={isSelected}
+                    title={`Ver empleados ${option.label.toLowerCase()}`}
+                  >
+                    <Icon className="size-4" />
+                    <span>{option.label}</span>
+                  </button>
+                );
+              })}
+
+              <div className="relative w-full min-[560px]:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="app-control h-9 pl-9"
+                  placeholder="Buscar por nombre, correo o area..."
+                />
               </div>
-            )}
-          </>
-        )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setIsEmployeeModalOpen(true);
+                }}
+                className="app-btn-primary h-10 px-4"
+                aria-label="Crear empleado"
+                title="Crear empleado"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
+          </div>
+
+          {isLoading ? (
+            <div className="text-sm text-muted-foreground">Cargando empleados...</div>
+          ) : (
+            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-[0_14px_34px_rgba(16,36,58,0.12)] backdrop-blur-sm">
+              <div className="overflow-x-auto">
+                <table className="min-w-full table-fixed text-sm">
+                  <thead className="bg-secondary/55">
+                    <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
+                      <th className="w-[42%]">Empleado</th>
+                      <th className="w-[34%]">Areas</th>
+                      <th className="w-[14%]">Estado</th>
+                      <th className="w-[10%] text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/70 bg-card">
+                    {paginatedEmployees.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                          {searchTerm.trim().length > 0
+                            ? "No se encontraron empleados con esa busqueda."
+                            : "No hay empleados para este filtro."}
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedEmployees.map((employee) => {
+                        const areaNames = getEmployeeAreas(employee);
+                        const visibleAreaNames = areaNames.slice(0, 2);
+                        const additionalAreas = Math.max(areaNames.length - visibleAreaNames.length, 0);
+
+                        return (
+                          <tr key={employee.id} className="transition-colors hover:bg-secondary/35">
+                            <td className="px-4 py-3.5">
+                              <div className="flex min-w-0 items-center gap-3">
+                                <Avatar className="size-10 border border-border/60 bg-secondary/40">
+                                  {employee.image ? <AvatarImage src={employee.image} alt={employee.name} /> : null}
+                                  <AvatarFallback className="bg-secondary text-xs font-semibold text-foreground">
+                                    {getEmployeeInitials(employee.name) || "U"}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <p className="truncate font-semibold text-foreground">{employee.name}</p>
+                                  <p className="truncate text-sm text-muted-foreground">{employee.email}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              {areaNames.length > 0 ? (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {visibleAreaNames.map((areaName) => (
+                                    <span
+                                      key={`${employee.id}-${areaName}`}
+                                      className="inline-flex items-center rounded-md border border-border/70 bg-secondary/40 px-2 py-1 text-xs font-medium text-foreground/90"
+                                    >
+                                      {areaName}
+                                    </span>
+                                  ))}
+                                  {additionalAreas > 0 && (
+                                    <span className="inline-flex items-center rounded-md border border-border/70 bg-card px-2 py-1 text-xs font-medium text-muted-foreground">
+                                      +{additionalAreas}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">Sin area activa</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-2 text-sm font-medium",
+                                  employee.isActive ? "text-success" : "text-warning",
+                                )}
+                              >
+                                <span className={cn("size-2 rounded-full", employee.isActive ? "bg-success" : "bg-warning")} />
+                                {employee.isActive ? "Activo" : "Inactivo"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-right">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                                    aria-label={`Acciones de ${employee.name}`}
+                                  >
+                                    <MoreVertical className="size-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44">
+                                  <DropdownMenuItem onClick={() => startEdit(employee)}>
+                                    <Pencil className="size-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => setPendingStatusUpdateEmployee({
+                                      employee,
+                                      isActive: !employee.isActive,
+                                    })}
+                                  >
+                                    {employee.isActive ? (
+                                      <>
+                                        <UserX className="size-4" />
+                                        Desactivar
+                                      </>
+                                    ) : (
+                                      <>
+                                        <UserCheck className="size-4" />
+                                        Activar
+                                      </>
+                                    )}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setPendingDeleteEmployee(employee)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="size-4" />
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 bg-secondary/25 px-4 py-3">
+                <p className="text-xs text-muted-foreground">
+                  Mostrando {visibleStart} a {visibleEnd} de {filteredEmployees.length} empleados
+                </p>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="app-btn-secondary h-9 px-3"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    >
+                      Anterior
+                    </button>
+                    <p className="text-sm text-muted-foreground">
+                      Pagina {currentPage} de {totalPages}
+                    </p>
+                    <button
+                      type="button"
+                      className="app-btn-secondary h-9 px-3"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </section>
       </div>
 
       <Dialog
@@ -528,18 +570,18 @@ export function Employees() {
               />
             </div>
 
-            {!editingEmployeeId && (
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Contraseña</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="app-control"
-                  placeholder="Minimo 8 caracteres"
-                />
-              </div>
-            )}
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">
+                {editingEmployeeId ? "Nueva contraseña (opcional)" : "Contraseña"}
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="app-control"
+                placeholder={editingEmployeeId ? "Dejar vacio para no cambiar" : "Minimo 8 caracteres"}
+              />
+            </div>
 
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">Telefono</label>

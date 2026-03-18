@@ -822,13 +822,6 @@ export function ProjectBoard() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsProjectDetailModalOpen(true)}
-            className="app-btn-secondary h-9 px-3"
-          >
-            Ver detalle
-          </button>
         </div>
       </div>
 
