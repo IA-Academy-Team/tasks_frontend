@@ -1,13 +1,16 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  BriefcaseBusiness,
   Building2,
   CheckCircle2,
   CircleSlash2,
   ListFilter,
-  MoreHorizontal,
+  MoreVertical,
   Pencil,
   Plus,
+  Search,
   Trash2,
+  Users2,
   X,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -47,7 +50,7 @@ import {
 import { cn } from "../components/ui/utils";
 
 export function Areas() {
-  const PAGE_SIZE = 8;
+  const PAGE_SIZE = 12;
   const filterOptions: Array<{
     value: AreaStatusFilter;
     label: string;
@@ -56,7 +59,7 @@ export function Areas() {
   }> = [
     { value: "all", label: "Todas", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
     { value: "active", label: "Activas", icon: CheckCircle2, activeClassName: "border-success/40 bg-success/15 text-success" },
-    { value: "inactive", label: "Desactivar", icon: CircleSlash2, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
+    { value: "inactive", label: "Inactivas", icon: CircleSlash2, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
   ];
 
   const [areas, setAreas] = useState<AreaSummary[]>([]);
@@ -78,6 +81,7 @@ export function Areas() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isActive, setIsActive] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const resetForm = () => {
     setEditingAreaId(null);
@@ -107,12 +111,26 @@ export function Areas() {
     void loadAreas();
   }, [loadAreas]);
 
+  const filteredAreas = useMemo(() => {
+    const normalizedTerm = searchTerm.trim().toLowerCase();
+    if (!normalizedTerm) {
+      return areas;
+    }
+
+    return areas.filter((area) => (
+      area.name.toLowerCase().includes(normalizedTerm)
+      || (area.description ?? "").toLowerCase().includes(normalizedTerm)
+    ));
+  }, [areas, searchTerm]);
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, areas.length]);
+  }, [statusFilter, filteredAreas.length, searchTerm]);
 
-  const totalPages = Math.max(1, Math.ceil(areas.length / PAGE_SIZE));
-  const paginatedAreas = areas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filteredAreas.length / PAGE_SIZE));
+  const paginatedAreas = filteredAreas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const totalMembers = filteredAreas.reduce((accumulator, area) => accumulator + area.activeMemberCount, 0);
+  const totalProjects = filteredAreas.reduce((accumulator, area) => accumulator + area.activeProjectCount, 0);
 
   const loadEmployees = async () => {
     setIsLoadingEmployees(true);
@@ -258,71 +276,97 @@ export function Areas() {
   };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell h-full">
       <PageHero
         title="Areas"
         subtitle="Gestion de areas operativas"
         icon={<Building2 className="size-5" />}
+        className="min-h-0 py-3"
       />
 
-      <div className="app-content">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-foreground">Listado de areas</h3>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-          {filterOptions.map((option) => {
-            const Icon = option.icon;
-            const isSelected = statusFilter === option.value;
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setStatusFilter(option.value)}
-                className={cn(
-                  "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
-                  isSelected
-                    ? option.activeClassName
-                    : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
-                )}
-                aria-pressed={isSelected}
-                title={`Ver areas ${option.label.toLowerCase()}`}
-              >
-                <Icon className="size-4" />
-                <span>{option.label}</span>
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => {
-              void openCreateAreaModal();
-            }}
-            className="app-btn-primary h-10 w-10 p-0 shadow-[0_10px_18px_rgba(15,118,110,0.24)]"
-            aria-label="Crear area"
-            title="Crear area"
-          >
-            <Plus className="size-5" />
-          </button>
+      <div className="app-content flex-1 min-h-0 overflow-hidden gap-3 py-3 md:gap-3 md:py-4">
+        <section className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-2xl font-bold tracking-tight text-foreground">Estructura organizacional</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Visualiza y administra todos los equipos operativos activos.
+            </p>
           </div>
-        </div>
 
-        {isLoading ? (
-          <div className="text-sm text-muted-foreground">Cargando areas...</div>
-        ) : areas.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No hay areas para este filtro.</div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end">
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+              <div className="relative w-full sm:min-w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="app-control h-10 pl-9"
+                  placeholder="Buscar area..."
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  void openCreateAreaModal();
+                }}
+                className="app-btn-primary h-10 px-4"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {filterOptions.map((option) => {
+                const Icon = option.icon;
+                const isSelected = statusFilter === option.value;
+
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setStatusFilter(option.value)}
+                    className={cn(
+                      "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
+                      isSelected
+                        ? option.activeClassName
+                        : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                    )}
+                    aria-pressed={isSelected}
+                    title={`Ver areas ${option.label.toLowerCase()}`}
+                  >
+                    <Icon className="size-4" />
+                    <span>{option.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section className="min-h-0 flex-1 overflow-y-auto pr-1">
+          {isLoading ? (
+            <div className="text-sm text-muted-foreground">Cargando areas...</div>
+          ) : filteredAreas.length === 0 ? (
+            <div className="rounded-xl border border-border/70 bg-card/70 px-4 py-5 text-sm text-muted-foreground">
+              {areas.length === 0
+                ? "No hay areas para este filtro."
+                : "No encontramos areas que coincidan con tu busqueda."}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {paginatedAreas.map((area) => (
                 <article
                   key={area.id}
-                  className="rounded-2xl border border-border bg-card p-4 shadow-[0_10px_30px_rgba(16,36,58,0.08)]"
+                  className="group rounded-xl border border-border/80 bg-card/90 p-4 shadow-[0_10px_24px_rgba(18,38,59,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(18,38,59,0.1)]"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">{area.name}</p>
-                      <p className={`text-sm ${area.isActive ? "text-success" : "text-warning"}`}>
-                        {area.isActive ? "Activa" : "Inactiva"}
+                      <h4 className="truncate text-base font-semibold text-foreground">{area.name}</h4>
+                      <p className="mt-1 truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                        {(area.description ?? "Sin descripcion breve").trim() || "Sin descripcion breve"}
                       </p>
                     </div>
                     <DropdownMenu>
@@ -332,7 +376,7 @@ export function Areas() {
                           className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
                           aria-label={`Acciones de ${area.name}`}
                         >
-                          <MoreHorizontal className="size-4" />
+                          <MoreVertical className="size-4" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
@@ -372,38 +416,87 @@ export function Areas() {
                     </DropdownMenu>
                   </div>
 
-                  <p className="mt-3 text-xs text-muted-foreground">
-                    {area.activeMemberCount} empleados · {area.activeProjectCount} proyectos
-                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="inline-flex items-center gap-2 text-muted-foreground">
+                        <Users2 className="size-4" />
+                        Empleados
+                      </span>
+                      <span className="font-semibold text-foreground">{area.activeMemberCount}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="inline-flex items-center gap-2 text-muted-foreground">
+                        <BriefcaseBusiness className="size-4" />
+                        Proyectos
+                      </span>
+                      <span className="font-semibold text-foreground">{area.activeProjectCount}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 border-t border-border/70 pt-2.5">
+                    <span
+                      className={cn(
+                        "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",
+                        area.isActive
+                          ? "border-success/35 bg-success/10 text-success"
+                          : "border-warning/35 bg-warning/10 text-warning",
+                      )}
+                    >
+                      {area.isActive ? "Activa" : "Inactiva"}
+                    </span>
+                  </div>
                 </article>
               ))}
             </div>
+          )}
+        </section>
 
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-3">
-                <button
-                  type="button"
-                  className="app-btn-secondary"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                >
-                  Anterior
-                </button>
-                <p className="text-sm text-muted-foreground">
-                  Pagina {currentPage} de {totalPages}
+        <section className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 mt-auto mb-8">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="grid grid-cols-3 gap-3 sm:gap-6">
+              <div className="text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Total areas
                 </p>
-                <button
-                  type="button"
-                  className="app-btn-secondary"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                >
-                  Siguiente
-                </button>
+                <p className="mt-0.5 text-2xl font-bold text-primary">{filteredAreas.length}</p>
               </div>
-            )}
-          </>
-        )}
+              <div className="text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Personal total
+                </p>
+                <p className="mt-0.5 text-2xl font-bold text-foreground">{totalMembers}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  Proyectos activos
+                </p>
+                <p className="mt-0.5 text-2xl font-bold text-foreground">{totalProjects}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 lg:justify-end mr-16">
+              <button
+                type="button"
+                className="app-btn-secondary h-9 px-3"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              >
+                Anterior
+              </button>
+              <p className="text-sm text-muted-foreground">
+                Pagina {currentPage} de {totalPages}
+              </p>
+              <button
+                type="button"
+                className="app-btn-secondary h-9 px-3"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
 
       <Dialog
