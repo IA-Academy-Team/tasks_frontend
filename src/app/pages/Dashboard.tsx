@@ -193,7 +193,7 @@ const complianceTrendChartConfig = {
   },
 } satisfies ChartConfig;
 
-const ALERTS_PAGE_SIZE = 4;
+const ALERTS_PAGE_SIZE = 8;
 const COMPLIANCE_TARGET_PERCENTAGE = 95;
 const COMPLIANCE_AXIS_TICKS = [0, 20, 40, 60, 80, 100];
 
@@ -1069,7 +1069,7 @@ export function Dashboard() {
                     <span>Pendientes</span>
                     <span>{adminInsights.pendingTasks.length}</span>
                   </div>
-                  <div className="max-h-[145px] overflow-auto rounded-lg border border-border/70">
+                  <div className="max-h-[210px] overflow-auto rounded-lg border border-border/70">
                   <table className="app-table">
                     <thead className="app-table-head">
                       <tr>
@@ -1129,7 +1129,7 @@ export function Dashboard() {
                     <span>Retrasadas / vencidas</span>
                     <span>{adminInsights.overdueTasks.length}</span>
                   </div>
-                  <div className="max-h-[145px] overflow-auto rounded-lg border border-border/70">
+                  <div className="max-h-[210px] overflow-auto rounded-lg border border-border/70">
                   <table className="app-table">
                     <thead className="app-table-head">
                       <tr>
