@@ -103,7 +103,7 @@ export function DateRangeFilter({
         : placeholder;
 
   return (
-    <div className={`relative ${className}`} ref={wrapperRef}>
+    <div className={`relative ${open ? "z-[90]" : "z-auto"} ${className}`} ref={wrapperRef}>
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
@@ -115,7 +115,7 @@ export function DateRangeFilter({
         <span className="truncate">{label}</span>
       </button>
       {open && (
-        <div className="absolute left-0 top-full z-[100] mt-2 rounded-xl border border-border/80 bg-card shadow-2xl p-2">
+        <div className="absolute left-0 top-full z-[999] mt-2 rounded-xl border border-border/80 bg-card shadow-2xl p-2">
           <DatePicker
             selectsRange
             startDate={startDate}
@@ -125,6 +125,7 @@ export function DateRangeFilter({
             inline
             dateFormat="dd/MM/yyyy"
             locale={es}
+            calendarClassName="!border-0 !bg-transparent"
           />
         </div>
       )}

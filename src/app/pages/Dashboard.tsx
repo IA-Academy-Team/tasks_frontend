@@ -122,9 +122,9 @@ type AdminInsights = {
     value: number;
     fill: string;
   }[];
-  areaPerformance: {
-    areaId: number;
-    areaName: string;
+  projectPerformance: {
+    projectId: number;
+    projectName: string;
     completionRate: number;
     doneTasks: number;
     totalTasks: number;
@@ -290,7 +290,7 @@ export function Dashboard() {
       dateOverdueTasks: 0,
     };
     const complianceRows = Array.isArray(taskComplianceReport.rows) ? taskComplianceReport.rows : [];
-    const areaProductivity = Array.isArray(adminDashboard.areaProductivity) ? adminDashboard.areaProductivity : [];
+    const projectProductivity = Array.isArray(adminDashboard.projectProductivity) ? adminDashboard.projectProductivity : [];
     const employeeProductivity = Array.isArray(adminDashboard.employeeProductivity) ? adminDashboard.employeeProductivity : [];
 
     const statusDistribution = [
@@ -306,13 +306,13 @@ export function Dashboard() {
 
     const efficiencyRate = toEfficiencyRate(teamSummary.totalEstimatedMinutes, teamSummary.totalActualMinutes);
 
-    const areaPerformance = areaProductivity
-      .map((area) => ({
-        areaId: area.areaId,
-        areaName: area.areaName,
-        completionRate: area.completionRate,
-        doneTasks: area.doneTasks,
-        totalTasks: area.totalTasks,
+    const projectPerformance = projectProductivity
+      .map((project) => ({
+        projectId: project.projectId,
+        projectName: project.projectName,
+        completionRate: project.completionRate,
+        doneTasks: project.doneTasks,
+        totalTasks: project.totalTasks,
       }))
       .sort((a, b) => b.completionRate - a.completionRate || b.doneTasks - a.doneTasks);
 
@@ -390,7 +390,7 @@ export function Dashboard() {
     return {
       efficiencyRate,
       statusDistribution,
-      areaPerformance,
+      projectPerformance,
       complianceBreakdown,
       teamPerformance,
       pendingTasks,
@@ -712,14 +712,6 @@ export function Dashboard() {
         {isAdmin && adminDashboard && taskComplianceReport && adminInsights && (
           <>
             <section className="rounded-xl border border-border/70 bg-card/95 p-4 shadow-[0_10px_28px_rgba(16,36,58,0.08)]">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                  Filtros operativos
-                </p>
-                <span className="text-xs text-muted-foreground">
-                  Panel admin en tiempo real
-                </span>
-              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
                 <DateRangeFilter
                   dateFrom={dateFrom}
@@ -784,21 +776,21 @@ export function Dashboard() {
               <article className="app-panel app-panel-pad border-border/70 bg-card/95">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground">Rendimiento por area</h2>
-                    <p className="text-sm text-muted-foreground">Comparativo de cumplimiento por equipo.</p>
+                    <h2 className="text-lg font-semibold text-foreground">Rendimiento por proyecto</h2>
+                    <p className="text-sm text-muted-foreground">Comparativo de cumplimiento por iniciativa.</p>
                   </div>
                   <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
                     <Activity className="size-4.5" />
                   </span>
                 </div>
-                {adminInsights.areaPerformance.length === 0 ? (
+                {adminInsights.projectPerformance.length === 0 ? (
                   <p className="mt-4 text-sm text-muted-foreground">Sin datos para los filtros activos.</p>
                 ) : (
                   <div className="mt-4 space-y-4">
-                    {adminInsights.areaPerformance.slice(0, 4).map((row) => (
-                      <div key={row.areaId} className="space-y-1.5">
+                    {adminInsights.projectPerformance.slice(0, 4).map((row) => (
+                      <div key={row.projectId} className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold uppercase tracking-wide text-muted-foreground">{row.areaName}</span>
+                          <span className="font-semibold uppercase tracking-wide text-muted-foreground">{row.projectName}</span>
                           <span className="font-semibold text-foreground">{row.completionRate}%</span>
                         </div>
                         <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/75">

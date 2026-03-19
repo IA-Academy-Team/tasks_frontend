@@ -73,6 +73,22 @@ const formatMinutes = (minutes: number): string => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
+const toInputDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const inferDateRangeFromHours = (hours: number) => {
+  const start = new Date();
+  const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
+  return {
+    plannedStartDate: toInputDate(start),
+    dueDate: toInputDate(end),
+  };
+};
+
 const getComplianceBadge = (task: TaskSummary): { label: string; className: string } => {
   if (task.isDateOverdue) {
     return { label: "Atraso por fecha", className: "text-destructive" };
@@ -567,11 +583,6 @@ export function ProjectBoard() {
       return;
     }
 
-    if (!taskPlannedStartDate || !taskDueDate) {
-      toast.error("Las fechas planificadas son obligatorias.");
-      return;
-    }
-
     const selectedAreaId = Number(taskAreaId);
     const estimatedHours = taskEstimatedHours.trim()
       ? Number(taskEstimatedHours)
@@ -595,6 +606,25 @@ export function ProjectBoard() {
       return;
     }
 
+    let resolvedTaskPlannedStartDate = taskPlannedStartDate;
+    let resolvedTaskDueDate = taskDueDate;
+
+    if (!resolvedTaskPlannedStartDate || !resolvedTaskDueDate) {
+      if (estimatedHours === null || estimatedHours <= 0) {
+        toast.error("Si no defines fechas, la estimación de horas es obligatoria.");
+        return;
+      }
+
+      const inferred = inferDateRangeFromHours(estimatedHours);
+      resolvedTaskPlannedStartDate = resolvedTaskPlannedStartDate || inferred.plannedStartDate;
+      resolvedTaskDueDate = resolvedTaskDueDate || inferred.dueDate;
+    }
+
+    if (new Date(resolvedTaskDueDate).getTime() < new Date(resolvedTaskPlannedStartDate).getTime()) {
+      toast.error("La fecha fin no puede ser menor a la fecha inicio.");
+      return;
+    }
+
     if (selectedEmployeeId === null) {
       toast.error("Selecciona un empleado para asignar la tarea.");
       return;
@@ -611,7 +641,7 @@ export function ProjectBoard() {
         return;
       }
 
-      if (taskRecurrenceUntilDate < taskDueDate) {
+      if (taskRecurrenceUntilDate < resolvedTaskDueDate) {
         toast.error("La fecha final de recurrencia debe ser mayor o igual a la fecha de fin.");
         return;
       }
@@ -638,8 +668,8 @@ export function ProjectBoard() {
         await updateTask(editingTaskId, {
           title: description.slice(0, 80),
           description,
-          plannedStartDate: taskPlannedStartDate,
-          dueDate: taskDueDate,
+          plannedStartDate: resolvedTaskPlannedStartDate,
+          dueDate: resolvedTaskDueDate,
           taskPriorityId: 2,
           assigneeMembershipId,
           estimatedMinutes,
@@ -650,8 +680,8 @@ export function ProjectBoard() {
           projectId: project.id,
           title: description.slice(0, 80),
           description,
-          plannedStartDate: taskPlannedStartDate,
-          dueDate: taskDueDate,
+          plannedStartDate: resolvedTaskPlannedStartDate,
+          dueDate: resolvedTaskDueDate,
           taskPriorityId: 2,
           assigneeMembershipId,
           estimatedMinutes,
