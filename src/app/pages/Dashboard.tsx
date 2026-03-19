@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   PlayCircle,
   Plus,
-  TrendingUp,
   Timer,
 } from "lucide-react";
 import { ApiError } from "../../shared/api/api";
@@ -136,13 +135,6 @@ type AdminInsights = {
     toneClassName: string;
     barClassName: string;
   }[];
-  teamPerformance: {
-    employeeId: number;
-    employeeName: string;
-    doneTasks: number;
-    totalTasks: number;
-    completionRate: number;
-  }[];
   pendingTasks: Array<{
     taskId: number;
     title: string;
@@ -193,6 +185,8 @@ const pieChartConfig = {
   },
 } satisfies ChartConfig;
 
+const ALERTS_PAGE_SIZE = 4;
+
 export function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -215,6 +209,8 @@ export function Dashboard() {
   const [projectIdFilter, setProjectIdFilter] = useState("");
   const [employeeIdFilter, setEmployeeIdFilter] = useState("");
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
+  const [pendingAlertsPage, setPendingAlertsPage] = useState(1);
+  const [overdueAlertsPage, setOverdueAlertsPage] = useState(1);
 
   const employeeInsights = useMemo(() => {
     if (!employeeDashboard) return null;
@@ -291,7 +287,6 @@ export function Dashboard() {
     };
     const complianceRows = Array.isArray(taskComplianceReport.rows) ? taskComplianceReport.rows : [];
     const projectProductivity = Array.isArray(adminDashboard.projectProductivity) ? adminDashboard.projectProductivity : [];
-    const employeeProductivity = Array.isArray(adminDashboard.employeeProductivity) ? adminDashboard.employeeProductivity : [];
 
     const statusDistribution = [
       { status: "Asignada", value: teamSummary.assignedTasks, fill: "var(--pie-status-assigned)" },
@@ -345,16 +340,6 @@ export function Dashboard() {
       },
     ];
 
-    const teamPerformance = employeeProductivity
-      .map((employee) => ({
-        employeeId: employee.employeeId,
-        employeeName: employee.employeeName,
-        doneTasks: employee.doneTasks,
-        totalTasks: employee.totalTasks,
-        completionRate: employee.completionRate,
-      }))
-      .sort((a, b) => b.completionRate - a.completionRate || b.doneTasks - a.doneTasks);
-
     const pendingTasks = complianceRows
       .filter((row) => !isDoneStatus(row.status) && !row.isDateOverdue && row.isEstimateDelayed !== true)
       .map((row) => ({
@@ -392,7 +377,6 @@ export function Dashboard() {
       statusDistribution,
       projectPerformance,
       complianceBreakdown,
-      teamPerformance,
       pendingTasks,
       overdueTasks,
       recentActivity,
@@ -403,6 +387,36 @@ export function Dashboard() {
     if (!adminInsights) return 0;
     return adminInsights.complianceBreakdown.find((item) => item.label === "En tiempo")?.ratio ?? 0;
   }, [adminInsights]);
+
+  const pendingTotalPages = useMemo(
+    () => Math.max(1, Math.ceil((adminInsights?.pendingTasks.length ?? 0) / ALERTS_PAGE_SIZE)),
+    [adminInsights?.pendingTasks.length],
+  );
+
+  const overdueTotalPages = useMemo(
+    () => Math.max(1, Math.ceil((adminInsights?.overdueTasks.length ?? 0) / ALERTS_PAGE_SIZE)),
+    [adminInsights?.overdueTasks.length],
+  );
+
+  const paginatedPendingTasks = useMemo(() => {
+    const rows = adminInsights?.pendingTasks ?? [];
+    const start = (pendingAlertsPage - 1) * ALERTS_PAGE_SIZE;
+    return rows.slice(start, start + ALERTS_PAGE_SIZE);
+  }, [adminInsights?.pendingTasks, pendingAlertsPage]);
+
+  const paginatedOverdueTasks = useMemo(() => {
+    const rows = adminInsights?.overdueTasks ?? [];
+    const start = (overdueAlertsPage - 1) * ALERTS_PAGE_SIZE;
+    return rows.slice(start, start + ALERTS_PAGE_SIZE);
+  }, [adminInsights?.overdueTasks, overdueAlertsPage]);
+
+  useEffect(() => {
+    setPendingAlertsPage((current) => Math.min(current, pendingTotalPages));
+  }, [pendingTotalPages]);
+
+  useEffect(() => {
+    setOverdueAlertsPage((current) => Math.min(current, overdueTotalPages));
+  }, [overdueTotalPages]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -472,6 +486,8 @@ export function Dashboard() {
     setProjectIdFilter("");
     setEmployeeIdFilter("");
     setComplianceFilter("all");
+    setPendingAlertsPage(1);
+    setOverdueAlertsPage(1);
   };
 
   if (!user) {
@@ -502,7 +518,12 @@ export function Dashboard() {
         icon={<LayoutDashboard className="size-5" />}
       />
 
-      <div className="app-content">
+      <div
+        className={cn(
+          "app-content",
+          isAdmin && "h-[calc(100vh-5.4rem)] min-h-0 overflow-hidden",
+        )}
+      >
         {error && (
           <section className="rounded-xl border border-destructive/35 bg-destructive/8 px-4 py-3 text-sm text-destructive">
             {error}
@@ -836,7 +857,7 @@ export function Dashboard() {
               </article>
             </section>
 
-            <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <section className="grid min-h-0 grid-cols-1 xl:grid-cols-2 gap-4 overflow-hidden">
               <article className="app-panel app-panel-pad border-border/70 bg-card/95">
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -874,40 +895,7 @@ export function Dashboard() {
                 </div>
               </article>
 
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95">
-                <div className="flex items-center justify-between gap-3">
-                  <h2 className="text-lg font-semibold text-foreground">Rendimiento por cumplimiento</h2>
-                  <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
-                    <TrendingUp className="size-4.5" />
-                  </span>
-                </div>
-                {adminInsights.teamPerformance.length === 0 ? (
-                  <p className="mt-4 text-sm text-muted-foreground">Sin datos para los filtros activos.</p>
-                ) : (
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="app-table">
-                      <thead className="app-table-head">
-                        <tr>
-                          <th className="app-th">Empleado</th>
-                          <th className="app-th">Cumplimiento</th>
-                          <th className="app-th">Completadas</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {adminInsights.teamPerformance.slice(0, 8).map((row) => (
-                          <tr key={row.employeeId} className="app-row">
-                            <td className="app-td">{row.employeeName}</td>
-                            <td className="app-td">{row.completionRate}%</td>
-                            <td className="app-td">{row.doneTasks}/{row.totalTasks}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </article>
-
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95 space-y-4">
+              <article className="app-panel app-panel-pad border-border/70 bg-card/95 space-y-4 min-h-0 overflow-hidden">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Alertas operativas</h2>
                   <p className="text-sm text-muted-foreground">Pendientes y tareas vencidas/retrasadas.</p>
@@ -917,7 +905,7 @@ export function Dashboard() {
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                <div className="max-h-[180px] overflow-auto">
                   <table className="app-table">
                     <thead className="app-table-head">
                       <tr>
@@ -934,7 +922,7 @@ export function Dashboard() {
                           <td className="app-td" colSpan={5}>Sin tareas pendientes para los filtros activos.</td>
                         </tr>
                       ) : (
-                        adminInsights.pendingTasks.slice(0, 8).map((row) => (
+                        paginatedPendingTasks.map((row) => (
                           <tr key={row.taskId} className="app-row">
                             <td className="app-td">{row.title}</td>
                             <td className="app-td">{row.projectName}</td>
@@ -947,8 +935,31 @@ export function Dashboard() {
                     </tbody>
                   </table>
                 </div>
+                {adminInsights.pendingTasks.length > 0 && (
+                  <div className="flex items-center justify-end gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setPendingAlertsPage((current) => Math.max(1, current - 1))}
+                      disabled={pendingAlertsPage === 1}
+                      className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-muted-foreground">
+                      Pendientes {pendingAlertsPage}/{pendingTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setPendingAlertsPage((current) => Math.min(pendingTotalPages, current + 1))}
+                      disabled={pendingAlertsPage >= pendingTotalPages}
+                      className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                )}
 
-                <div className="overflow-x-auto">
+                <div className="max-h-[180px] overflow-auto">
                   <table className="app-table">
                     <thead className="app-table-head">
                       <tr>
@@ -965,7 +976,7 @@ export function Dashboard() {
                           <td className="app-td" colSpan={5}>Sin tareas retrasadas o vencidas.</td>
                         </tr>
                       ) : (
-                        adminInsights.overdueTasks.slice(0, 8).map((row) => (
+                        paginatedOverdueTasks.map((row) => (
                           <tr key={row.taskId} className="app-row">
                             <td className="app-td">{row.title}</td>
                             <td className="app-td">{row.projectName}</td>
@@ -978,6 +989,29 @@ export function Dashboard() {
                     </tbody>
                   </table>
                 </div>
+                {adminInsights.overdueTasks.length > 0 && (
+                  <div className="flex items-center justify-end gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setOverdueAlertsPage((current) => Math.max(1, current - 1))}
+                      disabled={overdueAlertsPage === 1}
+                      className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                    >
+                      Anterior
+                    </button>
+                    <span className="text-muted-foreground">
+                      Vencidas {overdueAlertsPage}/{overdueTotalPages}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setOverdueAlertsPage((current) => Math.min(overdueTotalPages, current + 1))}
+                      disabled={overdueAlertsPage >= overdueTotalPages}
+                      className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
+                )}
               </article>
             </section>
           </>
