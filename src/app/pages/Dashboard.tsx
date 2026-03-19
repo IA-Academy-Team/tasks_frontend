@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Pie, PieChart } from "recharts";
+import { Area, AreaChart, CartesianGrid, Line, Pie, PieChart, XAxis, YAxis } from "recharts";
 import {
   Activity,
   AlertTriangle,
@@ -176,7 +176,26 @@ const pieChartConfig = {
   },
 } satisfies ChartConfig;
 
+const complianceTrendChartConfig = {
+  compliance: {
+    label: "Cumplimiento",
+    theme: {
+      light: "var(--primary)",
+      dark: "var(--primary)",
+    },
+  },
+  target: {
+    label: "Meta",
+    theme: {
+      light: "var(--warning)",
+      dark: "var(--warning)",
+    },
+  },
+} satisfies ChartConfig;
+
 const ALERTS_PAGE_SIZE = 4;
+const COMPLIANCE_TARGET_PERCENTAGE = 95;
+const COMPLIANCE_AXIS_TICKS = [0, 20, 40, 60, 80, 100];
 
 type SearchableOption = {
   value: string;
@@ -364,7 +383,7 @@ export function Dashboard() {
   const reportQuery = useMemo(() => ({
     ...adminQuery,
     compliance: complianceFilter,
-    limit: 300,
+    limit: 500,
   }), [adminQuery, complianceFilter]);
 
   const adminInsights: AdminInsights | null = useMemo(() => {
@@ -434,6 +453,72 @@ export function Dashboard() {
       overdueTasks,
     };
   }, [adminDashboard, taskComplianceReport]);
+
+  const complianceTrendData = useMemo(() => {
+    const rows = taskComplianceReport?.rows ?? [];
+    let maxMonthDate: Date | null = null;
+    const parsedRows: Array<{ date: Date; isOnTime: boolean }> = [];
+
+    for (const row of rows) {
+      const dueDate = new Date(`${row.dueDate}T00:00:00`);
+      if (Number.isNaN(dueDate.getTime())) continue;
+
+      parsedRows.push({
+        date: dueDate,
+        isOnTime: row.complianceStatus === "on_time",
+      });
+
+      const monthDate = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
+
+      if (!maxMonthDate || monthDate.getTime() > maxMonthDate.getTime()) {
+        maxMonthDate = monthDate;
+      }
+    }
+
+    const anchorMonth = maxMonthDate ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const anchorYear = anchorMonth.getFullYear();
+    const anchorMonthIndex = anchorMonth.getMonth();
+    const daysInMonth = new Date(anchorYear, anchorMonthIndex + 1, 0).getDate();
+    const totalWeeks = Math.max(1, Math.ceil(daysInMonth / 7));
+    const weekBuckets = Array.from({ length: totalWeeks }, () => ({ total: 0, onTime: 0 }));
+
+    for (const entry of parsedRows) {
+      if (
+        entry.date.getFullYear() !== anchorYear
+        || entry.date.getMonth() !== anchorMonthIndex
+      ) {
+        continue;
+      }
+
+      const weekIndex = Math.min(totalWeeks - 1, Math.floor((entry.date.getDate() - 1) / 7));
+      const bucket = weekBuckets[weekIndex]!;
+      bucket.total += 1;
+      if (entry.isOnTime) {
+        bucket.onTime += 1;
+      }
+    }
+
+    return weekBuckets.map((bucket, index) => {
+      const compliance = bucket.total > 0 ? Math.round((bucket.onTime / bucket.total) * 100) : 0;
+      return {
+        key: `${anchorYear}-${String(anchorMonthIndex + 1).padStart(2, "0")}-w${index + 1}`,
+        label: `S${index + 1}`,
+        compliance,
+        target: COMPLIANCE_TARGET_PERCENTAGE,
+        total: bucket.total,
+      };
+    });
+  }, [taskComplianceReport]);
+
+  const latestComplianceValue = useMemo(() => {
+    for (let index = complianceTrendData.length - 1; index >= 0; index -= 1) {
+      const point = complianceTrendData[index];
+      if (point && point.total > 0) {
+        return point.compliance;
+      }
+    }
+    return 0;
+  }, [complianceTrendData]);
 
   const pendingTotalPages = useMemo(
     () => Math.max(1, Math.ceil((adminInsights?.pendingTasks.length ?? 0) / ALERTS_PAGE_SIZE)),
@@ -868,51 +953,115 @@ export function Dashboard() {
                 )}
               </article>
 
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 overflow-hidden">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground">Distribución por estado</h2>
-                    <p className="text-sm text-muted-foreground">Vista de salud operativa actual.</p>
+              <div className="flex min-h-0 flex-col gap-3">
+                <article className="app-panel app-panel-pad border-border/70 bg-card/95 shrink-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">Distribución por estado</h2>
+                      <p className="text-sm text-muted-foreground">Vista de salud operativa actual.</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{adminDashboard.teamSummary.totalTasks} tareas</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{adminDashboard.teamSummary.totalTasks} tareas</p>
-                </div>
-                <div className="mt-2">
-                  <ChartContainer config={pieChartConfig} className="mx-auto h-[205px] w-full max-w-[250px]">
-                    <PieChart>
-                      <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
-                      <Pie
-                        data={adminInsights.statusDistribution}
-                        dataKey="value"
-                        nameKey="status"
-                        innerRadius={48}
-                        outerRadius={74}
-                        stroke="var(--card)"
-                        strokeWidth={4}
-                      />
-                    </PieChart>
-                  </ChartContainer>
-                  <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
-                    {adminInsights.statusDistribution.map((item) => (
-                      <li key={item.status} className="flex items-center justify-between gap-2 text-xs">
-                        <span className="inline-flex items-center gap-2 text-muted-foreground">
-                          <span className="size-2.5 rounded-sm" style={{ backgroundColor: item.fill }} />
-                          {item.status}
-                        </span>
-                        <span className="font-medium text-foreground">{item.value}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </article>
+                  <div className="mt-2">
+                    <ChartContainer config={pieChartConfig} className="mx-auto h-[190px] w-full max-w-[235px]">
+                      <PieChart>
+                        <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
+                        <Pie
+                          data={adminInsights.statusDistribution}
+                          dataKey="value"
+                          nameKey="status"
+                          innerRadius={45}
+                          outerRadius={70}
+                          stroke="var(--card)"
+                          strokeWidth={4}
+                        />
+                      </PieChart>
+                    </ChartContainer>
+                    <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
+                      {adminInsights.statusDistribution.map((item) => (
+                        <li key={item.status} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="inline-flex items-center gap-2 text-muted-foreground">
+                            <span className="size-2.5 rounded-sm" style={{ backgroundColor: item.fill }} />
+                            {item.status}
+                          </span>
+                          <span className="font-medium text-foreground">{item.value}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </article>
+
+                <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 flex-1">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-semibold text-foreground">Compliance Trend</h2>
+                      <p className="text-sm text-muted-foreground">Alineación operativa del último mes.</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-success">{latestComplianceValue}%</p>
+                      <p className="text-[11px] text-muted-foreground">Meta: {COMPLIANCE_TARGET_PERCENTAGE}%</p>
+                    </div>
+                  </div>
+                  <div className="mt-2 h-[calc(100%-3.25rem)] min-h-[150px]">
+                    <ChartContainer config={complianceTrendChartConfig} className="h-full w-full">
+                      <AreaChart data={complianceTrendData} margin={{ top: 8, right: 8, left: 8, bottom: 2 }}>
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="label"
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          minTickGap={8}
+                        />
+                        <YAxis
+                          domain={[0, 100]}
+                          ticks={COMPLIANCE_AXIS_TICKS}
+                          interval={0}
+                          allowDecimals={false}
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={8}
+                          width={48}
+                          tickFormatter={(value) => `${Math.round(Number(value))}%`}
+                        />
+                        <ChartTooltip
+                          content={(
+                            <ChartTooltipContent
+                              formatter={(value, name) => [
+                                `${Number(value).toFixed(0)}%`,
+                                name === "target" ? "Meta" : "Cumplimiento",
+                              ]}
+                            />
+                          )}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="target"
+                          stroke="var(--color-target)"
+                          strokeWidth={1.8}
+                          strokeDasharray="6 4"
+                          dot={false}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="compliance"
+                          stroke="var(--color-compliance)"
+                          fill="var(--color-compliance)"
+                          fillOpacity={0.14}
+                          strokeWidth={2.5}
+                          dot={{ r: 2.2, strokeWidth: 0 }}
+                          activeDot={{ r: 4 }}
+                        />
+                      </AreaChart>
+                    </ChartContainer>
+                  </div>
+                </article>
+              </div>
 
               <article className="app-panel app-panel-pad border-border/70 bg-card/95 space-y-3 min-h-0 overflow-hidden">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Alertas operativas</h2>
                   <p className="text-sm text-muted-foreground">Pendientes y tareas vencidas/retrasadas.</p>
-                  <div className="mt-2 inline-flex items-center gap-1 rounded-md border border-destructive/25 bg-destructive/8 px-2 py-1 text-xs font-medium text-destructive">
-                    <AlertTriangle className="size-3.5" />
-                    Prioriza tareas retrasadas o vencidas
-                  </div>
                 </div>
 
                 <div>
@@ -952,7 +1101,7 @@ export function Dashboard() {
                   </div>
                 </div>
                 {adminInsights.pendingTasks.length > 0 && (
-                  <div className="flex items-center justify-end gap-2 text-xs">
+                  <div className="flex items-center justify-start gap-2 text-xs">
                     <button
                       type="button"
                       onClick={() => setPendingAlertsPage((current) => Math.max(1, current - 1))}
@@ -1012,7 +1161,7 @@ export function Dashboard() {
                   </div>
                 </div>
                 {adminInsights.overdueTasks.length > 0 && (
-                  <div className="flex items-center justify-end gap-2 text-xs">
+                  <div className="flex items-center justify-strat gap-2 text-xs">
                     <button
                       type="button"
                       onClick={() => setOverdueAlertsPage((current) => Math.max(1, current - 1))}
