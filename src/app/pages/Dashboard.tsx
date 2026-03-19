@@ -1204,132 +1204,131 @@ export function Dashboard() {
                 </article>
               </div>
 
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95 space-y-3 min-h-0 overflow-hidden">
-                <div>
-                  <h2 className="text-lg font-semibold text-foreground">Alertas operativas</h2>
-                  <p className="text-sm text-muted-foreground">Pendientes y tareas vencidas/retrasadas.</p>
-                </div>
-
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    <span>Pendientes</span>
-                    <span>{adminInsights.pendingTasks.length}</span>
+              <div className="flex min-h-0 flex-col gap-3">
+                <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 overflow-hidden">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold text-warning">Tareas pendientes</h2>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {adminInsights.pendingTasks.length}
+                    </span>
                   </div>
                   <div className="max-h-[210px] overflow-auto rounded-lg border border-border/70">
-                  <table className="app-table">
-                    <thead className="app-table-head">
-                      <tr>
-                        <th className="app-th">Tarea pendiente</th>
-                        <th className="app-th">Proyecto</th>
-                        <th className="app-th">Empleado</th>
-                        <th className="app-th">Estado</th>
-                        <th className="app-th">Vence</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminInsights.pendingTasks.length === 0 ? (
-                        <tr className="app-row">
-                          <td className="app-td" colSpan={5}>Sin tareas pendientes para los filtros activos.</td>
+                    <table className="app-table">
+                      <thead className="app-table-head">
+                        <tr>
+                          <th className="app-th">Tarea pendiente</th>
+                          <th className="app-th">Proyecto</th>
+                          <th className="app-th">Empleado</th>
+                          <th className="app-th">Estado</th>
+                          <th className="app-th">Vence</th>
                         </tr>
-                      ) : (
-                        paginatedPendingTasks.map((row) => (
-                          <tr key={row.taskId} className="app-row">
-                            <td className="app-td">{row.title}</td>
-                            <td className="app-td">{row.projectName}</td>
-                            <td className="app-td">{row.assigneeName ?? "Sin asignar"}</td>
-                            <td className="app-td">{row.status}</td>
-                            <td className="app-td">{formatDate(row.dueDate)}</td>
+                      </thead>
+                      <tbody>
+                        {adminInsights.pendingTasks.length === 0 ? (
+                          <tr className="app-row">
+                            <td className="app-td" colSpan={5}>Sin tareas pendientes para los filtros activos.</td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : (
+                          paginatedPendingTasks.map((row) => (
+                            <tr key={row.taskId} className="app-row">
+                              <td className="app-td">{row.title}</td>
+                              <td className="app-td">{row.projectName}</td>
+                              <td className="app-td">{row.assigneeName ?? "Sin asignar"}</td>
+                              <td className="app-td">{row.status}</td>
+                              <td className="app-td">{formatDate(row.dueDate)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-                {adminInsights.pendingTasks.length > 0 && (
-                  <div className="flex items-center justify-start gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setPendingAlertsPage((current) => Math.max(1, current - 1))}
-                      disabled={pendingAlertsPage === 1}
-                      className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
-                    >
-                      Anterior
-                    </button>
-                    <span className="text-muted-foreground">
-                      Pendientes {pendingAlertsPage}/{pendingTotalPages}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setPendingAlertsPage((current) => Math.min(pendingTotalPages, current + 1))}
-                      disabled={pendingAlertsPage >= pendingTotalPages}
-                      className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
-                    >
-                      Siguiente
-                    </button>
-                  </div>
-                )}
+                  {adminInsights.pendingTasks.length > 0 && (
+                    <div className="mt-2 flex items-center justify-start gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setPendingAlertsPage((current) => Math.max(1, current - 1))}
+                        disabled={pendingAlertsPage === 1}
+                        className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                      >
+                        Anterior
+                      </button>
+                      <span className="text-muted-foreground">
+                        Pendientes {pendingAlertsPage}/{pendingTotalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setPendingAlertsPage((current) => Math.min(pendingTotalPages, current + 1))}
+                        disabled={pendingAlertsPage >= pendingTotalPages}
+                        className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  )}
+                </article>
 
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    <span>Retrasadas / vencidas</span>
-                    <span>{adminInsights.overdueTasks.length}</span>
+                <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 overflow-hidden">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold text-destructive">Tareas retrasadas/vencidas</h2>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {adminInsights.overdueTasks.length}
+                    </span>
                   </div>
                   <div className="max-h-[210px] overflow-auto rounded-lg border border-border/70">
-                  <table className="app-table">
-                    <thead className="app-table-head">
-                      <tr>
-                        <th className="app-th">Tarea retrasada/vencida</th>
-                        <th className="app-th">Proyecto</th>
-                        <th className="app-th">Empleado</th>
-                        <th className="app-th">Motivo</th>
-                        <th className="app-th">Vence</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminInsights.overdueTasks.length === 0 ? (
-                        <tr className="app-row">
-                          <td className="app-td" colSpan={5}>Sin tareas retrasadas o vencidas.</td>
+                    <table className="app-table">
+                      <thead className="app-table-head">
+                        <tr>
+                          <th className="app-th">Tarea retrasada/vencida</th>
+                          <th className="app-th">Proyecto</th>
+                          <th className="app-th">Empleado</th>
+                          <th className="app-th">Motivo</th>
+                          <th className="app-th">Vence</th>
                         </tr>
-                      ) : (
-                        paginatedOverdueTasks.map((row) => (
-                          <tr key={row.taskId} className="app-row">
-                            <td className="app-td">{row.title}</td>
-                            <td className="app-td">{row.projectName}</td>
-                            <td className="app-td">{row.assigneeName ?? "Sin asignar"}</td>
-                            <td className="app-td">{row.reason}</td>
-                            <td className="app-td">{formatDate(row.dueDate)}</td>
+                      </thead>
+                      <tbody>
+                        {adminInsights.overdueTasks.length === 0 ? (
+                          <tr className="app-row">
+                            <td className="app-td" colSpan={5}>Sin tareas retrasadas o vencidas.</td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : (
+                          paginatedOverdueTasks.map((row) => (
+                            <tr key={row.taskId} className="app-row">
+                              <td className="app-td">{row.title}</td>
+                              <td className="app-td">{row.projectName}</td>
+                              <td className="app-td">{row.assigneeName ?? "Sin asignar"}</td>
+                              <td className="app-td">{row.reason}</td>
+                              <td className="app-td">{formatDate(row.dueDate)}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
-                </div>
-                {adminInsights.overdueTasks.length > 0 && (
-                  <div className="flex items-center justify-strat gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setOverdueAlertsPage((current) => Math.max(1, current - 1))}
-                      disabled={overdueAlertsPage === 1}
-                      className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
-                    >
-                      Anterior
-                    </button>
-                    <span className="text-muted-foreground">
-                      Vencidas {overdueAlertsPage}/{overdueTotalPages}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setOverdueAlertsPage((current) => Math.min(overdueTotalPages, current + 1))}
-                      disabled={overdueAlertsPage >= overdueTotalPages}
-                      className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
-                    >
-                      Siguiente
-                    </button>
-                  </div>
-                )}
-              </article>
+                  {adminInsights.overdueTasks.length > 0 && (
+                    <div className="mt-2 flex items-center justify-start gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setOverdueAlertsPage((current) => Math.max(1, current - 1))}
+                        disabled={overdueAlertsPage === 1}
+                        className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                      >
+                        Anterior
+                      </button>
+                      <span className="text-muted-foreground">
+                        Vencidas {overdueAlertsPage}/{overdueTotalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setOverdueAlertsPage((current) => Math.min(overdueTotalPages, current + 1))}
+                        disabled={overdueAlertsPage >= overdueTotalPages}
+                        className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                      >
+                        Siguiente
+                      </button>
+                    </div>
+                  )}
+                </article>
+              </div>
             </section>
           </>
         )}
