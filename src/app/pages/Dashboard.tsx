@@ -6,11 +6,14 @@ import {
   AlertTriangle,
   ArrowRight,
   CalendarClock,
+  Check,
+  ChevronDown,
   CheckCircle2,
   FolderKanban,
   LayoutDashboard,
   PlayCircle,
   Plus,
+  Search,
   Timer,
 } from "lucide-react";
 import { ApiError } from "../../shared/api/api";
@@ -18,6 +21,8 @@ import { useAuth } from "../context/AuthContext";
 import { DateRangeFilter } from "../components/DateRangeFilter";
 import { PageHero } from "../components/PageHero";
 import { DashboardMetrics } from "../components/dashboard/DashboardMetrics";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import {
   ChartContainer,
   ChartTooltip,
@@ -53,11 +58,6 @@ const formatDate = (value: string) =>
     month: "short",
     year: "numeric",
   });
-
-const toEfficiencyRate = (estimatedMinutes: number, actualMinutes: number) => {
-  if (estimatedMinutes <= 0 || actualMinutes <= 0) return 0;
-  return Math.max(0, Math.round((estimatedMinutes / actualMinutes) * 100));
-};
 
 const isDoneStatus = (status: string) => status.trim().toLowerCase() === "terminada";
 
@@ -115,7 +115,6 @@ const employeeUrgencyStyles: Record<EmployeeUrgencyTone, {
 };
 
 type AdminInsights = {
-  efficiencyRate: number;
   statusDistribution: {
     status: string;
     value: number;
@@ -127,13 +126,6 @@ type AdminInsights = {
     completionRate: number;
     doneTasks: number;
     totalTasks: number;
-  }[];
-  complianceBreakdown: {
-    label: string;
-    value: number;
-    ratio: number;
-    toneClassName: string;
-    barClassName: string;
   }[];
   pendingTasks: Array<{
     taskId: number;
@@ -151,7 +143,6 @@ type AdminInsights = {
     dueDate: string;
     reason: string;
   }>;
-  recentActivity: TaskComplianceReportData["rows"];
 };
 
 const pieChartConfig = {
@@ -187,6 +178,93 @@ const pieChartConfig = {
 
 const ALERTS_PAGE_SIZE = 4;
 
+type SearchableOption = {
+  value: string;
+  label: string;
+};
+
+type SearchableSelectProps = {
+  value: string;
+  options: SearchableOption[];
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyLabel: string;
+  className?: string;
+  disabled?: boolean;
+  onChange: (value: string) => void;
+};
+
+function SearchableSelect({
+  value,
+  options,
+  placeholder,
+  searchPlaceholder,
+  emptyLabel,
+  className,
+  disabled = false,
+  onChange,
+}: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-expanded={open}
+          className={cn(
+            "app-control inline-flex h-10 w-full items-center justify-between gap-2 bg-card/70",
+            disabled && "cursor-not-allowed opacity-60",
+            className,
+          )}
+          disabled={disabled}
+        >
+          <span className="inline-flex min-w-0 items-center gap-2">
+            <Search className={cn("size-4 shrink-0", open ? "text-primary" : "text-muted-foreground")} />
+            <span className={cn("truncate", selectedOption ? "text-foreground" : "text-muted-foreground")}>
+              {selectedOption?.label ?? placeholder}
+            </span>
+          </span>
+          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/80 bg-card p-0"
+      >
+        <Command className="bg-card">
+          <CommandInput placeholder={searchPlaceholder} />
+          <CommandList>
+            <CommandEmpty>{emptyLabel}</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value || "__all__"}
+                  value={option.label}
+                  onSelect={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  className="gap-2"
+                >
+                  <Check
+                    className={cn(
+                      "size-4 text-primary transition-opacity",
+                      value === option.value ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <span className="truncate">{option.label}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -211,6 +289,22 @@ export function Dashboard() {
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
   const [pendingAlertsPage, setPendingAlertsPage] = useState(1);
   const [overdueAlertsPage, setOverdueAlertsPage] = useState(1);
+
+  const projectFilterOptions = useMemo<SearchableOption[]>(
+    () => [
+      { value: "", label: "Todos los proyectos" },
+      ...projects.map((project) => ({ value: String(project.id), label: project.name })),
+    ],
+    [projects],
+  );
+
+  const employeeFilterOptions = useMemo<SearchableOption[]>(
+    () => [
+      { value: "", label: "Todos los empleados" },
+      ...employees.map((employee) => ({ value: String(employee.id), label: employee.name })),
+    ],
+    [employees],
+  );
 
   const employeeInsights = useMemo(() => {
     if (!employeeDashboard) return null;
@@ -299,8 +393,6 @@ export function Dashboard() {
       },
     ];
 
-    const efficiencyRate = toEfficiencyRate(teamSummary.totalEstimatedMinutes, teamSummary.totalActualMinutes);
-
     const projectPerformance = projectProductivity
       .map((project) => ({
         projectId: project.projectId,
@@ -310,35 +402,6 @@ export function Dashboard() {
         totalTasks: project.totalTasks,
       }))
       .sort((a, b) => b.completionRate - a.completionRate || b.doneTasks - a.doneTasks);
-
-    const complianceTotal = Math.max(
-      complianceSummary.totalTasks,
-      complianceSummary.onTimeTasks + complianceSummary.estimateDelayedTasks + complianceSummary.dateOverdueTasks,
-      1,
-    );
-    const complianceBreakdown = [
-      {
-        label: "En tiempo",
-        value: complianceSummary.onTimeTasks,
-        ratio: Math.round((complianceSummary.onTimeTasks / complianceTotal) * 100),
-        toneClassName: "text-success",
-        barClassName: "bg-success",
-      },
-      {
-        label: "Atraso estimado",
-        value: complianceSummary.estimateDelayedTasks,
-        ratio: Math.round((complianceSummary.estimateDelayedTasks / complianceTotal) * 100),
-        toneClassName: "text-warning",
-        barClassName: "bg-warning",
-      },
-      {
-        label: "Retrasada/Vencida",
-        value: complianceSummary.dateOverdueTasks,
-        ratio: Math.round((complianceSummary.dateOverdueTasks / complianceTotal) * 100),
-        toneClassName: "text-destructive",
-        barClassName: "bg-destructive",
-      },
-    ];
 
     const pendingTasks = complianceRows
       .filter((row) => !isDoneStatus(row.status) && !row.isDateOverdue && row.isEstimateDelayed !== true)
@@ -364,29 +427,13 @@ export function Dashboard() {
       }))
       .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
 
-    const recentActivity = [...complianceRows]
-      .sort((a, b) => {
-        const aDate = new Date(a.completedAt ?? a.dueDate).getTime();
-        const bDate = new Date(b.completedAt ?? b.dueDate).getTime();
-        return bDate - aDate;
-      })
-      .slice(0, 5);
-
     return {
-      efficiencyRate,
       statusDistribution,
       projectPerformance,
-      complianceBreakdown,
       pendingTasks,
       overdueTasks,
-      recentActivity,
     };
   }, [adminDashboard, taskComplianceReport]);
-
-  const onTimeComplianceRate = useMemo(() => {
-    if (!adminInsights) return 0;
-    return adminInsights.complianceBreakdown.find((item) => item.label === "En tiempo")?.ratio ?? 0;
-  }, [adminInsights]);
 
   const pendingTotalPages = useMemo(
     () => Math.max(1, Math.ceil((adminInsights?.pendingTasks.length ?? 0) / ALERTS_PAGE_SIZE)),
@@ -521,7 +568,7 @@ export function Dashboard() {
       <div
         className={cn(
           "app-content",
-          isAdmin && "h-[calc(100vh-5.4rem)] min-h-0 overflow-hidden",
+          isAdmin && "h-[calc(100vh-5.4rem)] min-h-0 overflow-hidden gap-3 p-3 md:p-4",
         )}
       >
         {error && (
@@ -744,30 +791,24 @@ export function Dashboard() {
                   triggerClassName="bg-card/70"
                   placeholder="Rango por fecha limite"
                 />
-                <select
+                <SearchableSelect
                   value={projectIdFilter}
-                  onChange={(event) => setProjectIdFilter(event.target.value)}
-                  className="app-control h-10 bg-card/70"
-                >
-                  <option value="">Proyecto: todos</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
-                <select
+                  onChange={setProjectIdFilter}
+                  options={projectFilterOptions}
+                  placeholder="Buscar proyecto..."
+                  searchPlaceholder="Buscar proyecto..."
+                  emptyLabel="No hay proyectos para mostrar."
+                  disabled={isLoadingFilters}
+                />
+                <SearchableSelect
                   value={employeeIdFilter}
-                  onChange={(event) => setEmployeeIdFilter(event.target.value)}
-                  className="app-control h-10 bg-card/70"
-                >
-                  <option value="">Empleado: todos</option>
-                  {employees.map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setEmployeeIdFilter}
+                  options={employeeFilterOptions}
+                  placeholder="Buscar empleado..."
+                  searchPlaceholder="Buscar empleado..."
+                  emptyLabel="No hay empleados para mostrar."
+                  disabled={isLoadingFilters}
+                />
                 <select
                   value={complianceFilter}
                   onChange={(event) => setComplianceFilter(event.target.value as ComplianceFilter)}
@@ -790,15 +831,15 @@ export function Dashboard() {
 
             <DashboardMetrics
               summary={adminDashboard.teamSummary}
-              efficiencyRate={adminInsights.efficiencyRate}
+              riskTasks={adminInsights.overdueTasks.length}
             />
 
-            <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95">
+            <section className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden xl:grid-cols-[1.05fr_0.95fr_1.4fr]">
+              <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 overflow-hidden">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold text-foreground">Rendimiento por proyecto</h2>
-                    <p className="text-sm text-muted-foreground">Comparativo de cumplimiento por iniciativa.</p>
+                    <p className="text-sm text-muted-foreground">Top de iniciativas con mayor avance real.</p>
                   </div>
                   <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
                     <Activity className="size-4.5" />
@@ -807,11 +848,11 @@ export function Dashboard() {
                 {adminInsights.projectPerformance.length === 0 ? (
                   <p className="mt-4 text-sm text-muted-foreground">Sin datos para los filtros activos.</p>
                 ) : (
-                  <div className="mt-4 space-y-4">
-                    {adminInsights.projectPerformance.slice(0, 4).map((row) => (
+                  <div className="mt-3 max-h-[calc(100%-3.5rem)] space-y-3 overflow-y-auto pr-1">
+                    {adminInsights.projectPerformance.slice(0, 6).map((row) => (
                       <div key={row.projectId} className="space-y-1.5">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-semibold uppercase tracking-wide text-muted-foreground">{row.projectName}</span>
+                          <span className="truncate pr-3 font-semibold uppercase tracking-wide text-muted-foreground">{row.projectName}</span>
                           <span className="font-semibold text-foreground">{row.completionRate}%</span>
                         </div>
                         <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/75">
@@ -827,63 +868,32 @@ export function Dashboard() {
                 )}
               </article>
 
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground">Tendencia de cumplimiento</h2>
-                    <p className="text-sm text-muted-foreground">Balance entre tareas en tiempo y con atraso.</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-success">{onTimeComplianceRate}%</p>
-                    <p className="text-xs text-muted-foreground">En tiempo</p>
-                  </div>
-                </div>
-                <div className="mt-4 space-y-3">
-                  {adminInsights.complianceBreakdown.map((item) => (
-                    <div key={item.label} className="space-y-1.5">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold uppercase tracking-wide text-muted-foreground">{item.label}</span>
-                        <span className={cn("font-semibold", item.toneClassName)}>{item.value} ({item.ratio}%)</span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-secondary/75">
-                        <div
-                          className={cn("h-full rounded-full", item.barClassName)}
-                          style={{ width: `${Math.max(3, Math.min(100, item.ratio))}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </article>
-            </section>
-
-            <section className="grid min-h-0 grid-cols-1 xl:grid-cols-2 gap-4 overflow-hidden">
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95">
+              <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 overflow-hidden">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold text-foreground">Distribución por estado</h2>
-                    <p className="text-sm text-muted-foreground">Vista general de estados de tarea.</p>
+                    <p className="text-sm text-muted-foreground">Vista de salud operativa actual.</p>
                   </div>
                   <p className="text-xs text-muted-foreground">{adminDashboard.teamSummary.totalTasks} tareas</p>
                 </div>
-                <div className="mt-4">
-                  <ChartContainer config={pieChartConfig} className="mx-auto h-[240px] w-full max-w-[280px]">
+                <div className="mt-2">
+                  <ChartContainer config={pieChartConfig} className="mx-auto h-[205px] w-full max-w-[250px]">
                     <PieChart>
                       <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
                       <Pie
                         data={adminInsights.statusDistribution}
                         dataKey="value"
                         nameKey="status"
-                        innerRadius={56}
-                        outerRadius={86}
+                        innerRadius={48}
+                        outerRadius={74}
                         stroke="var(--card)"
                         strokeWidth={4}
                       />
                     </PieChart>
                   </ChartContainer>
-                  <ul className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+                  <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
                     {adminInsights.statusDistribution.map((item) => (
-                      <li key={item.status} className="flex items-center justify-between gap-2 text-sm">
+                      <li key={item.status} className="flex items-center justify-between gap-2 text-xs">
                         <span className="inline-flex items-center gap-2 text-muted-foreground">
                           <span className="size-2.5 rounded-sm" style={{ backgroundColor: item.fill }} />
                           {item.status}
@@ -895,7 +905,7 @@ export function Dashboard() {
                 </div>
               </article>
 
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95 space-y-4 min-h-0 overflow-hidden">
+              <article className="app-panel app-panel-pad border-border/70 bg-card/95 space-y-3 min-h-0 overflow-hidden">
                 <div>
                   <h2 className="text-lg font-semibold text-foreground">Alertas operativas</h2>
                   <p className="text-sm text-muted-foreground">Pendientes y tareas vencidas/retrasadas.</p>
@@ -905,7 +915,12 @@ export function Dashboard() {
                   </div>
                 </div>
 
-                <div className="max-h-[180px] overflow-auto">
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span>Pendientes</span>
+                    <span>{adminInsights.pendingTasks.length}</span>
+                  </div>
+                  <div className="max-h-[145px] overflow-auto rounded-lg border border-border/70">
                   <table className="app-table">
                     <thead className="app-table-head">
                       <tr>
@@ -934,6 +949,7 @@ export function Dashboard() {
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
                 {adminInsights.pendingTasks.length > 0 && (
                   <div className="flex items-center justify-end gap-2 text-xs">
@@ -959,7 +975,12 @@ export function Dashboard() {
                   </div>
                 )}
 
-                <div className="max-h-[180px] overflow-auto">
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <span>Retrasadas / vencidas</span>
+                    <span>{adminInsights.overdueTasks.length}</span>
+                  </div>
+                  <div className="max-h-[145px] overflow-auto rounded-lg border border-border/70">
                   <table className="app-table">
                     <thead className="app-table-head">
                       <tr>
@@ -988,6 +1009,7 @@ export function Dashboard() {
                       )}
                     </tbody>
                   </table>
+                  </div>
                 </div>
                 {adminInsights.overdueTasks.length > 0 && (
                   <div className="flex items-center justify-end gap-2 text-xs">
