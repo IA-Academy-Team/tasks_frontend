@@ -293,6 +293,217 @@
     position: relative;
     z-index: 1;
   }
+
+  .react-datepicker {
+    border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--card) 98%, transparent);
+    color: var(--foreground);
+    box-shadow: 0 14px 30px rgba(7, 18, 38, 0.24);
+    overflow: hidden;
+    font-family: var(--font-sans), "Aptos", "Segoe UI", sans-serif;
+  }
+
+  .react-datepicker__triangle {
+    display: none;
+  }
+
+  .react-datepicker__month-container {
+    width: 17.25rem;
+  }
+
+  .react-datepicker__month {
+    margin: 0.45rem 0.55rem 0.6rem;
+  }
+
+  .react-datepicker__header {
+    background: color-mix(in srgb, var(--secondary) 78%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+    padding: 0.55rem 0 0.5rem;
+  }
+
+  .react-datepicker__current-month,
+  .react-datepicker-time__header,
+  .react-datepicker-year-header {
+    color: var(--foreground);
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    margin-bottom: 0.4rem;
+  }
+
+  .react-datepicker__day-names {
+    margin-bottom: 0.15rem;
+  }
+
+  .react-datepicker__day-name {
+    color: var(--muted-foreground);
+    font-weight: 500;
+    font-size: 0.9rem;
+    width: 2rem;
+    line-height: 2rem;
+    margin: 0;
+  }
+
+  .react-datepicker__week {
+    display: flex;
+    justify-content: center;
+    gap: 0.1rem;
+  }
+
+  .react-datepicker__day,
+  .react-datepicker__month-text,
+  .react-datepicker__quarter-text,
+  .react-datepicker__year-text {
+    color: var(--foreground);
+    border-radius: 0.45rem;
+    width: 2rem;
+    line-height: 2rem;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+    transition: background-color 140ms ease, color 140ms ease, transform 140ms ease;
+  }
+
+  .react-datepicker__day:hover,
+  .react-datepicker__month-text:hover,
+  .react-datepicker__quarter-text:hover,
+  .react-datepicker__year-text:hover {
+    background: color-mix(in srgb, var(--secondary) 86%, transparent);
+  }
+
+  .react-datepicker__day--keyboard-selected,
+  .react-datepicker__month-text--keyboard-selected,
+  .react-datepicker__quarter-text--keyboard-selected,
+  .react-datepicker__year-text--keyboard-selected {
+    background: color-mix(in srgb, var(--accent) 30%, transparent);
+    color: var(--foreground);
+  }
+
+  .react-datepicker__day--selected,
+  .react-datepicker__day--in-selecting-range,
+  .react-datepicker__day--in-range,
+  .react-datepicker__month-text--selected,
+  .react-datepicker__month-text--in-selecting-range,
+  .react-datepicker__month-text--in-range,
+  .react-datepicker__quarter-text--selected,
+  .react-datepicker__quarter-text--in-selecting-range,
+  .react-datepicker__quarter-text--in-range,
+  .react-datepicker__year-text--selected,
+  .react-datepicker__year-text--in-selecting-range,
+  .react-datepicker__year-text--in-range {
+    background: color-mix(in srgb, var(--primary) 86%, black 14%);
+    color: #f3fcff;
+    font-weight: 700;
+  }
+
+  .react-datepicker__day--today {
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  .react-datepicker__day--outside-month {
+    color: color-mix(in srgb, var(--muted-foreground) 56%, transparent);
+  }
+
+  .react-datepicker__navigation {
+    top: 0.48rem;
+    width: 2rem;
+    height: 1.8rem;
+  }
+
+  .react-datepicker__navigation-icon::before {
+    border-color: color-mix(in srgb, var(--muted-foreground) 76%, transparent);
+    border-width: 2px 2px 0 0;
+    height: 9px;
+    width: 9px;
+    top: 6px;
+  }
+
+  .react-datepicker__navigation:hover *::before {
+    border-color: var(--primary);
+  }
+
+  .dark .react-datepicker,
+  .dark .app-datepicker.react-datepicker {
+    background: #1f2d43;
+    border-color: #3a4f6a;
+    box-shadow: 0 18px 36px rgba(2, 10, 22, 0.58);
+    color: #f0f5fc;
+  }
+
+  .dark .react-datepicker__header {
+    background: #2a3b56;
+    border-bottom-color: #3a4f6a;
+  }
+
+  .dark .react-datepicker__current-month,
+  .dark .react-datepicker-time__header,
+  .dark .react-datepicker-year-header {
+    color: #f4f8ff;
+  }
+
+  .dark .react-datepicker__day-name {
+    color: #d8e6f8;
+  }
+
+  .dark .react-datepicker__day,
+  .dark .react-datepicker__month-text,
+  .dark .react-datepicker__quarter-text,
+  .dark .react-datepicker__year-text {
+    color: #f2f7ff;
+  }
+
+  .dark .react-datepicker__day--outside-month {
+    color: #7c90ab;
+  }
+
+  .dark .react-datepicker__day:hover,
+  .dark .react-datepicker__month-text:hover,
+  .dark .react-datepicker__quarter-text:hover,
+  .dark .react-datepicker__year-text:hover {
+    background: #334866;
+  }
+
+  .dark .react-datepicker__day--keyboard-selected,
+  .dark .react-datepicker__month-text--keyboard-selected,
+  .dark .react-datepicker__quarter-text--keyboard-selected,
+  .dark .react-datepicker__year-text--keyboard-selected {
+    background: #23567d;
+    color: #eff8ff;
+  }
+
+  .dark .react-datepicker__day--selected,
+  .dark .react-datepicker__day--in-selecting-range,
+  .dark .react-datepicker__day--in-range,
+  .dark .react-datepicker__month-text--selected,
+  .dark .react-datepicker__month-text--in-selecting-range,
+  .dark .react-datepicker__month-text--in-range,
+  .dark .react-datepicker__quarter-text--selected,
+  .dark .react-datepicker__quarter-text--in-selecting-range,
+  .dark .react-datepicker__quarter-text--in-range,
+  .dark .react-datepicker__year-text--selected,
+  .dark .react-datepicker__year-text--in-selecting-range,
+  .dark .react-datepicker__year-text--in-range {
+    background: #0c7699;
+    color: #effcff;
+  }
+
+  .dark .react-datepicker__day--today {
+    border-color: #42b5d9;
+    background: #234f71;
+    color: #f5faff;
+  }
+
+  .dark .react-datepicker__navigation-icon::before {
+    border-color: #d7e5f7;
+  }
+
+  .dark .react-datepicker__navigation:hover *::before {
+    border-color: #7fd7f2;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -711,7 +711,7 @@ export function Dashboard() {
 
         {isAdmin && adminDashboard && taskComplianceReport && adminInsights && (
           <>
-            <section className="rounded-xl border border-border/70 bg-card/95 p-4 shadow-[0_10px_28px_rgba(16,36,58,0.08)]">
+            <section className="relative z-30 rounded-xl border border-border/70 bg-card/95 p-4 shadow-[0_10px_28px_rgba(16,36,58,0.08)]">
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
                 <DateRangeFilter
                   dateFrom={dateFrom}
