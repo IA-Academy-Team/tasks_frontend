@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { ChevronDown, ClipboardList, Clock3, ListFilter, Plus, Search, UserRound } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock3, ListFilter, Plus, Search, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
@@ -609,9 +609,10 @@ export function StandaloneTasks() {
                     type="button"
                     onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))}
                     disabled={currentPage === 1}
-                    className="rounded-lg border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                    className="rounded-lg border border-border/70 bg-card p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                    aria-label="Pagina anterior"
                   >
-                    Anterior
+                    <ChevronLeft className="size-4" />
                   </button>
                   <span className="px-1 text-xs text-muted-foreground">
                     Página {currentPage} de {totalPages}
@@ -620,9 +621,10 @@ export function StandaloneTasks() {
                     type="button"
                     onClick={() => setCurrentPage((previous) => Math.min(totalPages, previous + 1))}
                     disabled={currentPage >= totalPages}
-                    className="rounded-lg border border-border/70 bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                    className="rounded-lg border border-border/70 bg-card p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                    aria-label="Pagina siguiente"
                   >
-                    Siguiente
+                    <ChevronRight className="size-4" />
                   </button>
                 </div>
               </div>

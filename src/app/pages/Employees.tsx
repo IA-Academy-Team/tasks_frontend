@@ -5,6 +5,8 @@ import {
   Pencil,
   Plus,
   Search,
+  ChevronLeft,
+  ChevronRight,
   Trash2,
   UserCheck,
   UserX,
@@ -504,22 +506,24 @@ export function Employees() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      className="app-btn-secondary h-9 px-3"
+                      className="app-btn-secondary size-9 p-0"
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                      aria-label="Pagina anterior"
                     >
-                      Anterior
+                      <ChevronLeft className="size-4" />
                     </button>
                     <p className="text-sm text-muted-foreground">
                       Pagina {currentPage} de {totalPages}
                     </p>
                     <button
                       type="button"
-                      className="app-btn-secondary h-9 px-3"
+                      className="app-btn-secondary size-9 p-0"
                       disabled={currentPage === totalPages}
                       onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                      aria-label="Pagina siguiente"
                     >
-                      Siguiente
+                      <ChevronRight className="size-4" />
                     </button>
                   </div>
                 )}

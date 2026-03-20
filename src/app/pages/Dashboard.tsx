@@ -8,6 +8,8 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   FolderKanban,
   LayoutDashboard,
@@ -1204,15 +1206,15 @@ export function Dashboard() {
                 </article>
               </div>
 
-              <div className="flex min-h-0 flex-col gap-3">
-                <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 overflow-hidden">
-                  <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex min-h-0 flex-1 flex-col gap-3">
+                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95">
+                  <header className="flex items-center justify-between border-b border-border/70 bg-secondary/20 px-3 py-2.5">
                     <h2 className="text-base font-semibold text-warning">Tareas pendientes</h2>
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {adminInsights.pendingTasks.length}
                     </span>
-                  </div>
-                  <div className="max-h-[210px] overflow-auto rounded-lg border border-border/70">
+                  </header>
+                  <div className="min-h-0 flex-1 overflow-auto">
                     <table className="app-table">
                       <thead className="app-table-head">
                         <tr>
@@ -1243,38 +1245,40 @@ export function Dashboard() {
                     </table>
                   </div>
                   {adminInsights.pendingTasks.length > 0 && (
-                    <div className="mt-2 flex items-center justify-start gap-2 text-xs">
+                    <footer className="flex items-center justify-start gap-2 border-t border-border/70 px-3 py-2 text-xs">
                       <button
                         type="button"
                         onClick={() => setPendingAlertsPage((current) => Math.max(1, current - 1))}
                         disabled={pendingAlertsPage === 1}
-                        className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                        className="app-btn-secondary size-8 p-0 disabled:opacity-60"
+                        aria-label="Página anterior pendientes"
                       >
-                        Anterior
+                        <ChevronLeft className="size-4" />
                       </button>
                       <span className="text-muted-foreground">
-                        Pendientes {pendingAlertsPage}/{pendingTotalPages}
+                        {pendingAlertsPage}/{pendingTotalPages}
                       </span>
                       <button
                         type="button"
                         onClick={() => setPendingAlertsPage((current) => Math.min(pendingTotalPages, current + 1))}
                         disabled={pendingAlertsPage >= pendingTotalPages}
-                        className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                        className="app-btn-secondary size-8 p-0 disabled:opacity-60"
+                        aria-label="Página siguiente pendientes"
                       >
-                        Siguiente
+                        <ChevronRight className="size-4" />
                       </button>
-                    </div>
+                    </footer>
                   )}
-                </article>
+                </section>
 
-                <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 overflow-hidden">
-                  <div className="mb-2 flex items-center justify-between gap-2">
+                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95">
+                  <header className="flex items-center justify-between border-b border-border/70 bg-secondary/20 px-3 py-2.5">
                     <h2 className="text-base font-semibold text-destructive">Tareas retrasadas/vencidas</h2>
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {adminInsights.overdueTasks.length}
                     </span>
-                  </div>
-                  <div className="max-h-[210px] overflow-auto rounded-lg border border-border/70">
+                  </header>
+                  <div className="min-h-0 flex-1 overflow-auto">
                     <table className="app-table">
                       <thead className="app-table-head">
                         <tr>
@@ -1305,29 +1309,31 @@ export function Dashboard() {
                     </table>
                   </div>
                   {adminInsights.overdueTasks.length > 0 && (
-                    <div className="mt-2 flex items-center justify-start gap-2 text-xs">
+                    <footer className="flex items-center justify-start gap-2 border-t border-border/70 px-3 py-2 text-xs">
                       <button
                         type="button"
                         onClick={() => setOverdueAlertsPage((current) => Math.max(1, current - 1))}
                         disabled={overdueAlertsPage === 1}
-                        className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                        className="app-btn-secondary size-8 p-0 disabled:opacity-60"
+                        aria-label="Página anterior vencidas"
                       >
-                        Anterior
+                        <ChevronLeft className="size-4" />
                       </button>
                       <span className="text-muted-foreground">
-                        Vencidas {overdueAlertsPage}/{overdueTotalPages}
+                        {overdueAlertsPage}/{overdueTotalPages}
                       </span>
                       <button
                         type="button"
                         onClick={() => setOverdueAlertsPage((current) => Math.min(overdueTotalPages, current + 1))}
                         disabled={overdueAlertsPage >= overdueTotalPages}
-                        className="app-btn-secondary h-8 px-2.5 disabled:opacity-60"
+                        className="app-btn-secondary size-8 p-0 disabled:opacity-60"
+                        aria-label="Página siguiente vencidas"
                       >
-                        Siguiente
+                        <ChevronRight className="size-4" />
                       </button>
-                    </div>
+                    </footer>
                   )}
-                </article>
+                </section>
               </div>
             </section>
           </>
