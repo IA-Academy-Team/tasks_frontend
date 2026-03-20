@@ -597,8 +597,7 @@ export function StandaloneTasks() {
               </tbody>
             </table>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/80 bg-secondary/30 px-4 py-3">
-              <p className="text-xs text-muted-foreground">Vista optimizada para auditoría operativa</p>
+            <div className="flex flex-wrap items-center gap-3 border-t border-border/80 bg-secondary/30 px-4 py-3 justify-end">
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <UserRound className="size-3.5" />
