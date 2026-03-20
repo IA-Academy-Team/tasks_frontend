@@ -1,14 +1,14 @@
-import { CheckCircle2, FolderKanban, Gauge, Layers3 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, FolderKanban, Layers3 } from "lucide-react";
 import type { DashboardAggregate } from "../../../modules/dashboard/api/dashboard.api";
 
 type DashboardMetricsProps = {
   summary: DashboardAggregate;
-  efficiencyRate: number;
+  riskTasks: number;
 };
 
 export function DashboardMetrics({
   summary,
-  efficiencyRate,
+  riskTasks,
 }: DashboardMetricsProps) {
   const activeTasks = summary.assignedTasks + summary.inProgressTasks;
 
@@ -53,11 +53,11 @@ export function DashboardMetrics({
       <article className="app-panel px-5 py-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-3xl font-semibold tracking-tight text-foreground">{efficiencyRate}%</p>
-            <p className="mt-1 text-sm text-muted-foreground">Eficiencia del equipo</p>
+            <p className="text-3xl font-semibold tracking-tight text-foreground">{riskTasks}</p>
+            <p className="mt-1 text-sm text-muted-foreground">Retrasadas / vencidas</p>
           </div>
-          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-warning/10 text-warning">
-            <Gauge className="size-5" />
+          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-destructive/12 text-destructive">
+            <AlertTriangle className="size-5" />
           </span>
         </div>
       </article>

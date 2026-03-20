@@ -2,6 +2,7 @@ import { Outlet, useNavigate, useLocation } from "react-router";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronsUpDown,
   FolderKanban,
   ClipboardList,
   Users,
@@ -14,12 +15,19 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getDefaultRouteForRole } from "../../modules/auth/lib/auth-routing";
 import { canAccessResource } from "../../modules/auth/lib/access-policy";
 import { ProfileEditorModal } from "./ProfileEditorModal";
 import { NotificationsFloatingPanel } from "./NotificationsFloatingPanel";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 type NavItem = {
   key: string;
@@ -49,9 +57,7 @@ export function Layout() {
   const dashboardPath = user ? getDefaultRouteForRole(user.role) : "/";
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const handleLogout = async () => {
     await logout();
@@ -69,26 +75,9 @@ export function Layout() {
   const navigateTo = (path: string) => {
     navigate(path);
     closeMobileMenu();
-    setIsUserMenuOpen(false);
   };
 
-  useEffect(() => {
-    if (!isUserMenuOpen) {
-      return;
-    }
-
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && event.target instanceof Node && !userMenuRef.current.contains(event.target)) {
-        setIsUserMenuOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isUserMenuOpen]);
-
   const handleOpenProfileModal = () => {
-    setIsUserMenuOpen(false);
     setIsProfileModalOpen(true);
   };
 
@@ -158,64 +147,59 @@ export function Layout() {
   );
 
   const renderUserMenu = (isCollapsed = false) => (
-    <div ref={userMenuRef} className="relative z-40">
-      <button
-        type="button"
-        onClick={() => setIsUserMenuOpen((current) => !current)}
-        className={`${baseNavButtonClass} text-sidebar-foreground/82 hover:text-sidebar-foreground hover:bg-sidebar-accent/72 ${
-          isCollapsed ? "justify-center px-3" : ""
-        }`}
-        aria-label="Opciones de usuario"
-        title={isCollapsed ? "Opciones de usuario" : undefined}
-      >
-        <span className="size-9 shrink-0 rounded-full overflow-hidden border border-sidebar-border bg-sidebar-accent/65 flex items-center justify-center">
-          {user?.image ? (
-            <img src={user.image} alt={user.name} className="size-full object-cover" />
-          ) : (
-            <UserCircle2 className="size-6 text-sidebar-foreground" />
-          )}
-        </span>
-        {!isCollapsed && (
-          <span className="flex-1 min-w-0 text-left">
-            <span className="block truncate text-[15px] leading-5">{user?.name ?? "Usuario"}</span>
-            <span className="block truncate text-xs leading-5 text-sidebar-foreground/62">
-              {user?.email ?? "Sin correo"}
-            </span>
-          </span>
-        )}
-        {!isCollapsed && <LogOut className="size-5 shrink-0 text-sidebar-foreground/72" aria-hidden="true" />}
-      </button>
-
-      {isUserMenuOpen && (
-        <div
-          className={`rounded-xl border border-border bg-card p-1 shadow-2xl ${
-            isCollapsed
-              ? "fixed left-[5.75rem] bottom-4 z-[1200] w-40"
-              : "absolute z-[1200] left-0 right-0 bottom-[calc(100%+0.5rem)]"
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={`${baseNavButtonClass} text-sidebar-foreground/82 hover:text-sidebar-foreground hover:bg-sidebar-accent/72 ${
+            isCollapsed ? "justify-center px-3" : ""
           }`}
+          aria-label="Opciones de usuario"
+          title={isCollapsed ? "Opciones de usuario" : undefined}
         >
-          <button
-            type="button"
-            onClick={handleOpenProfileModal}
-            className="w-full inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-          >
-            <Pencil className="size-4" />
-            Editar perfil
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setIsUserMenuOpen(false);
-              void handleLogout();
-            }}
-            className="w-full inline-flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-foreground hover:bg-secondary transition-colors"
-          >
-            <LogOut className="size-4" />
-            Cerrar sesión
-          </button>
-        </div>
-      )}
-    </div>
+          <span className="size-9 shrink-0 rounded-full overflow-hidden border border-sidebar-border bg-sidebar-accent/65 flex items-center justify-center">
+            {user?.image ? (
+              <img src={user.image} alt={user.name} className="size-full object-cover" />
+            ) : (
+              <UserCircle2 className="size-6 text-sidebar-foreground" />
+            )}
+          </span>
+          {!isCollapsed && (
+            <span className="flex-1 min-w-0 text-left">
+              <span className="block truncate text-[15px] leading-5">{user?.name ?? "Usuario"}</span>
+              <span className="block truncate text-xs leading-5 text-sidebar-foreground/62">
+                {user?.email ?? "Sin correo"}
+              </span>
+            </span>
+          )}
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        side={isCollapsed ? "right" : "top"}
+        align={isCollapsed ? "start" : "end"}
+        sideOffset={8}
+        className="z-[1200] w-52 rounded-xl border-border/80 bg-card/95 p-1.5 shadow-2xl backdrop-blur-sm"
+      >
+        <DropdownMenuItem
+          onSelect={handleOpenProfileModal}
+          className="cursor-pointer rounded-lg px-3 py-2 text-sm"
+        >
+          <Pencil className="size-4" />
+          Editar perfil
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => {
+            void handleLogout();
+          }}
+          className="cursor-pointer rounded-lg px-3 py-2 text-sm"
+        >
+          <LogOut className="size-4" />
+          Cerrar sesión
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 
   return (

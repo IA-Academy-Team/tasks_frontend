@@ -16,6 +16,8 @@ export interface TaskSummary {
   plannedStartDate: string;
   dueDate: string;
   estimatedMinutes: number | null;
+  reportedActualMinutes: number | null;
+  completionEvidence: string | null;
   actualMinutes: number;
   deviationMinutes: number | null;
   isEstimateDelayed: boolean | null;
@@ -75,6 +77,8 @@ export interface TaskStatusTransition {
 
 export interface TransitionTaskStatusPayload {
   toStatus: TaskWorkflowStatus;
+  actualMinutes?: number | null;
+  completionEvidence?: string | null;
   notes?: string | null;
 }
 
@@ -138,6 +142,7 @@ const buildTasksQuery = (params: {
   projectId?: number;
   status: TaskStatusFilter;
   includeDeleted?: boolean;
+  includeStandalone?: boolean;
 }) => {
   const query = new URLSearchParams();
   query.set("status", params.status);
@@ -146,6 +151,9 @@ const buildTasksQuery = (params: {
   }
   if (params.includeDeleted !== undefined) {
     query.set("includeDeleted", String(params.includeDeleted));
+  }
+  if (params.includeStandalone !== undefined) {
+    query.set("includeStandalone", String(params.includeStandalone));
   }
   return query.toString();
 };
@@ -166,6 +174,7 @@ export const listTasks = (params: {
   projectId?: number;
   status: TaskStatusFilter;
   includeDeleted?: boolean;
+  includeStandalone?: boolean;
 }) => api.get<TasksResponse>(`${API_PREFIX}/tasks?${buildTasksQuery(params)}`);
 
 export const listStandaloneTasks = (params: {
@@ -254,6 +263,8 @@ export const transitionTaskStatus = (
   payload: TransitionTaskStatusPayload,
 ) => api.patch<TransitionTaskStatusResponse>(`${API_PREFIX}/tasks/${taskId}/status`, {
   toStatus: payload.toStatus,
+  actualMinutes: withNullableInt(payload.actualMinutes),
+  completionEvidence: withNullableString(payload.completionEvidence),
   notes: payload.notes ?? null,
 }, {
   toast: {

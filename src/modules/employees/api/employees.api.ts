@@ -96,6 +96,7 @@ export interface CreateEmployeePayload {
 
 export interface UpdateEmployeePayload {
   name?: string;
+  password?: string;
   phoneNumber?: string | null;
   image?: string | null;
   emailVerified?: boolean;

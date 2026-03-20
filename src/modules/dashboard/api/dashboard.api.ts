@@ -47,9 +47,9 @@ export interface AdminDashboardEmployeeProductivity extends DashboardAggregate {
   employeeEmail: string;
 }
 
-export interface AdminDashboardAreaProductivity extends DashboardAggregate {
-  areaId: number;
-  areaName: string;
+export interface AdminDashboardProjectProductivity extends DashboardAggregate {
+  projectId: number;
+  projectName: string;
 }
 
 export interface AdminDashboardData {
@@ -62,7 +62,7 @@ export interface AdminDashboardData {
   };
   teamSummary: DashboardAggregate;
   employeeProductivity: AdminDashboardEmployeeProductivity[];
-  areaProductivity: AdminDashboardAreaProductivity[];
+  projectProductivity: AdminDashboardProjectProductivity[];
 }
 
 export interface AdminDashboardResponse {
