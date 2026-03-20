@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, ChartPie, KanbanSquare, LayoutGrid, Pencil, Plus, Trash2, Users } from "lucide-react";
+import { ArrowLeft, ChartPie, Check, ChevronDown, KanbanSquare, LayoutGrid, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
@@ -13,6 +13,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { cn } from "../components/ui/utils";
 import {
   ChartContainer,
   ChartTooltip,
@@ -153,6 +156,8 @@ export function ProjectBoard() {
   const [taskRecurrenceMode, setTaskRecurrenceMode] = useState<TaskRecurrenceMode>("none");
   const [taskRecurrenceEvery, setTaskRecurrenceEvery] = useState("1");
   const [taskRecurrenceUntilDate, setTaskRecurrenceUntilDate] = useState("");
+  const [isTaskAssigneeSelectOpen, setIsTaskAssigneeSelectOpen] = useState(false);
+  const [taskAssigneeSearchTerm, setTaskAssigneeSearchTerm] = useState("");
   const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
   const [isCompletingTask, setIsCompletingTask] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
@@ -338,6 +343,29 @@ export function ProjectBoard() {
       employee.currentAreaId === selectedAreaId || employee.areaIds.includes(selectedAreaId)
     ));
   }, [employees, taskAreaId]);
+
+  const taskAssigneeSearchOptions = useMemo(
+    () => taskAssigneeEmployeeOptions.map((employee) => ({
+      value: String(employee.id),
+      label: `${employee.name} (${employee.email})`,
+    })),
+    [taskAssigneeEmployeeOptions],
+  );
+
+  const visibleTaskAssigneeOptions = useMemo(() => {
+    const normalizedTerm = taskAssigneeSearchTerm.trim().toLowerCase();
+
+    if (!normalizedTerm) {
+      return taskAssigneeSearchOptions.slice(0, 6);
+    }
+
+    return taskAssigneeSearchOptions.filter((option) => option.label.toLowerCase().includes(normalizedTerm));
+  }, [taskAssigneeSearchOptions, taskAssigneeSearchTerm]);
+
+  const selectedTaskAssigneeOption = useMemo(
+    () => taskAssigneeSearchOptions.find((option) => option.value === taskAssigneeEmployeeId),
+    [taskAssigneeEmployeeId, taskAssigneeSearchOptions],
+  );
 
   const kanbanTasks = useMemo(() => {
     const grouped: Record<TaskWorkflowStatus, TaskSummary[]> = {
@@ -1496,19 +1524,64 @@ export function ProjectBoard() {
             )}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Empleado</label>
-              <select
-                value={taskAssigneeEmployeeId}
-                onChange={(event) => setTaskAssigneeEmployeeId(event.target.value)}
-                className="app-control"
-                disabled={taskAssigneeEmployeeOptions.length === 0}
-              >
-                <option value="">Selecciona empleado</option>
-                {taskAssigneeEmployeeOptions.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.email})
-                  </option>
-                ))}
-              </select>
+              <Popover open={isTaskAssigneeSelectOpen} onOpenChange={setIsTaskAssigneeSelectOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-expanded={isTaskAssigneeSelectOpen}
+                    className="app-control inline-flex h-10 w-full items-center justify-between gap-2 bg-card/70"
+                    disabled={taskAssigneeSearchOptions.length === 0}
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <Search className={cn("size-4 shrink-0", isTaskAssigneeSelectOpen ? "text-primary" : "text-muted-foreground")} />
+                      <span className={cn("truncate", selectedTaskAssigneeOption ? "text-foreground" : "text-muted-foreground")}>
+                        {selectedTaskAssigneeOption?.label ?? "Buscar empleado..."}
+                      </span>
+                    </span>
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="bottom"
+                  align="start"
+                  avoidCollisions={false}
+                  sideOffset={6}
+                  className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/80 bg-card p-0"
+                >
+                  <Command className="bg-card">
+                    <CommandInput
+                      value={taskAssigneeSearchTerm}
+                      onValueChange={setTaskAssigneeSearchTerm}
+                      placeholder="Buscar empleado..."
+                    />
+                    <CommandList>
+                      <CommandEmpty>Sin empleados disponibles.</CommandEmpty>
+                      <CommandGroup>
+                        {visibleTaskAssigneeOptions.map((option) => (
+                          <CommandItem
+                            key={option.value}
+                            value={option.label}
+                            onSelect={() => {
+                              setTaskAssigneeEmployeeId(option.value);
+                              setTaskAssigneeSearchTerm("");
+                              setIsTaskAssigneeSelectOpen(false);
+                            }}
+                            className="gap-2"
+                          >
+                            <Check
+                              className={cn(
+                                "size-4 text-primary transition-opacity",
+                                taskAssigneeEmployeeId === option.value ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                            <span className="truncate">{option.label}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {taskAreaId && taskAssigneeEmployeeOptions.length === 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
                   No hay empleados activos asignados a esa area.
