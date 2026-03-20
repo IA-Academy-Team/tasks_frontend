@@ -556,53 +556,57 @@ export function Dashboard() {
 
   const complianceTrendData = useMemo(() => {
     const rows = taskComplianceReport?.rows ?? [];
-    let maxMonthDate: Date | null = null;
-    const parsedRows: Array<{ date: Date; isOnTime: boolean }> = [];
+    const parsedRows: Array<{ dateKey: string; isOnTime: boolean }> = [];
+    let anchorDate: Date | null = null;
 
     for (const row of rows) {
       const dueDate = new Date(`${row.dueDate}T00:00:00`);
       if (Number.isNaN(dueDate.getTime())) continue;
 
       parsedRows.push({
-        date: dueDate,
+        dateKey: row.dueDate.slice(0, 10),
         isOnTime: row.complianceStatus === "on_time",
       });
-
-      const monthDate = new Date(dueDate.getFullYear(), dueDate.getMonth(), 1);
-
-      if (!maxMonthDate || monthDate.getTime() > maxMonthDate.getTime()) {
-        maxMonthDate = monthDate;
+      if (!anchorDate || dueDate.getTime() > anchorDate.getTime()) {
+        anchorDate = dueDate;
       }
     }
 
-    const anchorMonth = maxMonthDate ?? new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    const anchorYear = anchorMonth.getFullYear();
-    const anchorMonthIndex = anchorMonth.getMonth();
-    const daysInMonth = new Date(anchorYear, anchorMonthIndex + 1, 0).getDate();
-    const totalWeeks = Math.max(1, Math.ceil(daysInMonth / 7));
-    const weekBuckets = Array.from({ length: totalWeeks }, () => ({ total: 0, onTime: 0 }));
+    const effectiveAnchor = anchorDate ?? new Date();
+    const dailyBuckets = new Map<string, { total: number; onTime: number }>();
 
     for (const entry of parsedRows) {
-      if (
-        entry.date.getFullYear() !== anchorYear
-        || entry.date.getMonth() !== anchorMonthIndex
-      ) {
-        continue;
-      }
-
-      const weekIndex = Math.min(totalWeeks - 1, Math.floor((entry.date.getDate() - 1) / 7));
-      const bucket = weekBuckets[weekIndex]!;
+      const bucket = dailyBuckets.get(entry.dateKey) ?? { total: 0, onTime: 0 };
       bucket.total += 1;
       if (entry.isOnTime) {
         bucket.onTime += 1;
       }
+      dailyBuckets.set(entry.dateKey, bucket);
     }
 
-    return weekBuckets.map((bucket, index) => {
+    const lastSevenWorkdays: Date[] = [];
+    const cursor = new Date(effectiveAnchor.getFullYear(), effectiveAnchor.getMonth(), effectiveAnchor.getDate());
+
+    while (lastSevenWorkdays.length < 7) {
+      if (cursor.getDay() !== 0) {
+        lastSevenWorkdays.push(new Date(cursor));
+      }
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    return lastSevenWorkdays.reverse().map((day) => {
+      const dateKey = toDateKey(day);
+      const bucket = dailyBuckets.get(dateKey) ?? { total: 0, onTime: 0 };
       const compliance = bucket.total > 0 ? Math.round((bucket.onTime / bucket.total) * 100) : 0;
+      const weekdayLabel = day
+        .toLocaleDateString("es-ES", { weekday: "short" })
+        .replace(".", "")
+        .slice(0, 3)
+        .toUpperCase();
+
       return {
-        key: `${anchorYear}-${String(anchorMonthIndex + 1).padStart(2, "0")}-w${index + 1}`,
-        label: `S${index + 1}`,
+        key: dateKey,
+        label: `${weekdayLabel} ${String(day.getDate()).padStart(2, "0")}`,
         compliance,
         target: COMPLIANCE_TARGET_PERCENTAGE,
         total: bucket.total,
@@ -764,198 +768,195 @@ export function Dashboard() {
 
         {isEmployee && employeeDashboard && employeeInsights && (
           <>
-            <section className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border/70 bg-card/95 p-4 shadow-[0_10px_28px_rgba(16,36,58,0.08)]">
+            <section className="flex flex-wrap items-end justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-foreground">Bienvenido de nuevo, {user.name.split(" ")[0]}</h2>
-                <p className="text-sm text-muted-foreground">Resumen rapido para priorizar tu trabajo de hoy.</p>
+                <h2 className="text-3xl font-extrabold tracking-tight text-foreground">Bienvenido, {user.name.split(" ")[0]}</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Resumen de productividad para hoy.</p>
               </div>
               <button
                 type="button"
                 onClick={() => navigate("/tasks/standalone")}
-                className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary-hover"
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-[0_10px_28px_rgba(16,36,58,0.22)] transition-colors hover:bg-primary-hover"
               >
                 <Plus className="size-4" />
                 Tarea
               </button>
             </section>
 
-            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              <article className="app-panel p-4 border-border/70 bg-card/95">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tareas activas</p>
-                    <p className="mt-1 text-3xl font-semibold text-foreground">
-                      {employeeDashboard.summary.assignedTasks + employeeDashboard.summary.inProgressTasks}
-                    </p>
-                  </div>
-                  <span className="inline-flex size-10 items-center justify-center rounded-xl bg-primary/12 text-primary">
+            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+                <div className="mb-4 flex items-start justify-between">
+                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
                     <FolderKanban className="size-5" />
                   </span>
+                  <span className="rounded-md bg-success/15 px-2 py-1 text-[10px] font-bold text-success">+ hoy</span>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">Asignadas + en proceso</p>
-              </article>
-
-              <article className="app-panel p-4 border-border/70 bg-card/95">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Completadas</p>
-                    <p className="mt-1 text-3xl font-semibold text-foreground">{employeeDashboard.summary.doneTasks}</p>
-                  </div>
-                  <span className="inline-flex size-10 items-center justify-center rounded-xl bg-success/12 text-success">
-                    <CheckCircle2 className="size-5" />
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">Total entregadas</p>
-              </article>
-
-              <article className="app-panel p-4 border-border/70 bg-card/95">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Proximas a vencer</p>
-                    <p className="mt-1 text-3xl font-semibold text-foreground">{employeeDashboard.summary.upcomingTasks}</p>
-                  </div>
-                  <span className="inline-flex size-10 items-center justify-center rounded-xl bg-warning/12 text-warning">
-                    <CalendarClock className="size-5" />
-                  </span>
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {employeeInsights.criticalTasks} criticas · {employeeInsights.warningTasks} en riesgo medio
+                <p className="text-sm font-medium text-muted-foreground">Tareas activas</p>
+                <p className="mt-1 text-3xl font-black text-foreground">
+                  {employeeDashboard.summary.assignedTasks + employeeDashboard.summary.inProgressTasks}
                 </p>
               </article>
 
-              <article className="app-panel p-4 border-border/70 bg-card/95">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tiempo acumulado</p>
-                    <p className="mt-1 text-3xl font-semibold text-foreground">
-                      {formatMinutes(employeeDashboard.summary.activeTasksAccumulatedMinutes)}
-                    </p>
-                  </div>
-                  <span className="inline-flex size-10 items-center justify-center rounded-xl bg-accent/15 text-accent">
+              <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+                <div className="mb-4 flex items-start justify-between">
+                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                    <CheckCircle2 className="size-5" />
+                  </span>
+                  <span className="rounded-md bg-primary/15 px-2 py-1 text-[10px] font-bold text-primary">Semana actual</span>
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">Completadas</p>
+                <p className="mt-1 text-3xl font-black text-foreground">{employeeDashboard.summary.doneTasks}</p>
+              </article>
+
+              <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+                <div className="mb-4 flex items-start justify-between">
+                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                    <CalendarClock className="size-5" />
+                  </span>
+                  <span className="rounded-md bg-destructive/12 px-2 py-1 text-[10px] font-bold text-destructive">Atención</span>
+                </div>
+                <p className="text-sm font-medium text-muted-foreground">Próximas a vencer</p>
+                <p className="mt-1 text-3xl font-black text-foreground">{employeeDashboard.summary.upcomingTasks}</p>
+              </article>
+
+              <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+                <div className="mb-4 flex items-start justify-between">
+                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
                     <Timer className="size-5" />
                   </span>
+                  <span className="rounded-md bg-secondary px-2 py-1 text-[10px] font-bold text-muted-foreground">Mes</span>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">Registrado en tareas activas</p>
+                <p className="text-sm font-medium text-muted-foreground">Horas registradas</p>
+                <p className="mt-1 text-3xl font-black text-foreground">{formatMinutes(employeeDashboard.summary.activeTasksAccumulatedMinutes)}</p>
               </article>
             </section>
 
-            <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95 xl:col-span-2">
-                <div className="mb-4 flex items-center justify-between gap-2">
-                  <h2 className="text-lg font-semibold text-foreground">Tareas proximas a vencer</h2>
+            <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="space-y-4 lg:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="inline-flex items-center gap-2 text-xl font-bold text-foreground">
+                    <AlertTriangle className="size-5 text-destructive" />
+                    Próximas a vencer
+                  </h3>
                   <button
                     type="button"
                     onClick={() => navigate("/projects")}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary transition-colors hover:text-primary-hover"
+                    className="text-sm font-semibold text-primary transition-colors hover:text-primary-hover"
                   >
-                    Ver proyectos
-                    <ArrowRight className="size-3.5" />
+                    Ver tareas
                   </button>
                 </div>
-                {employeeInsights.nextToExpire.length === 0 ? (
-                  <p className="rounded-xl border border-dashed border-border bg-secondary/45 px-4 py-6 text-sm text-muted-foreground">
-                    No hay tareas proximas a vencerse para los siguientes dias.
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {employeeInsights.nextToExpire.map((task) => {
+                <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-[0_10px_24px_rgba(16,36,58,0.1)] divide-y divide-border/70">
+                  {employeeInsights.nextToExpire.length === 0 ? (
+                    <p className="px-5 py-8 text-sm text-muted-foreground">No hay tareas próximas a vencer.</p>
+                  ) : (
+                    employeeInsights.nextToExpire.map((task) => {
                       const urgencyStyle = employeeUrgencyStyles[task.urgency];
                       return (
-                        <article
-                          key={task.id}
-                          className={cn(
-                            "flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-colors",
-                            urgencyStyle.ringClassName,
-                          )}
-                        >
-                          <span className={cn("size-2.5 rounded-full", urgencyStyle.dotClassName)} />
+                        <article key={task.id} className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-secondary/35">
+                          <span className={cn("inline-flex size-10 items-center justify-center rounded-full border-2", urgencyStyle.ringClassName)}>
+                            <span className={cn("size-2.5 rounded-full", urgencyStyle.dotClassName)} />
+                          </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-foreground">{task.title}</p>
+                            <p className="truncate text-sm font-bold text-foreground">{task.title}</p>
                             <p className="truncate text-xs text-muted-foreground">{task.projectName}</p>
                           </div>
                           <div className="text-right">
-                            <p className={cn("text-xs font-semibold", urgencyStyle.labelClassName)}>{urgencyStyle.label}</p>
-                            <p className="text-xs text-muted-foreground">{formatDate(task.dueDate)}</p>
+                            <p className={cn("text-sm font-black", urgencyStyle.labelClassName)}>{urgencyStyle.label}</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{formatDate(task.dueDate)}</p>
                           </div>
                         </article>
                       );
-                    })}
-                  </div>
-                )}
-              </article>
-
-              <article className="app-panel app-panel-pad border-border/70 bg-card/95 space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-lg font-semibold text-foreground">Foco activo</h2>
-                  <PlayCircle className="size-5 text-primary" />
+                    })
+                  )}
                 </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="inline-flex items-center gap-2 text-xl font-bold text-foreground">
+                  <PlayCircle className="size-5 text-primary" />
+                  Sesión activa
+                </h3>
                 {employeeInsights.inProgressTask ? (
-                  <div className="rounded-xl border border-primary/35 bg-primary/10 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">En progreso</p>
-                    <h3 className="mt-2 text-base font-semibold text-foreground">{employeeInsights.inProgressTask.title}</h3>
-                    <p className="text-xs text-muted-foreground">{employeeInsights.inProgressTask.projectName}</p>
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-lg bg-card/85 px-2.5 py-2">
-                        <p className="text-muted-foreground">Vence</p>
-                        <p className="font-semibold text-foreground">{formatDate(employeeInsights.inProgressTask.dueDate)}</p>
-                      </div>
-                      <div className="rounded-lg bg-card/85 px-2.5 py-2">
-                        <p className="text-muted-foreground">Estimado</p>
-                        <p className="font-semibold text-foreground">
-                          {employeeInsights.inProgressTask.estimatedMinutes
-                            ? formatMinutes(employeeInsights.inProgressTask.estimatedMinutes)
-                            : "-"}
+                  <article className="relative overflow-hidden rounded-2xl border-2 border-primary/30 bg-primary/12 p-5">
+                    <span className="mb-3 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
+                      <span className="size-2 rounded-full bg-primary animate-pulse" />
+                      En progreso
+                    </span>
+                    <h4 className="text-lg font-extrabold text-foreground">{employeeInsights.inProgressTask.title}</h4>
+                    <p className="text-sm text-muted-foreground">{employeeInsights.inProgressTask.projectName}</p>
+                    <div className="mt-5 flex items-end justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tiempo activo</p>
+                        <p className="text-3xl font-black text-primary">
+                          {formatMinutes(employeeInsights.inProgressTask.actualMinutes)}
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </article>
                 ) : (
-                  <p className="rounded-xl border border-dashed border-border bg-secondary/45 px-4 py-6 text-sm text-muted-foreground">
-                    No tienes tareas en progreso en este momento.
-                  </p>
+                  <article className="rounded-2xl border border-dashed border-border/80 bg-card/75 px-5 py-8 text-center">
+                    <p className="text-sm font-semibold text-muted-foreground">Sin sesión activa</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Inicia una tarea para empezar seguimiento.</p>
+                  </article>
                 )}
-                <div className="space-y-2.5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Pendientes asignadas</p>
-                  {employeeInsights.pausedTasks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Sin tareas pendientes.</p>
-                  ) : (
-                    employeeInsights.pausedTasks.map((task) => (
-                      <div key={task.id} className="flex items-center justify-between rounded-lg border border-border/70 bg-secondary/40 px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">{task.title}</p>
-                          <p className="truncate text-xs text-muted-foreground">{task.projectName}</p>
+
+                <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.08)]">
+                  <h4 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">En pausa</h4>
+                  <div className="space-y-3">
+                    {employeeInsights.pausedTasks.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Sin tareas pausadas.</p>
+                    ) : (
+                      employeeInsights.pausedTasks.map((task) => (
+                        <div key={task.id} className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-foreground">{task.title}</p>
+                            <p className="truncate text-[11px] text-muted-foreground">{task.projectName}</p>
+                          </div>
+                          <span className="text-[11px] font-semibold text-muted-foreground">{formatDate(task.dueDate)}</span>
                         </div>
-                        <span className="text-xs font-semibold text-muted-foreground">{formatDate(task.dueDate)}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </article>
+                      ))
+                    )}
+                  </div>
+                </article>
+              </div>
             </section>
 
-            <section className="app-panel app-panel-pad border-border/70 bg-card/95">
-              <div className="mb-5 flex items-center justify-between gap-2">
+            <section className="rounded-2xl border border-border/70 bg-card/95 p-6 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-semibold text-foreground">Actividad esperada</h2>
-                  <p className="text-sm text-muted-foreground">Distribucion de vencimientos para los proximos 7 dias.</p>
+                  <h3 className="text-xl font-bold text-foreground">Activity Overview</h3>
+                  <p className="text-sm text-muted-foreground">Picos de actividad proyectada en los próximos 7 días.</p>
                 </div>
-                <span className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">7 dias</span>
+                <div className="inline-flex gap-2">
+                  <span className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-muted-foreground">Días</span>
+                  <span className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">Semana</span>
+                </div>
               </div>
-              <div className="flex h-44 items-end gap-2">
+
+              <div className="flex h-56 items-end justify-between gap-3 px-2">
                 {employeeInsights.weeklyDistribution.map((item) => (
-                  <div key={item.key} className="flex flex-1 flex-col items-center gap-2">
-                    <div className="relative flex w-full flex-1 items-end">
-                      <div
-                        className={cn(
-                          "w-full rounded-t-md bg-primary/25 transition-colors",
-                          item.value > 0 && "bg-primary",
-                        )}
-                        style={{ height: `${item.height}%` }}
-                        title={`${item.value} tareas`}
-                      />
+                  <div key={item.key} className="group relative flex flex-1 items-end">
+                    <div
+                      className={cn(
+                        "w-full rounded-t-lg transition-all",
+                        item.value > 0 ? "bg-primary hover:bg-primary-hover" : "bg-primary/20",
+                      )}
+                      style={{ height: `${Math.max(14, item.height)}%` }}
+                      title={`${item.value} tareas`}
+                    />
+                    <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-foreground px-2 py-1 text-[10px] font-semibold text-background opacity-0 transition-opacity group-hover:opacity-100">
+                      {item.value} tareas
                     </div>
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{item.label}</span>
                   </div>
+                ))}
+              </div>
+
+              <div className="mt-3 flex justify-between px-2">
+                {employeeInsights.weeklyDistribution.map((item) => (
+                  <span key={`${item.key}-label`} className="flex-1 text-center text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                    {item.label}
+                  </span>
                 ))}
               </div>
             </section>
@@ -964,8 +965,8 @@ export function Dashboard() {
 
         {isAdmin && adminDashboard && taskComplianceReport && adminInsights && (
           <>
-            <section className="relative z-30 rounded-xl border border-border/70 bg-card/95 p-4 shadow-[0_10px_28px_rgba(16,36,58,0.08)]">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+            <section className="relative z-30">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
                 <DateRangeFilter
                   dateFrom={dateFrom}
                   dateTo={dateTo}
@@ -1007,7 +1008,7 @@ export function Dashboard() {
                 <button
                   type="button"
                   onClick={resetFilters}
-                  className="app-btn-secondary h-10 w-full border-border/80 bg-card/75"
+                  className="app-btn-secondary h-10 w-full"
                 >
                   {isLoadingFilters ? "Cargando..." : "Limpiar filtros"}
                 </button>
@@ -1142,8 +1143,8 @@ export function Dashboard() {
                 <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-lg font-semibold text-foreground">Compliance Trend</h2>
-                      <p className="text-sm text-muted-foreground">Alineación operativa del último mes.</p>
+                      <h2 className="text-lg font-semibold text-foreground">Tendencia de cumplimiento</h2>
+                      <p className="text-sm text-muted-foreground">Alineación operativa de los últimos 7 días (sin domingo).</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-success">{latestComplianceValue}%</p>
