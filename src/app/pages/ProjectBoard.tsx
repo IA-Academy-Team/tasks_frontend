@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, ChartPie, KanbanSquare, LayoutGrid, Plus, Users } from "lucide-react";
+import { ArrowLeft, ChartPie, KanbanSquare, LayoutGrid, Pencil, Plus, Trash2, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
@@ -1051,16 +1051,20 @@ export function ProjectBoard() {
                                 <button
                                   type="button"
                                   onClick={() => startTaskEdit(task)}
-                                  className="app-action-link"
+                                  className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
+                                  aria-label="Editar tarea"
+                                  title="Editar"
                                 >
-                                  Editar
+                                  <Pencil className="size-4" />
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setPendingDeleteTask(task)}
-                                  className="app-action-link-danger"
+                                  className="inline-flex size-8 items-center justify-center rounded-md border border-destructive/30 bg-destructive/5 text-destructive transition-colors hover:bg-destructive/10"
+                                  aria-label="Eliminar tarea"
+                                  title="Eliminar"
                                 >
-                                  Eliminar
+                                  <Trash2 className="size-4" />
                                 </button>
                               </div>
                             </td>

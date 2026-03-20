@@ -521,18 +521,24 @@ export function Projects() {
                                   Editar
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
-                                  <Archive className="size-4" />
-                                  Cerrar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
-                                  <CircleSlash2 className="size-4" />
-                                  Cancelar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
-                                  <CheckCircle2 className="size-4" />
-                                  Activar
-                                </DropdownMenuItem>
+                                {normalizedStatus === "active" && (
+                                  <>
+                                    <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
+                                      <Archive className="size-4" />
+                                      Cerrar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
+                                      <CircleSlash2 className="size-4" />
+                                      Desactivar
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                                {normalizedStatus !== "active" && (
+                                  <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
+                                    <CheckCircle2 className="size-4" />
+                                    Activar
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
                                   onClick={() => setPendingDeleteProject(project)}
