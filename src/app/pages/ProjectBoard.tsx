@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, ChartPie, KanbanSquare, LayoutGrid, Plus } from "lucide-react";
+import { ArrowLeft, ChartPie, KanbanSquare, LayoutGrid, Plus, Users } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
@@ -158,6 +158,7 @@ export function ProjectBoard() {
   const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
+  const [isProjectMembersModalOpen, setIsProjectMembersModalOpen] = useState(false);
   const [pendingUnassignMembership, setPendingUnassignMembership] = useState<ProjectMembership | null>(null);
   const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
 
@@ -852,156 +853,18 @@ export function ProjectBoard() {
               </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setIsProjectMembersModalOpen(true)}
+            className="app-btn-secondary"
+          >
+            <Users className="size-4" />
+            Miembros
+          </button>
         </div>
       </div>
 
       <div className="app-content">
-        <section className="app-panel overflow-hidden">
-          <div className="app-panel-header">
-            <h3 className="text-lg font-semibold text-foreground">Miembros del proyecto</h3>
-            <select
-              value={membershipStatusFilter}
-              onChange={(event) => setMembershipStatusFilter(event.target.value as MembershipStatusFilter)}
-              className="app-control h-9 min-w-36"
-            >
-              <option value="all">Todos</option>
-              <option value="active">Activos</option>
-              <option value="inactive">Historicos</option>
-            </select>
-          </div>
-
-          {isAdmin && (
-            <div className="p-4 border-b border-border space-y-4">
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium mb-2">Asignar empleado</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      value={assignEmployeeId}
-                      onChange={(event) => setAssignEmployeeId(event.target.value)}
-                      className="app-control min-w-[260px]"
-                    >
-                      <option value="">Selecciona empleado</option>
-                      {assignableEmployees.map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.name} ({employee.email})
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        void handleAssign();
-                      }}
-                      className="app-btn-primary"
-                    >
-                      Asignar
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-sm font-medium mb-2">Reasignar membresia activa</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <select
-                      value={reassignMembershipId}
-                      onChange={(event) => setReassignMembershipId(event.target.value)}
-                      className="app-control min-w-[240px]"
-                    >
-                      <option value="">Selecciona membresia</option>
-                      {activeMemberships.map((membership) => (
-                        <option key={membership.id} value={membership.id}>
-                          {membership.employeeName} ({membership.employeeEmail})
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={reassignEmployeeId}
-                      onChange={(event) => setReassignEmployeeId(event.target.value)}
-                      className="app-control min-w-[240px]"
-                    >
-                      <option value="">Empleado destino</option>
-                      {assignableEmployees.map((employee) => (
-                        <option key={employee.id} value={employee.id}>
-                          {employee.name} ({employee.email})
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      disabled={isSubmitting}
-                      onClick={() => {
-                        void handleReassign();
-                      }}
-                      className="app-btn-secondary disabled:opacity-70"
-                    >
-                      Reasignar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {visibleMemberships.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">No hay membresias para este filtro.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="app-table">
-                <thead className="app-table-head">
-                  <tr>
-                    <th className="app-th">Empleado</th>
-                    <th className="app-th">Area actual</th>
-                    <th className="app-th">Estado</th>
-                    <th className="app-th">Asignado</th>
-                    <th className="app-th">Desasignado</th>
-                    {isAdmin && <th className="app-th">Acciones</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {visibleMemberships.map((membership) => (
-                    <tr key={membership.id} className="app-row">
-                      <td className="app-td">
-                        <p className="font-medium">{membership.employeeName}</p>
-                        <p className="text-muted-foreground">{membership.employeeEmail}</p>
-                      </td>
-                      <td className="app-td">{membership.currentAreaName ?? "Sin area activa"}</td>
-                      <td className="app-td">
-                        <span className={membership.isActive ? "text-success" : "text-warning"}>
-                          {membership.isActive ? "Activa" : "Finalizada"}
-                        </span>
-                      </td>
-                      <td className="app-td">{new Date(membership.assignedAt).toLocaleString()}</td>
-                      <td className="app-td">
-                        {membership.unassignedAt
-                          ? new Date(membership.unassignedAt).toLocaleString()
-                          : "-"}
-                      </td>
-                      {isAdmin && (
-                        <td className="app-td">
-                          {membership.isActive ? (
-                            <button
-                              type="button"
-                              disabled={isSubmitting}
-                              onClick={() => setPendingUnassignMembership(membership)}
-                              className="app-action-link-danger disabled:opacity-70"
-                            >
-                              Desasignar
-                            </button>
-                          ) : (
-                            <span className="text-muted-foreground">Sin acciones</span>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
         <section className="app-panel overflow-hidden">
           <div className="app-panel-header">
             <h3 className="text-lg font-semibold text-foreground">Tareas del proyecto</h3>
@@ -1298,6 +1161,164 @@ export function ProjectBoard() {
         </section>
 
       </div>
+
+      <Dialog open={isProjectMembersModalOpen} onOpenChange={setIsProjectMembersModalOpen}>
+        <DialogContent className="sm:max-w-6xl">
+          <DialogHeader>
+            <DialogTitle>Miembros del proyecto</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm text-muted-foreground">
+                Gestiona miembros y reasignaciones sin ocupar espacio principal del tablero.
+              </p>
+              <select
+                value={membershipStatusFilter}
+                onChange={(event) => setMembershipStatusFilter(event.target.value as MembershipStatusFilter)}
+                className="app-control h-9 min-w-44"
+              >
+                <option value="all">Todos</option>
+                <option value="active">Activos</option>
+                <option value="inactive">Historicos</option>
+              </select>
+            </div>
+
+            {isAdmin && (
+              <div className="rounded-xl border border-border/70 bg-secondary/20 p-4">
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium mb-2">Asignar empleado</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={assignEmployeeId}
+                        onChange={(event) => setAssignEmployeeId(event.target.value)}
+                        className="app-control min-w-[260px]"
+                      >
+                        <option value="">Selecciona empleado</option>
+                        {assignableEmployees.map((employee) => (
+                          <option key={employee.id} value={employee.id}>
+                            {employee.name} ({employee.email})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => {
+                          void handleAssign();
+                        }}
+                        className="app-btn-primary"
+                      >
+                        Asignar
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium mb-2">Reasignar membresia activa</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={reassignMembershipId}
+                        onChange={(event) => setReassignMembershipId(event.target.value)}
+                        className="app-control min-w-[240px]"
+                      >
+                        <option value="">Selecciona membresia</option>
+                        {activeMemberships.map((membership) => (
+                          <option key={membership.id} value={membership.id}>
+                            {membership.employeeName} ({membership.employeeEmail})
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={reassignEmployeeId}
+                        onChange={(event) => setReassignEmployeeId(event.target.value)}
+                        className="app-control min-w-[240px]"
+                      >
+                        <option value="">Empleado destino</option>
+                        {assignableEmployees.map((employee) => (
+                          <option key={employee.id} value={employee.id}>
+                            {employee.name} ({employee.email})
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={isSubmitting}
+                        onClick={() => {
+                          void handleReassign();
+                        }}
+                        className="app-btn-secondary disabled:opacity-70"
+                      >
+                        Reasignar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {visibleMemberships.length === 0 ? (
+              <div className="p-4 text-sm text-muted-foreground rounded-xl border border-border/70">
+                No hay membresias para este filtro.
+              </div>
+            ) : (
+              <div className="max-h-[52vh] overflow-auto rounded-xl border border-border/70">
+                <table className="app-table">
+                  <thead className="app-table-head">
+                    <tr>
+                      <th className="app-th">Empleado</th>
+                      <th className="app-th">Area actual</th>
+                      <th className="app-th">Estado</th>
+                      <th className="app-th">Asignado</th>
+                      <th className="app-th">Desasignado</th>
+                      {isAdmin && <th className="app-th">Acciones</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleMemberships.map((membership) => (
+                      <tr key={membership.id} className="app-row">
+                        <td className="app-td">
+                          <p className="font-medium">{membership.employeeName}</p>
+                          <p className="text-muted-foreground">{membership.employeeEmail}</p>
+                        </td>
+                        <td className="app-td">{membership.currentAreaName ?? "Sin area activa"}</td>
+                        <td className="app-td">
+                          <span className={membership.isActive ? "text-success" : "text-warning"}>
+                            {membership.isActive ? "Activa" : "Finalizada"}
+                          </span>
+                        </td>
+                        <td className="app-td">{new Date(membership.assignedAt).toLocaleString()}</td>
+                        <td className="app-td">
+                          {membership.unassignedAt
+                            ? new Date(membership.unassignedAt).toLocaleString()
+                            : "-"}
+                        </td>
+                        {isAdmin && (
+                          <td className="app-td">
+                            {membership.isActive ? (
+                              <button
+                                type="button"
+                                disabled={isSubmitting}
+                                onClick={() => setPendingUnassignMembership(membership)}
+                                className="app-action-link-danger disabled:opacity-70"
+                              >
+                                Desasignar
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground">Sin acciones</span>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={isTaskModalOpen}

@@ -514,10 +514,6 @@ export function Projects() {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
-                            <DropdownMenuItem onClick={() => openProjectDetail(project)}>
-                              <Eye className="size-4" />
-                              Ver detalle
-                            </DropdownMenuItem>
                             {isAdmin && (
                               <>
                                 <DropdownMenuItem onClick={() => startEdit(project)}>
