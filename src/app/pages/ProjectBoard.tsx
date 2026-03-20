@@ -929,12 +929,6 @@ export function ProjectBoard() {
             <>
               {taskViewMode === "kanban" && (
                 <div className="app-band p-5 border-b border-border">
-                  <div className="flex items-center justify-between gap-3 mb-3">
-                    <h4 className="font-medium text-foreground">Tablero Kanban</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Flujo permitido: Asignada → En proceso → Terminada
-                    </p>
-                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {KANBAN_COLUMNS.map((column) => (
                       <div
