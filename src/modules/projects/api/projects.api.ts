@@ -6,7 +6,7 @@ export type MembershipStatusFilter = "all" | "active" | "inactive";
 
 export interface ProjectSummary {
   id: number;
-  areaId: number;
+  areaId: number | null;
   areaName: string;
   projectStatusId: number;
   status: string;
@@ -72,7 +72,7 @@ export interface ReassignProjectMembershipResponse {
 }
 
 export interface CreateProjectPayload {
-  areaId: number;
+  areaId?: number | null;
   name: string;
   description?: string | null;
   startDate?: string | null;
@@ -80,7 +80,7 @@ export interface CreateProjectPayload {
 }
 
 export interface UpdateProjectPayload {
-  areaId?: number;
+  areaId?: number | null;
   name?: string;
   description?: string | null;
   startDate?: string | null;
@@ -127,7 +127,7 @@ export const getProjectById = (projectId: number) =>
 
 export const createProject = (payload: CreateProjectPayload) =>
   api.post<ProjectResponse>(`${API_PREFIX}/projects`, {
-    areaId: payload.areaId,
+    areaId: payload.areaId ?? null,
     name: payload.name,
     description: payload.description ?? null,
     startDate: withNullableDate(payload.startDate),

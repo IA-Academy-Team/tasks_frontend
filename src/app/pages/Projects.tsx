@@ -281,7 +281,7 @@ export function Projects() {
 
   const startEdit = (project: ProjectSummary) => {
     setEditingProjectId(project.id);
-    setAreaId(String(project.areaId));
+    setAreaId(project.areaId ? String(project.areaId) : "");
     setName(project.name);
     setDescription(project.description ?? "");
     setStartDate(project.startDate ?? "");
@@ -298,15 +298,15 @@ export function Projects() {
     event.preventDefault();
 
     const trimmedName = name.trim();
-    const numericAreaId = Number(areaId);
+    const numericAreaId = areaId.trim() ? Number(areaId) : null;
 
     if (!trimmedName) {
       toast.error("El nombre del proyecto es obligatorio.");
       return;
     }
 
-    if (!Number.isInteger(numericAreaId) || numericAreaId <= 0) {
-      toast.error("Debes seleccionar un area valida.");
+    if (numericAreaId !== null && (!Number.isInteger(numericAreaId) || numericAreaId <= 0)) {
+      toast.error("El area seleccionada no es valida.");
       return;
     }
 
@@ -513,35 +513,62 @@ export function Projects() {
                               <MoreVertical className="size-4" />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-44"
+                            onClick={(event) => event.stopPropagation()}
+                          >
                             {isAdmin && (
                               <>
-                                <DropdownMenuItem onClick={() => startEdit(project)}>
+                                <DropdownMenuItem
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    startEdit(project);
+                                  }}
+                                >
                                   <Pencil className="size-4" />
                                   Editar
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {normalizedStatus === "active" && (
                                   <>
-                                    <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
+                                    <DropdownMenuItem
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setPendingStatusUpdate({ project, status: "closed" });
+                                      }}
+                                    >
                                       <Archive className="size-4" />
                                       Cerrar
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
+                                    <DropdownMenuItem
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setPendingStatusUpdate({ project, status: "cancelled" });
+                                      }}
+                                    >
                                       <CircleSlash2 className="size-4" />
                                       Desactivar
                                     </DropdownMenuItem>
                                   </>
                                 )}
                                 {normalizedStatus !== "active" && (
-                                  <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
+                                  <DropdownMenuItem
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setPendingStatusUpdate({ project, status: "active" });
+                                    }}
+                                  >
                                     <CheckCircle2 className="size-4" />
                                     Activar
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
-                                  onClick={() => setPendingDeleteProject(project)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setPendingDeleteProject(project);
+                                  }}
                                   className="text-destructive focus:text-destructive"
                                 >
                                   <Trash2 className="size-4" />
@@ -652,7 +679,7 @@ export function Projects() {
                 onChange={(event) => setAreaId(event.target.value)}
                 className="app-control"
               >
-                <option value="">Selecciona un area</option>
+                <option value="">Sin area (opcional)</option>
                 {areas.filter((area) => area.isActive).map((area) => (
                   <option key={area.id} value={area.id}>
                     {area.name}

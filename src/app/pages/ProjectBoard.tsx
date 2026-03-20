@@ -174,7 +174,7 @@ export function ProjectBoard() {
     setTaskPlannedStartDate("");
     setTaskDueDate("");
     setTaskEstimatedHours("");
-    setTaskAreaId(project ? String(project.areaId) : "");
+    setTaskAreaId(project?.areaId ? String(project.areaId) : "");
     setTaskAssigneeEmployeeId("");
     setTaskRecurrenceMode("none");
     setTaskRecurrenceEvery("1");
@@ -295,7 +295,7 @@ export function ProjectBoard() {
   const taskAreaOptions = useMemo(() => {
     const options = new Map<number, string>();
 
-    if (project) {
+    if (project?.areaId) {
       options.set(project.areaId, project.areaName);
     }
 
@@ -558,7 +558,7 @@ export function ProjectBoard() {
     setTaskAreaId(
       currentMembership?.currentAreaId
         ? String(currentMembership.currentAreaId)
-        : project
+        : project?.areaId
           ? String(project.areaId)
           : "",
     );
@@ -570,7 +570,7 @@ export function ProjectBoard() {
 
   const openCreateTaskModal = () => {
     resetTaskForm();
-    if (project) {
+    if (project?.areaId) {
       setTaskAreaId(String(project.areaId));
     }
     setError("");
