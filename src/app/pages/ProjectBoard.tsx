@@ -326,14 +326,16 @@ export function ProjectBoard() {
 
   const taskAssigneeEmployeeOptions = useMemo(() => {
     const selectedAreaId = Number(taskAreaId);
+    const activeEmployees = employees.filter(
+      (employee) => employee.role === "employee" && employee.isActive,
+    );
+
     if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
-      return [];
+      return activeEmployees;
     }
 
-    return employees.filter((employee) => (
-      employee.role === "employee"
-      && employee.isActive
-      && (employee.currentAreaId === selectedAreaId || employee.areaIds.includes(selectedAreaId))
+    return activeEmployees.filter((employee) => (
+      employee.currentAreaId === selectedAreaId || employee.areaIds.includes(selectedAreaId)
     ));
   }, [employees, taskAreaId]);
 
@@ -588,7 +590,6 @@ export function ProjectBoard() {
       return;
     }
 
-    const selectedAreaId = Number(taskAreaId);
     const estimatedHours = taskEstimatedHours.trim()
       ? Number(taskEstimatedHours)
       : null;
@@ -600,11 +601,6 @@ export function ProjectBoard() {
       : 1;
     const hasRecurrence = !editingTaskId && taskRecurrenceMode !== "none";
     const estimatedMinutes = estimatedHours === null ? null : Math.round(estimatedHours * 60);
-
-    if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
-      toast.error("Selecciona un grupo/area.");
-      return;
-    }
 
     if (estimatedHours !== null && (!Number.isFinite(estimatedHours) || estimatedHours <= 0)) {
       toast.error("La estimacion de horas debe ser positiva.");
