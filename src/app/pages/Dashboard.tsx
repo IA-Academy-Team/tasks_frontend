@@ -223,7 +223,6 @@ const complianceTrendChartConfig = {
 } satisfies ChartConfig;
 
 const ALERTS_PAGE_SIZE = 8;
-const COMPLIANCE_TARGET_PERCENTAGE = 95;
 const COMPLIANCE_AXIS_TICKS = [0, 20, 40, 60, 80, 100];
 
 type SearchableOption = {
@@ -608,7 +607,6 @@ export function Dashboard() {
         key: dateKey,
         label: `${weekdayLabel} ${String(day.getDate()).padStart(2, "0")}`,
         compliance,
-        target: COMPLIANCE_TARGET_PERCENTAGE,
         total: bucket.total,
       };
     });
@@ -1144,11 +1142,10 @@ export function Dashboard() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Tendencia de cumplimiento</h2>
-                      <p className="text-sm text-muted-foreground">Alineación operativa de los últimos 7 días (sin domingo).</p>
+                      <p className="text-sm text-muted-foreground mb-2">Alineación operativa de los últimos 7 días</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-success">{latestComplianceValue}%</p>
-                      <p className="text-[11px] text-muted-foreground">Meta: {COMPLIANCE_TARGET_PERCENTAGE}%</p>
                     </div>
                   </div>
                   <div className="mt-2 h-[calc(100%-3.25rem)] min-h-[150px]">

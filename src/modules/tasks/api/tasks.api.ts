@@ -16,6 +16,8 @@ export interface TaskSummary {
   plannedStartDate: string;
   dueDate: string;
   estimatedMinutes: number | null;
+  reportedActualMinutes: number | null;
+  completionEvidence: string | null;
   actualMinutes: number;
   deviationMinutes: number | null;
   isEstimateDelayed: boolean | null;
@@ -75,6 +77,8 @@ export interface TaskStatusTransition {
 
 export interface TransitionTaskStatusPayload {
   toStatus: TaskWorkflowStatus;
+  actualMinutes?: number | null;
+  completionEvidence?: string | null;
   notes?: string | null;
 }
 
@@ -259,6 +263,8 @@ export const transitionTaskStatus = (
   payload: TransitionTaskStatusPayload,
 ) => api.patch<TransitionTaskStatusResponse>(`${API_PREFIX}/tasks/${taskId}/status`, {
   toStatus: payload.toStatus,
+  actualMinutes: withNullableInt(payload.actualMinutes),
+  completionEvidence: withNullableString(payload.completionEvidence),
   notes: payload.notes ?? null,
 }, {
   toast: {

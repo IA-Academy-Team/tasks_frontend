@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
 import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
+import { TaskCompletionDialog } from "../components/tasks/TaskCompletionDialog";
 import {
   Dialog,
   DialogContent,
@@ -153,6 +154,9 @@ export function ProjectBoard() {
   const [taskRecurrenceEvery, setTaskRecurrenceEvery] = useState("1");
   const [taskRecurrenceUntilDate, setTaskRecurrenceUntilDate] = useState("");
   const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
+  const [isCompletingTask, setIsCompletingTask] = useState(false);
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [pendingCompletionTask, setPendingCompletionTask] = useState<TaskSummary | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
@@ -735,7 +739,11 @@ export function ProjectBoard() {
     }
   };
 
-  const handleTaskDrop = async (taskId: number, toStatus: TaskWorkflowStatus) => {
+  const executeTaskTransition = async (
+    taskId: number,
+    toStatus: TaskWorkflowStatus,
+    completionPayload?: { actualMinutes: number; completionEvidence: string | null },
+  ) => {
     const taskToMove = tasks.find((task) => task.id === taskId);
     if (!taskToMove) {
       return;
@@ -770,7 +778,12 @@ export function ProjectBoard() {
     });
 
     try {
-      const response = await transitionTaskStatus(taskId, { toStatus });
+      const response = await transitionTaskStatus(taskId, {
+        toStatus,
+        notes: toStatus === "done" ? "Finalización confirmada desde modal de cierre." : null,
+        actualMinutes: toStatus === "done" ? (completionPayload?.actualMinutes ?? null) : undefined,
+        completionEvidence: toStatus === "done" ? (completionPayload?.completionEvidence ?? null) : undefined,
+      });
       const updatedTask = response?.data?.task;
 
       if (!updatedTask) {
@@ -791,7 +804,15 @@ export function ProjectBoard() {
       if (selectedTaskId === taskId) {
         void loadTaskHistory(taskId);
       }
-      setSuccess(`Tarea movida a ${WORKFLOW_LABELS[toStatus]}.`);
+      setSuccess(
+        toStatus === "done"
+          ? "Tarea finalizada con tiempo real confirmado."
+          : `Tarea movida a ${WORKFLOW_LABELS[toStatus]}.`,
+      );
+      if (toStatus === "done") {
+        setIsCompletionModalOpen(false);
+        setPendingCompletionTask(null);
+      }
     } catch (incomingError) {
       setTasks(previousTasks);
       if (incomingError instanceof ApiError) {
@@ -801,7 +822,32 @@ export function ProjectBoard() {
       }
     } finally {
       setMovingTaskId(null);
+      setIsCompletingTask(false);
     }
+  };
+
+  const handleTaskDrop = async (taskId: number, toStatus: TaskWorkflowStatus) => {
+    const taskToMove = tasks.find((task) => task.id === taskId);
+    if (!taskToMove) {
+      return;
+    }
+
+    if (toStatus === "done") {
+      setPendingCompletionTask(taskToMove);
+      setIsCompletionModalOpen(true);
+      return;
+    }
+
+    await executeTaskTransition(taskId, toStatus);
+  };
+
+  const handleConfirmTaskCompletion = async (payload: {
+    actualMinutes: number;
+    completionEvidence: string | null;
+  }) => {
+    if (!pendingCompletionTask) return;
+    setIsCompletingTask(true);
+    await executeTaskTransition(pendingCompletionTask.id, "done", payload);
   };
 
   const handleColumnDrop = (event: DragEvent<HTMLDivElement>, toStatus: TaskWorkflowStatus) => {
@@ -974,6 +1020,11 @@ export function ProjectBoard() {
                                 <p className="text-xs text-muted-foreground mt-1">
                                   Real: {formatMinutes(task.actualMinutes)}
                                 </p>
+                                {task.completionEvidence ? (
+                                  <p className="text-xs text-primary/85 mt-1 line-clamp-1">
+                                    Evidencia: {task.completionEvidence}
+                                  </p>
+                                ) : null}
                                 <p className={`text-xs mt-1 ${getComplianceBadge(task).className}`}>
                                   {getComplianceBadge(task).label}
                                 </p>
@@ -1015,6 +1066,11 @@ export function ProjectBoard() {
                           <td className="app-td">
                             <p className="font-medium">{task.title}</p>
                             <p className="text-muted-foreground">{task.description ?? "Sin descripcion"}</p>
+                            {task.completionEvidence ? (
+                              <p className="mt-1 text-xs text-primary/85 line-clamp-1">
+                                Evidencia: {task.completionEvidence}
+                              </p>
+                            ) : null}
                           </td>
                           <td className="app-td">{task.status}</td>
                           <td className="app-td">{task.priority}</td>
@@ -1556,6 +1612,20 @@ export function ProjectBoard() {
           setPendingDeleteTask(null);
           void handleDeleteTask(taskToDelete);
         }}
+      />
+
+      <TaskCompletionDialog
+        open={isCompletionModalOpen}
+        onOpenChange={(open) => {
+          setIsCompletionModalOpen(open);
+          if (!open && !isCompletingTask) {
+            setPendingCompletionTask(null);
+          }
+        }}
+        taskTitle={pendingCompletionTask?.title ?? "Tarea"}
+        initialActualMinutes={pendingCompletionTask?.reportedActualMinutes ?? pendingCompletionTask?.actualMinutes ?? pendingCompletionTask?.estimatedMinutes ?? null}
+        isSubmitting={isCompletingTask}
+        onConfirm={handleConfirmTaskCompletion}
       />
     </div>
   );

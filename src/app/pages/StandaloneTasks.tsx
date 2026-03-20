@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
 import { PageHero } from "../components/PageHero";
+import { TaskCompletionDialog } from "../components/tasks/TaskCompletionDialog";
 import {
   Dialog,
   DialogContent,
@@ -139,6 +140,9 @@ export function StandaloneTasks() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDetailSaving, setIsDetailSaving] = useState(false);
+  const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
+  const [isCompletingTask, setIsCompletingTask] = useState(false);
+  const [pendingCompletionTask, setPendingCompletionTask] = useState<TaskSummary | null>(null);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -222,6 +226,8 @@ export function StandaloneTasks() {
 
   const resetTaskDetail = () => {
     setSelectedTask(null);
+    setPendingCompletionTask(null);
+    setIsCompletionModalOpen(false);
     setDetailTitle("");
     setDetailDescription("");
     setDetailStartDate("");
@@ -229,6 +235,34 @@ export function StandaloneTasks() {
     setDetailPriorityId("2");
     setDetailEstimatedHours("");
     setDetailStatus("assigned");
+  };
+
+  const handleConfirmTaskCompletion = async (payload: {
+    actualMinutes: number;
+    completionEvidence: string | null;
+  }) => {
+    if (!pendingCompletionTask) return;
+
+    setIsCompletingTask(true);
+    try {
+      await transitionTaskStatus(pendingCompletionTask.id, {
+        toStatus: "done",
+        actualMinutes: payload.actualMinutes,
+        completionEvidence: payload.completionEvidence,
+        notes: "Finalización confirmada desde modal de cierre.",
+      });
+
+      await loadTasks();
+      setIsCompletionModalOpen(false);
+      setIsDetailModalOpen(false);
+      resetTaskDetail();
+    } catch (incomingError) {
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible finalizar la tarea.");
+      }
+    } finally {
+      setIsCompletingTask(false);
+    }
   };
 
   const handleCreateTask = async (event: FormEvent) => {
@@ -367,6 +401,12 @@ export function StandaloneTasks() {
       }
 
       if (statusChanged) {
+        if (detailStatus === "done") {
+          setPendingCompletionTask(selectedTask);
+          setIsCompletionModalOpen(true);
+          return;
+        }
+
         await transitionTaskStatus(selectedTask.id, {
           toStatus: detailStatus,
           notes: "Actualización de estado desde el modal de detalle.",
@@ -546,6 +586,11 @@ export function StandaloneTasks() {
                       {task.description ? (
                         <p className="text-xs text-muted-foreground line-clamp-1">{task.description}</p>
                       ) : null}
+                      {task.completionEvidence ? (
+                        <p className="mt-1 text-xs text-primary/85 line-clamp-1">
+                          Evidencia: {task.completionEvidence}
+                        </p>
+                      ) : null}
                     </td>
                     {isAdmin && (
                       <td className="px-4 py-3 text-sm text-foreground/90">
@@ -603,7 +648,7 @@ export function StandaloneTasks() {
                   <UserRound className="size-3.5" />
                   {sortedTasks.length} tareas listadas
                 </span>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 mr-8">
                   <button
                     type="button"
                     onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))}
@@ -880,6 +925,15 @@ export function StandaloneTasks() {
                 />
               </div>
 
+              {selectedTask.completionEvidence ? (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Evidencia registrada</label>
+                  <div className="rounded-xl border border-border/70 bg-secondary/25 px-3 py-2 text-sm text-foreground/90 whitespace-pre-wrap">
+                    {selectedTask.completionEvidence}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="md:col-span-2 flex items-center justify-end gap-3">
                 <button
                   type="button"
@@ -904,6 +958,20 @@ export function StandaloneTasks() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      <TaskCompletionDialog
+        open={isCompletionModalOpen}
+        onOpenChange={(open) => {
+          setIsCompletionModalOpen(open);
+          if (!open && !isCompletingTask) {
+            setPendingCompletionTask(null);
+          }
+        }}
+        taskTitle={pendingCompletionTask?.title ?? "Tarea"}
+        initialActualMinutes={pendingCompletionTask?.reportedActualMinutes ?? pendingCompletionTask?.actualMinutes ?? pendingCompletionTask?.estimatedMinutes ?? null}
+        isSubmitting={isCompletingTask}
+        onConfirm={handleConfirmTaskCompletion}
+      />
     </div>
   );
 }
