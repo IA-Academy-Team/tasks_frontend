@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useSearchParams } from "react-router";
 import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock3, ListFilter, Plus, Search, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
@@ -69,16 +70,16 @@ const inferDateRangeFromHours = (hours: number) => {
 
 const getStatusBadgeClassName = (status: string) => {
   const normalized = status.trim().toLowerCase();
-  if (normalized === "terminada") return "border-success/25 bg-success/12 text-success";
-  if (normalized === "en proceso") return "border-primary/25 bg-primary/12 text-primary";
-  return "border-warning/25 bg-warning/12 text-warning";
+  if (normalized === "terminada") return "border-success/45 bg-success/14 text-success";
+  if (normalized === "en proceso") return "border-primary/45 bg-primary/14 text-primary";
+  return "border-warning/45 bg-warning/14 text-warning";
 };
 
 const getPriorityBadgeClassName = (priority: string) => {
   const normalized = priority.trim().toLowerCase();
-  if (normalized === "alta") return "border-destructive/25 bg-destructive/10 text-destructive";
-  if (normalized === "baja") return "border-muted-foreground/20 bg-muted/40 text-muted-foreground";
-  return "border-warning/25 bg-warning/10 text-warning";
+  if (normalized === "alta") return "border-destructive/45 bg-destructive/12 text-destructive";
+  if (normalized === "baja") return "border-border/80 bg-secondary/60 text-muted-foreground";
+  return "border-warning/45 bg-warning/14 text-warning";
 };
 
 const getInitials = (value: string | null) => {
@@ -109,6 +110,7 @@ const toStatusLabel = (status: TaskWorkflowStatus): TaskStatusLabel => {
 };
 
 export function StandaloneTasks() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isEmployee = user?.role === "employee";
@@ -212,7 +214,7 @@ export function StandaloneTasks() {
     setAssigneeEmployeeId("");
   };
 
-  const openTaskDetail = (task: TaskSummary) => {
+  const openTaskDetail = useCallback((task: TaskSummary) => {
     setSelectedTask(task);
     setDetailTitle(task.title);
     setDetailDescription(task.description ?? "");
@@ -222,7 +224,7 @@ export function StandaloneTasks() {
     setDetailEstimatedHours(task.estimatedMinutes ? String(task.estimatedMinutes / 60) : "");
     setDetailStatus(toWorkflowStatus(task.status));
     setIsDetailModalOpen(true);
-  };
+  }, []);
 
   const resetTaskDetail = () => {
     setSelectedTask(null);
@@ -463,6 +465,27 @@ export function StandaloneTasks() {
     }
   }, [currentPage, totalPages]);
 
+  useEffect(() => {
+    const rawTaskId = searchParams.get("taskId");
+    if (!rawTaskId || isLoading) return;
+
+    const taskIdFromQuery = Number(rawTaskId);
+    if (!Number.isInteger(taskIdFromQuery) || taskIdFromQuery <= 0) {
+      return;
+    }
+
+    const taskToOpen = tasks.find((task) => task.id === taskIdFromQuery);
+    if (!taskToOpen) {
+      return;
+    }
+
+    openTaskDetail(taskToOpen);
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("taskId");
+    setSearchParams(nextParams, { replace: true });
+  }, [isLoading, openTaskDetail, searchParams, setSearchParams, tasks]);
+
   return (
     <div className="app-shell">
       <PageHero
@@ -483,7 +506,7 @@ export function StandaloneTasks() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-secondary/25 px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/65"
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/80 bg-secondary/45 px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/75"
                 >
                   <ListFilter className="size-4 text-muted-foreground" />
                   Estado: {filterOptions.find((option) => option.value === statusFilter)?.label ?? "Todas"}
@@ -505,7 +528,7 @@ export function StandaloneTasks() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/70 bg-secondary/25 px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/65"
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/80 bg-secondary/45 px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/75"
                 >
                   <ListFilter className="size-4 text-muted-foreground" />
                   Prioridad: {priorityFilterOptions.find((option) => option.value === priorityFilter)?.label ?? "Todas"}
@@ -530,7 +553,7 @@ export function StandaloneTasks() {
                   type="search"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="h-9 w-[220px] rounded-xl border border-border/70 bg-card pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/55 focus:ring-2 focus:ring-primary/15"
+                  className="h-9 w-[220px] rounded-xl border border-border/80 bg-card pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/55 focus:ring-2 focus:ring-primary/25"
                   placeholder="Buscar tarea..."
                 />
               </label>
@@ -554,14 +577,14 @@ export function StandaloneTasks() {
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Cargando tareas...</div>
         ) : sortedTasks.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border/80 bg-card/70 px-4 py-8 text-sm text-muted-foreground">
+          <div className="rounded-2xl border border-dashed border-border/85 bg-card/90 px-4 py-8 text-sm text-muted-foreground">
             {isAdmin ? "No hay tareas para este filtro." : "No hay tareas sueltas para este filtro."}
           </div>
         ) : (
           <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[980px] text-left">
-              <thead className="border-b border-border/80 bg-secondary/45">
+              <thead className="border-b border-border/85 bg-secondary/72">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Tarea</th>
                   {isAdmin && <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Proyecto</th>}
@@ -578,7 +601,7 @@ export function StandaloneTasks() {
                 {paginatedTasks.map((task) => (
                   <tr
                     key={task.id}
-                    className="cursor-pointer transition-colors hover:bg-secondary/30"
+                    className="cursor-pointer transition-colors hover:bg-secondary/55"
                     onClick={() => openTaskDetail(task)}
                   >
                     <td className="px-4 py-3 align-top">
@@ -587,13 +610,13 @@ export function StandaloneTasks() {
                         <p className="text-xs text-muted-foreground line-clamp-1">{task.description}</p>
                       ) : null}
                       {task.completionEvidence ? (
-                        <p className="mt-1 text-xs text-primary/85 line-clamp-1">
+                        <p className="mt-1 text-xs text-primary line-clamp-1">
                           Evidencia: {task.completionEvidence}
                         </p>
                       ) : null}
                     </td>
                     {isAdmin && (
-                      <td className="px-4 py-3 text-sm text-foreground/90">
+                      <td className="px-4 py-3 text-sm text-foreground">
                         <span className={cn(
                           "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
                           task.projectId > 0
@@ -611,7 +634,7 @@ export function StandaloneTasks() {
                           <span className="inline-flex size-6 items-center justify-center rounded-full bg-primary/12 text-[10px] font-semibold text-primary">
                             {getInitials(task.assigneeName)}
                           </span>
-                          <span className="text-sm text-foreground/90">{task.assigneeName ?? "Sin asignar"}</span>
+                          <span className="text-sm text-foreground">{task.assigneeName ?? "Sin asignar"}</span>
                         </div>
                       </td>
                     )}
@@ -633,16 +656,16 @@ export function StandaloneTasks() {
                         {task.priority}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-foreground/90">{formatDate(task.plannedStartDate)}</td>
-                    <td className="px-4 py-3 text-sm text-foreground/90">{formatDate(task.dueDate)}</td>
-                    <td className="px-4 py-3 text-sm text-foreground/90">{formatMinutes(task.estimatedMinutes)}</td>
-                    <td className="px-4 py-3 text-sm text-foreground/90">{formatMinutes(task.actualMinutes)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{formatDate(task.plannedStartDate)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{formatDate(task.dueDate)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{formatMinutes(task.estimatedMinutes)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{formatMinutes(task.actualMinutes)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             </div>
-            <div className="flex flex-wrap items-center gap-3 border-t border-border/80 bg-secondary/30 px-4 py-3 justify-end">
+            <div className="flex flex-wrap items-center gap-3 border-t border-border/85 bg-secondary/55 px-4 py-3 justify-end">
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <UserRound className="size-3.5" />
@@ -653,7 +676,7 @@ export function StandaloneTasks() {
                     type="button"
                     onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))}
                     disabled={currentPage === 1}
-                    className="rounded-lg border border-border/70 bg-card p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                    className="rounded-lg border border-border/85 bg-card p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
                     aria-label="Pagina anterior"
                   >
                     <ChevronLeft className="size-4" />
@@ -665,7 +688,7 @@ export function StandaloneTasks() {
                     type="button"
                     onClick={() => setCurrentPage((previous) => Math.min(totalPages, previous + 1))}
                     disabled={currentPage >= totalPages}
-                    className="rounded-lg border border-border/70 bg-card p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                    className="rounded-lg border border-border/85 bg-card p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
                     aria-label="Pagina siguiente"
                   >
                     <ChevronRight className="size-4" />
@@ -928,7 +951,7 @@ export function StandaloneTasks() {
               {selectedTask.completionEvidence ? (
                 <div className="md:col-span-2">
                   <label className="block text-sm font-semibold text-foreground mb-1.5">Evidencia registrada</label>
-                  <div className="rounded-xl border border-border/70 bg-secondary/25 px-3 py-2 text-sm text-foreground/90 whitespace-pre-wrap">
+                  <div className="rounded-xl border border-border/80 bg-secondary/55 px-3 py-2 text-sm text-foreground whitespace-pre-wrap">
                     {selectedTask.completionEvidence}
                   </div>
                 </div>

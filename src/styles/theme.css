@@ -7,58 +7,58 @@
 :root {
   --font-size: 16px;
 
-  --primary: #0f766e;
-  --primary-hover: #115e59;
+  --primary: #0d6f68;
+  --primary-hover: #0b5f59;
   --primary-foreground: #ffffff;
 
-  --background: #f4f8fd;
+  --background: #f3f6fb;
   --card: #ffffff;
-  --card-foreground: #12263b;
+  --card-foreground: #0f2438;
   --popover: #ffffff;
-  --popover-foreground: #12263b;
+  --popover-foreground: #0f2438;
 
-  --foreground: #12263b;
-  --muted-foreground: #61758a;
+  --foreground: #0f2438;
+  --muted-foreground: #486074;
 
-  --secondary: #eaf1f9;
-  --secondary-foreground: #12263b;
-  --muted: #eef4fb;
-  --accent: #1178ad;
+  --secondary: #e7eef7;
+  --secondary-foreground: #0f2438;
+  --muted: #edf2f8;
+  --accent: #0f6f9f;
   --accent-foreground: #f5f9ff;
 
-  --success: #0f8a49;
+  --success: #117a43;
   --success-foreground: #ffffff;
-  --warning: #b86414;
+  --warning: #9d5314;
   --warning-foreground: #fff7ed;
-  --destructive: #cc4b12;
+  --destructive: #b42318;
   --destructive-foreground: #ffffff;
 
-  --border: rgba(18, 38, 59, 0.12);
+  --border: rgba(15, 36, 56, 0.16);
   --input: transparent;
   --input-background: #ffffff;
   --switch-background: #5d7185;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #0f766e;
-  --chart-1: #1178ad;
-  --chart-2: #0f8a49;
-  --chart-3: #b86414;
-  --chart-4: #0f766e;
-  --chart-5: #61758a;
-  --pie-status-assigned: #0f83c5;
-  --pie-status-in-progress: #0f766e;
+  --ring: #0d6f68;
+  --chart-1: #0f6f9f;
+  --chart-2: #117a43;
+  --chart-3: #9d5314;
+  --chart-4: #0d6f68;
+  --chart-5: #486074;
+  --pie-status-assigned: #1b8bc0;
+  --pie-status-in-progress: #0d6f68;
   --pie-status-done: #16984f;
   --pie-status-overdue: #d92d20;
   --radius: 0.8rem;
 
-  --sidebar: #d9e9fb;
-  --sidebar-foreground: #133857;
-  --sidebar-primary: #1169a8;
+  --sidebar: #d7e6f7;
+  --sidebar-foreground: #12344f;
+  --sidebar-primary: #0f6f9f;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(17, 74, 118, 0.14);
-  --sidebar-accent-foreground: #0f314e;
-  --sidebar-border: rgba(20, 63, 99, 0.2);
-  --sidebar-ring: rgba(17, 105, 168, 0.3);
+  --sidebar-accent: rgba(18, 68, 106, 0.16);
+  --sidebar-accent-foreground: #12344f;
+  --sidebar-border: rgba(18, 68, 106, 0.24);
+  --sidebar-ring: rgba(15, 111, 159, 0.35);
 }
 
 .dark {
@@ -295,11 +295,11 @@
   }
 
   .react-datepicker {
-    border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+    border: 1px solid color-mix(in srgb, var(--border) 96%, transparent);
     border-radius: 1rem;
-    background: color-mix(in srgb, var(--card) 98%, transparent);
+    background: color-mix(in srgb, var(--card) 99%, transparent);
     color: var(--foreground);
-    box-shadow: 0 14px 30px rgba(7, 18, 38, 0.24);
+    box-shadow: 0 16px 30px rgba(15, 36, 56, 0.18);
     overflow: hidden;
     font-family: var(--font-sans), "Aptos", "Segoe UI", sans-serif;
   }
@@ -317,8 +317,8 @@
   }
 
   .react-datepicker__header {
-    background: color-mix(in srgb, var(--secondary) 78%, transparent);
-    border-bottom: 1px solid color-mix(in srgb, var(--border) 84%, transparent);
+    background: color-mix(in srgb, var(--secondary) 92%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
     padding: 0.45rem 0 0.4rem;
   }
 
@@ -338,7 +338,7 @@
 
   .react-datepicker__day-name {
     color: var(--muted-foreground);
-    font-weight: 500;
+    font-weight: 600;
     font-size: 0.82rem;
     width: 1.75rem;
     line-height: 1.75rem;
@@ -369,7 +369,7 @@
   .react-datepicker__month-text:hover,
   .react-datepicker__quarter-text:hover,
   .react-datepicker__year-text:hover {
-    background: color-mix(in srgb, var(--secondary) 86%, transparent);
+    background: color-mix(in srgb, var(--secondary) 98%, transparent);
   }
 
   .react-datepicker__day--keyboard-selected,
@@ -405,7 +405,7 @@
   }
 
   .react-datepicker__day--outside-month {
-    color: color-mix(in srgb, var(--muted-foreground) 56%, transparent);
+    color: color-mix(in srgb, var(--muted-foreground) 72%, transparent);
   }
 
   .react-datepicker__navigation {

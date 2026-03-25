@@ -20,7 +20,7 @@ export function DashboardMetrics({
             <p className="text-3xl font-semibold tracking-tight text-foreground">{activeTasks}</p>
             <p className="mt-1 text-sm text-muted-foreground">Tareas activas</p>
           </div>
-          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-primary/14 text-primary">
             <FolderKanban className="size-5" />
           </span>
         </div>
@@ -32,7 +32,7 @@ export function DashboardMetrics({
             <p className="text-3xl font-semibold tracking-tight text-foreground">{summary.doneTasks}</p>
             <p className="mt-1 text-sm text-muted-foreground">Tareas completadas</p>
           </div>
-          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-success/10 text-success">
+          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-success/14 text-success">
             <CheckCircle2 className="size-5" />
           </span>
         </div>
@@ -44,7 +44,7 @@ export function DashboardMetrics({
             <p className="text-3xl font-semibold tracking-tight text-foreground">{summary.completionRate}%</p>
             <p className="mt-1 text-sm text-muted-foreground">Cumplimiento global</p>
           </div>
-          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-primary/14 text-primary">
             <Layers3 className="size-5" />
           </span>
         </div>
@@ -56,7 +56,7 @@ export function DashboardMetrics({
             <p className="text-3xl font-semibold tracking-tight text-foreground">{riskTasks}</p>
             <p className="mt-1 text-sm text-muted-foreground">Retrasadas / vencidas</p>
           </div>
-          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-destructive/12 text-destructive">
+          <span className="inline-flex size-10 items-center justify-center rounded-xl bg-destructive/14 text-destructive">
             <AlertTriangle className="size-5" />
           </span>
         </div>

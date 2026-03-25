@@ -50,9 +50,9 @@ export function Employees() {
     icon: typeof ListFilter;
     activeClassName: string;
   }> = [
-    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
-    { value: "active", label: "Activos", icon: UserCheck, activeClassName: "border-success/40 bg-success/15 text-success" },
-    { value: "inactive", label: "Inactivos", icon: UserX, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
+    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/45 bg-accent/14 text-accent" },
+    { value: "active", label: "Activos", icon: UserCheck, activeClassName: "border-success/45 bg-success/14 text-success" },
+    { value: "inactive", label: "Inactivos", icon: UserX, activeClassName: "border-warning/45 bg-warning/14 text-warning" },
   ];
 
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
@@ -331,7 +331,7 @@ export function Employees() {
                       "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
                       isSelected
                         ? option.activeClassName
-                        : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                        : "border-border/80 bg-card text-muted-foreground hover:border-border/90 hover:bg-secondary/80 hover:text-foreground",
                     )}
                     aria-pressed={isSelected}
                     title={`Ver empleados ${option.label.toLowerCase()}`}
@@ -401,7 +401,7 @@ export function Employees() {
                           <tr key={employee.id} className="transition-colors hover:bg-secondary/35">
                             <td className="px-4 py-3.5">
                               <div className="flex min-w-0 items-center gap-3">
-                                <Avatar className="size-10 border border-border/60 bg-secondary/40">
+                                <Avatar className="size-10 border border-border/80 bg-secondary/60">
                                   {employee.image ? <AvatarImage src={employee.image} alt={employee.name} /> : null}
                                   <AvatarFallback className="bg-secondary text-xs font-semibold text-foreground">
                                     {getEmployeeInitials(employee.name) || "U"}
@@ -419,13 +419,13 @@ export function Employees() {
                                   {visibleAreaNames.map((areaName) => (
                                     <span
                                       key={`${employee.id}-${areaName}`}
-                                      className="inline-flex items-center rounded-md border border-border/70 bg-secondary/40 px-2 py-1 text-xs font-medium text-foreground/90"
+                                      className="inline-flex items-center rounded-md border border-border/80 bg-secondary/60 px-2 py-1 text-xs font-medium text-foreground"
                                     >
                                       {areaName}
                                     </span>
                                   ))}
                                   {additionalAreas > 0 && (
-                                    <span className="inline-flex items-center rounded-md border border-border/70 bg-card px-2 py-1 text-xs font-medium text-muted-foreground">
+                                    <span className="inline-flex items-center rounded-md border border-border/80 bg-card px-2 py-1 text-xs font-medium text-muted-foreground">
                                       +{additionalAreas}
                                     </span>
                                   )}
@@ -450,7 +450,7 @@ export function Employees() {
                                 <DropdownMenuTrigger asChild>
                                   <button
                                     type="button"
-                                    className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                                    className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
                                     aria-label={`Acciones de ${employee.name}`}
                                   >
                                     <MoreVertical className="size-4" />
@@ -498,7 +498,7 @@ export function Employees() {
                 </table>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 bg-secondary/25 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/85 bg-secondary/55 px-4 py-3">
                 <p className="text-xs text-muted-foreground">
                   Mostrando {visibleStart} a {visibleEnd} de {filteredEmployees.length} empleados
                 </p>

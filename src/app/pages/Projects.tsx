@@ -68,7 +68,7 @@ const getProjectStatusMeta = (status: string) => {
     return {
       label: "Activo",
       textClassName: "text-success",
-      badgeClassName: "border-success/35 bg-success/15 text-success",
+      badgeClassName: "border-success/45 bg-success/14 text-success",
       barClassName: "bg-success",
     };
   }
@@ -77,7 +77,7 @@ const getProjectStatusMeta = (status: string) => {
     return {
       label: "Cerrado",
       textClassName: "text-warning",
-      badgeClassName: "border-warning/35 bg-warning/15 text-warning",
+      badgeClassName: "border-warning/45 bg-warning/14 text-warning",
       barClassName: "bg-warning",
     };
   }
@@ -86,7 +86,7 @@ const getProjectStatusMeta = (status: string) => {
     return {
       label: "Cancelado",
       textClassName: "text-destructive",
-      badgeClassName: "border-destructive/35 bg-destructive/10 text-destructive",
+      badgeClassName: "border-destructive/45 bg-destructive/12 text-destructive",
       barClassName: "bg-destructive/75",
     };
   }
@@ -94,7 +94,7 @@ const getProjectStatusMeta = (status: string) => {
   return {
     label: status || "Sin estado",
     textClassName: "text-muted-foreground",
-    badgeClassName: "border-border/70 bg-secondary/55 text-muted-foreground",
+    badgeClassName: "border-border/85 bg-secondary/65 text-muted-foreground",
     barClassName: "bg-muted-foreground/45",
   };
 };
@@ -144,14 +144,14 @@ const getProjectRisk = (project: ProjectSummary) => {
   if (diffInDays < 0) {
     return {
       label: "Retrasado",
-      className: "border-destructive/35 bg-destructive/10 text-destructive",
+      className: "border-destructive/45 bg-destructive/12 text-destructive",
     };
   }
 
   if (diffInDays <= 7) {
     return {
       label: "Proximo a vencer",
-      className: "border-warning/35 bg-warning/15 text-warning",
+      className: "border-warning/45 bg-warning/14 text-warning",
     };
   }
 
@@ -166,10 +166,10 @@ export function Projects() {
     icon: typeof ListFilter;
     activeClassName: string;
   }> = [
-    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
-    { value: "active", label: "Activos", icon: CheckCircle2, activeClassName: "border-success/40 bg-success/15 text-success" },
-    { value: "closed", label: "Cerrados", icon: Archive, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
-    { value: "cancelled", label: "Cancelados", icon: CircleSlash2, activeClassName: "border-destructive/40 bg-destructive/10 text-destructive" },
+    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/45 bg-accent/14 text-accent" },
+    { value: "active", label: "Activos", icon: CheckCircle2, activeClassName: "border-success/45 bg-success/14 text-success" },
+    { value: "closed", label: "Cerrados", icon: Archive, activeClassName: "border-warning/45 bg-warning/14 text-warning" },
+    { value: "cancelled", label: "Cancelados", icon: CircleSlash2, activeClassName: "border-destructive/45 bg-destructive/12 text-destructive" },
   ];
 
   const navigate = useNavigate();
@@ -448,7 +448,7 @@ export function Projects() {
                         "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
                         isSelected
                           ? option.activeClassName
-                          : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                          : "border-border/80 bg-card text-muted-foreground hover:border-border/90 hover:bg-secondary/80 hover:text-foreground",
                       )}
                       aria-pressed={isSelected}
                       title={`Ver proyectos ${option.label.toLowerCase()}`}
@@ -465,7 +465,7 @@ export function Projects() {
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Cargando proyectos...</div>
           ) : paginatedProjects.length === 0 ? (
-            <div className="rounded-2xl border border-border/70 bg-card/90 px-4 py-10 text-center text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-border/85 bg-card/95 px-4 py-10 text-center text-sm text-muted-foreground">
               {searchTerm.trim().length > 0
                 ? "No se encontraron proyectos para esta busqueda."
                 : "No hay proyectos para este filtro."}
@@ -507,7 +507,7 @@ export function Projects() {
                             <button
                               type="button"
                               onClick={(event) => event.stopPropagation()}
-                              className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                              className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
                               aria-label={`Acciones de ${project.name}`}
                             >
                               <MoreVertical className="size-4" />
@@ -607,7 +607,7 @@ export function Projects() {
                         </div>
                       </div>
 
-                      <div className="mt-4 flex items-center justify-between border-t border-border/70 pt-3 text-xs text-muted-foreground">
+                      <div className="mt-4 flex items-center justify-between border-t border-border/85 pt-3 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
                           <Users className="size-3.5" />
                           {project.activeMemberCount} miembros
@@ -622,7 +622,7 @@ export function Projects() {
                 })}
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/75 bg-secondary/25 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/85 bg-secondary/55 px-4 py-3">
                 <p className="text-xs text-muted-foreground">
                   Mostrando {visibleStart} a {visibleEnd} de {filteredProjects.length} proyectos
                 </p>

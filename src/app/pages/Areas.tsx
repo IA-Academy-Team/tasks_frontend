@@ -59,9 +59,9 @@ export function Areas() {
     icon: typeof ListFilter;
     activeClassName: string;
   }> = [
-    { value: "all", label: "Todas", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
-    { value: "active", label: "Activas", icon: CheckCircle2, activeClassName: "border-success/40 bg-success/15 text-success" },
-    { value: "inactive", label: "Inactivas", icon: CircleSlash2, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
+    { value: "all", label: "Todas", icon: ListFilter, activeClassName: "border-accent/45 bg-accent/14 text-accent" },
+    { value: "active", label: "Activas", icon: CheckCircle2, activeClassName: "border-success/45 bg-success/14 text-success" },
+    { value: "inactive", label: "Inactivas", icon: CircleSlash2, activeClassName: "border-warning/45 bg-warning/14 text-warning" },
   ];
 
   const [areas, setAreas] = useState<AreaSummary[]>([]);
@@ -331,7 +331,7 @@ export function Areas() {
                       "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
                       isSelected
                         ? option.activeClassName
-                        : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                        : "border-border/80 bg-card text-muted-foreground hover:border-border/90 hover:bg-secondary/80 hover:text-foreground",
                     )}
                     aria-pressed={isSelected}
                     title={`Ver areas ${option.label.toLowerCase()}`}
@@ -349,7 +349,7 @@ export function Areas() {
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Cargando areas...</div>
           ) : filteredAreas.length === 0 ? (
-            <div className="rounded-xl border border-border/70 bg-card/70 px-4 py-5 text-sm text-muted-foreground">
+            <div className="rounded-xl border border-border/85 bg-card/90 px-4 py-5 text-sm text-muted-foreground">
               {areas.length === 0
                 ? "No hay areas para este filtro."
                 : "No encontramos areas que coincidan con tu busqueda."}
@@ -359,7 +359,7 @@ export function Areas() {
               {paginatedAreas.map((area) => (
                 <article
                   key={area.id}
-                  className="group rounded-xl border border-border/80 bg-card/90 p-4 shadow-[0_10px_24px_rgba(18,38,59,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(18,38,59,0.1)]"
+                  className="group rounded-xl border border-border/85 bg-card/96 p-4 shadow-[0_10px_24px_rgba(18,38,59,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(18,38,59,0.1)]"
                 >
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -372,7 +372,7 @@ export function Areas() {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                          className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
                           aria-label={`Acciones de ${area.name}`}
                         >
                           <MoreVertical className="size-4" />
@@ -432,7 +432,7 @@ export function Areas() {
                     </div>
                   </div>
 
-                  <div className="mt-3 border-t border-border/70 pt-2.5">
+                  <div className="mt-3 border-t border-border/85 pt-2.5">
                     <span
                       className={cn(
                         "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold",

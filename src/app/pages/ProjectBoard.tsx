@@ -1045,7 +1045,7 @@ export function ProjectBoard() {
                                   Real: {formatMinutes(task.actualMinutes)}
                                 </p>
                                 {task.completionEvidence ? (
-                                  <p className="text-xs text-primary/85 mt-1 line-clamp-1">
+                                  <p className="text-xs text-primary mt-1 line-clamp-1">
                                     Evidencia: {task.completionEvidence}
                                   </p>
                                 ) : null}
@@ -1091,7 +1091,7 @@ export function ProjectBoard() {
                             <p className="font-medium">{task.title}</p>
                             <p className="text-muted-foreground">{task.description ?? "Sin descripcion"}</p>
                             {task.completionEvidence ? (
-                              <p className="mt-1 text-xs text-primary/85 line-clamp-1">
+                              <p className="mt-1 text-xs text-primary line-clamp-1">
                                 Evidencia: {task.completionEvidence}
                               </p>
                             ) : null}
@@ -1134,7 +1134,7 @@ export function ProjectBoard() {
                                 <button
                                   type="button"
                                   onClick={() => setPendingDeleteTask(task)}
-                                  className="inline-flex size-8 items-center justify-center rounded-md border border-destructive/30 bg-destructive/5 text-destructive transition-colors hover:bg-destructive/10"
+                                  className="inline-flex size-8 items-center justify-center rounded-md border border-destructive/45 bg-destructive/12 text-destructive transition-colors hover:bg-destructive/18"
                                   aria-label="Eliminar tarea"
                                   title="Eliminar"
                                 >
@@ -1263,7 +1263,7 @@ export function ProjectBoard() {
             </div>
 
             {isAdmin && (
-              <div className="rounded-xl border border-border/70 bg-secondary/20 p-4">
+              <div className="rounded-xl border border-border/85 bg-secondary/55 p-4">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm font-medium mb-2">Asignar empleado</p>
@@ -1337,11 +1337,11 @@ export function ProjectBoard() {
             )}
 
             {visibleMemberships.length === 0 ? (
-              <div className="p-4 text-sm text-muted-foreground rounded-xl border border-border/70">
+              <div className="p-4 text-sm text-muted-foreground rounded-xl border border-border/85">
                 No hay membresias para este filtro.
               </div>
             ) : (
-              <div className="max-h-[52vh] overflow-auto rounded-xl border border-border/70">
+              <div className="max-h-[52vh] overflow-auto rounded-xl border border-border/85">
                 <table className="app-table">
                   <thead className="app-table-head">
                     <tr>
@@ -1529,7 +1529,7 @@ export function ProjectBoard() {
                   <button
                     type="button"
                     aria-expanded={isTaskAssigneeSelectOpen}
-                    className="app-control inline-flex h-10 w-full items-center justify-between gap-2 bg-card/70"
+                    className="app-control inline-flex h-10 w-full items-center justify-between gap-2 bg-card/95"
                     disabled={taskAssigneeSearchOptions.length === 0}
                   >
                     <span className="inline-flex min-w-0 items-center gap-2">
@@ -1546,7 +1546,7 @@ export function ProjectBoard() {
                   align="start"
                   avoidCollisions={false}
                   sideOffset={6}
-                  className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/80 bg-card p-0"
+                  className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/90 bg-card/98 p-0"
                 >
                   <Command className="bg-card">
                     <CommandInput

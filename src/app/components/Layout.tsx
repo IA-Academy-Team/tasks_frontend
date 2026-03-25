@@ -45,7 +45,7 @@ const getNavButtonClass = (isActive: boolean, isCollapsed = false) =>
   `${baseNavButtonClass} ${
     isActive
       ? "bg-sidebar-accent text-sidebar-foreground ring-1 ring-sidebar-ring/45 shadow-[0_8px_20px_rgba(15,61,98,0.14)] dark:shadow-[0_10px_24px_rgba(2,12,24,0.24)]"
-      : "text-sidebar-foreground/78 hover:text-sidebar-foreground hover:bg-sidebar-accent/72"
+      : "text-sidebar-foreground/86 hover:text-sidebar-foreground hover:bg-sidebar-accent/82"
   } ${isCollapsed ? "justify-center px-3" : ""}`;
 
 export function Layout() {
@@ -151,7 +151,7 @@ export function Layout() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={`${baseNavButtonClass} text-sidebar-foreground/82 hover:text-sidebar-foreground hover:bg-sidebar-accent/72 ${
+          className={`${baseNavButtonClass} text-sidebar-foreground/88 hover:text-sidebar-foreground hover:bg-sidebar-accent/82 ${
             isCollapsed ? "justify-center px-3" : ""
           }`}
           aria-label="Opciones de usuario"
@@ -167,7 +167,7 @@ export function Layout() {
           {!isCollapsed && (
             <span className="flex-1 min-w-0 text-left">
               <span className="block truncate text-[15px] leading-5">{user?.name ?? "Usuario"}</span>
-              <span className="block truncate text-xs leading-5 text-sidebar-foreground/62">
+              <span className="block truncate text-xs leading-5 text-sidebar-foreground/74">
                 {user?.email ?? "Sin correo"}
               </span>
             </span>
@@ -179,7 +179,7 @@ export function Layout() {
         side={isCollapsed ? "right" : "top"}
         align={isCollapsed ? "start" : "end"}
         sideOffset={8}
-        className="z-[1200] w-52 rounded-xl border-border/80 bg-card/95 p-1.5 shadow-2xl backdrop-blur-sm"
+        className="z-[1200] w-52 rounded-xl border-border/90 bg-card/98 p-1.5 shadow-2xl backdrop-blur-sm"
       >
         <DropdownMenuItem
           onSelect={handleOpenProfileModal}
@@ -205,7 +205,7 @@ export function Layout() {
   return (
     <div className="h-screen overflow-y-hidden overflow-x-visible flex bg-background">
       <aside
-        className={`hidden md:flex h-screen relative z-30 shrink-0 overflow-y-hidden overflow-x-visible border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#e9f3ff_0%,#dcecff_52%,#d0e4fb_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground flex-col shadow-[14px_0_28px_rgba(23,47,77,0.12)] dark:shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
+        className={`hidden md:flex h-screen relative z-30 shrink-0 overflow-y-hidden overflow-x-visible border-r border-sidebar-border/85 bg-[linear-gradient(180deg,#e7f0fb_0%,#dce8f6_52%,#cfdeef_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground flex-col shadow-[14px_0_24px_rgba(15,36,56,0.14)] dark:shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
           isSidebarCollapsed ? "w-20" : "w-64"
         }`}
       >
@@ -240,7 +240,7 @@ export function Layout() {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/45" onClick={closeMobileMenu}>
           <aside
-            className="h-full w-72 border-r border-sidebar-border/80 bg-[linear-gradient(180deg,#e9f3ff_0%,#dcecff_52%,#d0e4fb_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground shadow-2xl p-4"
+            className="h-full w-72 border-r border-sidebar-border/85 bg-[linear-gradient(180deg,#e7f0fb_0%,#dce8f6_52%,#cfdeef_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground shadow-2xl p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-sidebar-border/80">
@@ -265,7 +265,7 @@ export function Layout() {
       )}
 
       <main className="flex-1 flex flex-col min-h-0 overflow-y-auto overflow-x-hidden">
-        <header className="md:hidden flex items-center justify-between border-b border-border/70 px-4 py-3 bg-card/95 backdrop-blur-sm">
+        <header className="md:hidden flex items-center justify-between border-b border-border/85 px-4 py-3 bg-card/95 backdrop-blur-sm">
           <button
             type="button"
             className="p-2 rounded-lg border border-border hover:bg-secondary transition-colors"
