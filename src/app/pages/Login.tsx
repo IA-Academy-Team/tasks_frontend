@@ -72,10 +72,6 @@ export function Login() {
     if (incomingError instanceof ApiError) {
       const normalizedMessage = incomingError.message.trim().toLowerCase();
 
-      if (incomingError.code === 'USER_INACTIVE') {
-        return 'Tu cuenta está inactiva. Contacta a un administrador.';
-      }
-
       if (incomingError.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
         return 'Tu correo no tiene permiso para iniciar sesión en este entorno.';
       }

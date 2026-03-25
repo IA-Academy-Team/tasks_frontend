@@ -8,8 +8,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleSlash2,
-  Eye,
   FolderKanban,
   ListChecks,
   ListFilter,
@@ -51,13 +49,12 @@ import {
 } from "../../modules/projects/api/projects.api";
 import { cn } from "../components/ui/utils";
 
-type NormalizedProjectStatus = "active" | "closed" | "cancelled" | "unknown";
+type NormalizedProjectStatus = "active" | "closed" | "unknown";
 
 const getNormalizedProjectStatus = (status: string): NormalizedProjectStatus => {
   const normalized = status.trim().toLowerCase();
   if (normalized === "active" || normalized === "activo") return "active";
   if (normalized === "closed" || normalized === "cerrado") return "closed";
-  if (normalized === "cancelled" || normalized === "cancelado") return "cancelled";
   return "unknown";
 };
 
@@ -75,19 +72,10 @@ const getProjectStatusMeta = (status: string) => {
 
   if (normalized === "closed") {
     return {
-      label: "Cerrado",
+      label: "Desactivado",
       textClassName: "text-warning",
       badgeClassName: "border-warning/45 bg-warning/14 text-warning",
       barClassName: "bg-warning",
-    };
-  }
-
-  if (normalized === "cancelled") {
-    return {
-      label: "Cancelado",
-      textClassName: "text-destructive",
-      badgeClassName: "border-destructive/45 bg-destructive/12 text-destructive",
-      barClassName: "bg-destructive/75",
     };
   }
 
@@ -168,8 +156,7 @@ export function Projects() {
   }> = [
     { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/45 bg-accent/14 text-accent" },
     { value: "active", label: "Activos", icon: CheckCircle2, activeClassName: "border-success/45 bg-success/14 text-success" },
-    { value: "closed", label: "Cerrados", icon: Archive, activeClassName: "border-warning/45 bg-warning/14 text-warning" },
-    { value: "cancelled", label: "Cancelados", icon: CircleSlash2, activeClassName: "border-destructive/45 bg-destructive/12 text-destructive" },
+    { value: "closed", label: "Desactivados", icon: Archive, activeClassName: "border-warning/45 bg-warning/14 text-warning" },
   ];
 
   const navigate = useNavigate();
@@ -287,11 +274,6 @@ export function Projects() {
     setStartDate(project.startDate ?? "");
     setEndDate(project.endDate ?? "");
     setIsProjectModalOpen(true);
-  };
-
-  const openProjectDetail = (project: ProjectSummary) => {
-    setSelectedProjectForDetail(project);
-    setIsProjectDetailModalOpen(true);
   };
 
   const handleSubmit = async (event: FormEvent) => {
@@ -486,7 +468,6 @@ export function Projects() {
                       className={cn(
                         "group cursor-pointer rounded-2xl border border-border/80 bg-card/95 p-4 shadow-[0_12px_32px_rgba(16,36,58,0.11)] transition-all hover:-translate-y-0.5 hover:border-primary/45",
                         normalizedStatus === "closed" && "opacity-95",
-                        normalizedStatus === "cancelled" && "opacity-85",
                       )}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -531,26 +512,15 @@ export function Projects() {
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {normalizedStatus === "active" && (
-                                  <>
-                                    <DropdownMenuItem
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        setPendingStatusUpdate({ project, status: "closed" });
-                                      }}
-                                    >
-                                      <Archive className="size-4" />
-                                      Cerrar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={(event) => {
-                                        event.stopPropagation();
-                                        setPendingStatusUpdate({ project, status: "cancelled" });
-                                      }}
-                                    >
-                                      <CircleSlash2 className="size-4" />
-                                      Desactivar
-                                    </DropdownMenuItem>
-                                  </>
+                                  <DropdownMenuItem
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setPendingStatusUpdate({ project, status: "closed" });
+                                    }}
+                                  >
+                                    <Archive className="size-4" />
+                                    Desactivar
+                                  </DropdownMenuItem>
                                 )}
                                 {normalizedStatus !== "active" && (
                                   <DropdownMenuItem
@@ -792,13 +762,13 @@ export function Projects() {
         title="Eliminar proyecto"
         description={
           pendingDeleteProject
-            ? `Se eliminara "${pendingDeleteProject.name}". Si existe historial asociado, el backend lo archivara automaticamente.`
+            ? `Se eliminara permanentemente "${pendingDeleteProject.name}" junto con sus tareas y membresias del proyecto. Esta accion no se puede deshacer.`
             : ""
         }
         confirmLabel="Eliminar"
         variant="destructive"
         isProcessing={isSubmitting}
-        confirmDelaySeconds={5}
+        confirmDelaySeconds={8}
         onConfirm={() => {
           if (!pendingDeleteProject) {
             return;
@@ -822,9 +792,7 @@ export function Projects() {
             ? `Se cambiara el estado de "${pendingStatusUpdate.project.name}" a "${
               pendingStatusUpdate.status === "active"
                 ? "activo"
-                : pendingStatusUpdate.status === "closed"
-                  ? "cerrado"
-                  : "cancelado"
+                : "desactivado"
             }".`
             : ""
         }

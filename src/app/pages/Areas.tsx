@@ -572,13 +572,12 @@ export function Areas() {
                       <DropdownMenuContent align="start" className="w-[360px] max-h-72 overflow-y-auto">
                         {employees.map((employee) => {
                           const isChecked = selectedEmployeeIds.includes(employee.id);
-                          const isDisabled = !employee.isActive && !isChecked;
 
                           return (
                             <DropdownMenuCheckboxItem
                               key={employee.id}
                               checked={isChecked}
-                              disabled={isDisabled || isSubmitting}
+                              disabled={isSubmitting}
                               onCheckedChange={() => toggleEmployeeSelection(employee.id)}
                             >
                               <div className="min-w-0">

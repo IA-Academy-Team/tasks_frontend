@@ -277,7 +277,7 @@ export function ProjectBoard() {
   }, [selectedTaskId, tasks]);
 
   const assignableEmployees = useMemo(() => {
-    return employees.filter((employee) => employee.role === "employee" && employee.isActive);
+    return employees.filter((employee) => employee.role === "employee");
   }, [employees]);
 
   const activeMemberships = useMemo(
@@ -331,15 +331,15 @@ export function ProjectBoard() {
 
   const taskAssigneeEmployeeOptions = useMemo(() => {
     const selectedAreaId = Number(taskAreaId);
-    const activeEmployees = employees.filter(
-      (employee) => employee.role === "employee" && employee.isActive,
+    const assignableEmployeesList = employees.filter(
+      (employee) => employee.role === "employee",
     );
 
     if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
-      return activeEmployees;
+      return assignableEmployeesList;
     }
 
-    return activeEmployees.filter((employee) => (
+    return assignableEmployeesList.filter((employee) => (
       employee.currentAreaId === selectedAreaId || employee.areaIds.includes(selectedAreaId)
     ));
   }, [employees, taskAreaId]);
