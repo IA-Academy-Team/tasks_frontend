@@ -275,6 +275,21 @@ export function StandaloneTasks() {
       toast.error("El título es obligatorio.");
       return;
     }
+    if (trimmedTitle.length < 3) {
+      toast.error("El título debe tener al menos 3 caracteres.");
+      return;
+    }
+    if (trimmedTitle.length > 160) {
+      toast.error("El título no puede superar 160 caracteres.");
+      return;
+    }
+
+    const trimmedDescription = description.trim();
+    if (trimmedDescription.length > 5000) {
+      toast.error("La descripción no puede superar 5000 caracteres.");
+      return;
+    }
+
     if (isAdmin) {
       const numericAssigneeEmployeeId = Number(assigneeEmployeeId);
       if (!Number.isInteger(numericAssigneeEmployeeId) || numericAssigneeEmployeeId <= 0) {
@@ -322,10 +337,10 @@ export function StandaloneTasks() {
     try {
       const response = await createStandaloneTask({
         title: trimmedTitle,
-        description: description.trim() || null,
+        description: trimmedDescription || null,
         plannedStartDate: resolvedPlannedStartDate,
         dueDate: resolvedDueDate,
-        assigneeEmployeeId: isAdmin ? Number(assigneeEmployeeId) : null,
+        assigneeEmployeeId: isAdmin ? Number(assigneeEmployeeId) : undefined,
         taskPriorityId: Number(priorityId),
         estimatedMinutes,
       });
@@ -338,7 +353,26 @@ export function StandaloneTasks() {
       setIsCreateModalOpen(false);
       await loadTasks();
     } catch (incomingError) {
-      if (!(incomingError instanceof ApiError)) {
+      if (incomingError instanceof ApiError) {
+        const validationDetails = (
+          incomingError.code === "VALIDATION_ERROR"
+          && incomingError.details
+          && typeof incomingError.details === "object"
+          && "fieldErrors" in incomingError.details
+          && incomingError.details.fieldErrors
+          && typeof incomingError.details.fieldErrors === "object"
+        ) ? incomingError.details.fieldErrors as Record<string, unknown> : null;
+
+        if (validationDetails) {
+          const firstFieldErrors = Object.values(validationDetails).find((value) => (
+            Array.isArray(value) && value.length > 0 && typeof value[0] === "string"
+          )) as string[] | undefined;
+          if (firstFieldErrors?.[0]) {
+            toast.error(firstFieldErrors[0]);
+            return;
+          }
+        }
+      } else {
         toast.error("No fue posible crear la tarea suelta.");
       }
     } finally {

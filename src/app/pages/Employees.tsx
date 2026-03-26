@@ -316,9 +316,9 @@ export function Employees() {
               <div className="overflow-x-auto">
                 <table className="min-w-full table-fixed text-sm">
                   <thead className="bg-secondary/55">
-                    <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
-                      <th className="w-[42%]">Empleado</th>
-                      <th className="w-[44%]">Areas</th>
+                    <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
+                      <th className="w-[42%] text-left">Empleado</th>
+                      <th className="w-[44%] text-left">Areas</th>
                       <th className="w-[14%] text-right">Acciones</th>
                     </tr>
                   </thead>
