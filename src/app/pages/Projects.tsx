@@ -216,6 +216,11 @@ export function Projects() {
   }, [areaFilter, statusFilter]);
 
   const loadAreas = async () => {
+    if (!isAdmin) {
+      setAreas([]);
+      return;
+    }
+
     try {
       const response = await listAreas("all");
       setAreas(response?.data ?? []);
@@ -230,7 +235,7 @@ export function Projects() {
 
   useEffect(() => {
     void loadAreas();
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -372,22 +377,24 @@ export function Projects() {
 
             <div className="flex w-full flex-col gap-2 xl:w-auto xl:items-end">
               <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
-                <div className="relative w-full sm:min-w-[220px]">
-                  <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <select
-                    value={areaFilter}
-                    onChange={(event) => setAreaFilter(event.target.value)}
-                    className="app-control h-9 pl-9 pr-8"
-                    title="Filtrar por area"
-                  >
-                    <option value="all">Todas las areas</option>
-                    {areas.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {isAdmin && (
+                  <div className="relative w-full sm:min-w-[220px]">
+                    <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <select
+                      value={areaFilter}
+                      onChange={(event) => setAreaFilter(event.target.value)}
+                      className="app-control h-9 pl-9 pr-8"
+                      title="Filtrar por area"
+                    >
+                      <option value="all">Todas las areas</option>
+                      {areas.map((area) => (
+                        <option key={area.id} value={area.id}>
+                          {area.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="relative w-full sm:min-w-72">
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

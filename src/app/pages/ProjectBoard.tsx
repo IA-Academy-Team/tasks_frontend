@@ -1,6 +1,22 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, ChartPie, Check, ChevronDown, KanbanSquare, LayoutGrid, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarClock,
+  ChartPie,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  FilePlus2,
+  KanbanSquare,
+  LayoutGrid,
+  Pencil,
+  Plus,
+  RefreshCcw,
+  Search,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
@@ -58,6 +74,43 @@ const WORKFLOW_LABELS: Record<TaskWorkflowStatus, string> = {
   done: "Terminada",
 };
 
+const WORKFLOW_TRANSITIONS: Record<TaskWorkflowStatus, TaskWorkflowStatus[]> = {
+  assigned: ["in_progress"],
+  in_progress: ["done"],
+  done: [],
+};
+
+const getTransitionValidationMessage = (
+  fromStatus: TaskWorkflowStatus,
+  toStatus: TaskWorkflowStatus,
+) => {
+  if (fromStatus === "assigned" && toStatus === "done") {
+    return "No puedes marcar una tarea como Terminada directamente desde Asignada. Primero pásala a En proceso.";
+  }
+
+  return `Transición no permitida: ${WORKFLOW_LABELS[fromStatus]} → ${WORKFLOW_LABELS[toStatus]}.`;
+};
+
+const getTaskTransitionApiErrorMessage = (code: string | undefined): string | null => {
+  if (code === "TASK_TRANSITION_NOT_ALLOWED") {
+    return "La transición de estado no está permitida para esta tarea.";
+  }
+
+  if (code === "TASK_STATUS_UNCHANGED") {
+    return "La tarea ya se encuentra en ese estado.";
+  }
+
+  if (code === "TASK_WORK_SESSION_NOT_OPEN") {
+    return "No se pudo finalizar la tarea porque no tenía una sesión activa. Reintenta y, si persiste, actualiza el tablero.";
+  }
+
+  if (code === "TASK_WORK_SESSION_ALREADY_OPEN") {
+    return "La tarea ya tenía una sesión activa y se reintentó iniciar de nuevo. Actualiza el tablero e inténtalo otra vez.";
+  }
+
+  return null;
+};
+
 const STATUS_NAME_TO_KEY: Record<string, TaskWorkflowStatus> = {
   Asignada: "assigned",
   "En proceso": "in_progress",
@@ -75,6 +128,24 @@ const formatMinutes = (minutes: number): string => {
   if (hours === 0) return `${remainingMinutes} min`;
   if (remainingMinutes === 0) return `${hours}h`;
   return `${hours}h ${remainingMinutes}m`;
+};
+
+const formatRelativeTime = (value: string) => {
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) {
+    return "Hace un momento";
+  }
+
+  const diffMs = Date.now() - timestamp;
+  const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
+
+  if (diffMinutes < 60) return `Hace ${diffMinutes} min`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `Hace ${diffHours} h`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `Hace ${diffDays} d`;
 };
 
 const toInputDate = (date: Date) => {
@@ -112,12 +183,6 @@ const statusChartConfig = {
   Asignada: { label: "Asignada", color: "var(--chart-1)" },
   "En proceso": { label: "En proceso", color: "var(--chart-4)" },
   Terminada: { label: "Terminada", color: "var(--chart-2)" },
-} satisfies ChartConfig;
-
-const complianceChartConfig = {
-  "En tiempo": { label: "En tiempo", color: "var(--chart-2)" },
-  "Atraso estimado": { label: "Atraso estimado", color: "var(--chart-4)" },
-  "Atraso por fecha": { label: "Atraso por fecha", color: "var(--chart-5)" },
 } satisfies ChartConfig;
 
 const barChartConfig = {
@@ -238,13 +303,18 @@ export function ProjectBoard() {
   }, [numericProjectId, taskStatusFilter]);
 
   const loadEmployees = useCallback(async () => {
+    if (!isAdmin) {
+      setEmployees([]);
+      return;
+    }
+
     try {
       const response = await listEmployees("active");
       setEmployees(response?.data ?? []);
     } catch {
       setEmployees([]);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -390,34 +460,6 @@ export function ProjectBoard() {
     { status: "Terminada", value: kanbanTasks.done.length, fill: "var(--chart-2)" },
   ]), [kanbanTasks]);
 
-  const taskComplianceDistribution = useMemo(() => {
-    const counters = {
-      onTime: 0,
-      estimateDelayed: 0,
-      dateOverdue: 0,
-    };
-
-    tasks.forEach((task) => {
-      if (task.isDateOverdue) {
-        counters.dateOverdue += 1;
-        return;
-      }
-
-      if (task.isEstimateDelayed === true) {
-        counters.estimateDelayed += 1;
-        return;
-      }
-
-      counters.onTime += 1;
-    });
-
-    return [
-      { status: "En tiempo", value: counters.onTime, fill: "var(--chart-2)" },
-      { status: "Atraso estimado", value: counters.estimateDelayed, fill: "var(--chart-4)" },
-      { status: "Atraso por fecha", value: counters.dateOverdue, fill: "var(--chart-5)" },
-    ];
-  }, [tasks]);
-
   const taskPriorityDistribution = useMemo(() => {
     const counters = new Map<string, number>();
 
@@ -428,19 +470,97 @@ export function ProjectBoard() {
     return [...counters.entries()].map(([name, tareas]) => ({ name, tareas }));
   }, [tasks]);
 
-  const taskAssigneeWorkload = useMemo(() => {
-    const counters = new Map<string, number>();
+  const projectTaskAnalytics = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 7);
 
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sevenDaysAhead = new Date(today);
+    sevenDaysAhead.setDate(today.getDate() + 7);
+
+    const completedLast7 = tasks.filter((task) => (
+      task.completedAt
+      && !Number.isNaN(new Date(task.completedAt).getTime())
+      && new Date(task.completedAt) >= sevenDaysAgo
+    )).length;
+
+    const updatedLast7 = tasks.filter((task) => {
+      const createdAt = new Date(task.createdAt).getTime();
+      const updatedAt = new Date(task.updatedAt).getTime();
+      return (
+        !Number.isNaN(createdAt)
+        && !Number.isNaN(updatedAt)
+        && updatedAt >= sevenDaysAgo.getTime()
+        && updatedAt > createdAt
+      );
+    }).length;
+
+    const createdLast7 = tasks.filter((task) => {
+      const createdAt = new Date(task.createdAt).getTime();
+      return !Number.isNaN(createdAt) && createdAt >= sevenDaysAgo.getTime();
+    }).length;
+
+    const dueSoonNext7 = tasks.filter((task) => {
+      const normalizedStatus = task.status.trim().toLowerCase();
+      if (normalizedStatus === "terminada") {
+        return false;
+      }
+      const dueDate = new Date(`${task.dueDate.slice(0, 10)}T00:00:00`);
+      if (Number.isNaN(dueDate.getTime())) {
+        return false;
+      }
+      return dueDate >= today && dueDate <= sevenDaysAhead;
+    }).length;
+
+    const recentActivity = [...tasks]
+      .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+      .slice(0, 6)
+      .map((task) => {
+        const updatedAtMs = new Date(task.updatedAt).getTime();
+        const createdAtMs = new Date(task.createdAt).getTime();
+        const completedAtMs = task.completedAt ? new Date(task.completedAt).getTime() : NaN;
+        let action = "actualizó la tarea";
+
+        if (!Number.isNaN(completedAtMs) && Math.abs(updatedAtMs - completedAtMs) <= 5 * 60 * 1000) {
+          action = "finalizó la tarea";
+        } else if (!Number.isNaN(createdAtMs) && Math.abs(updatedAtMs - createdAtMs) <= 5 * 60 * 1000) {
+          action = "creó la tarea";
+        }
+
+        return {
+          id: task.id,
+          title: task.title,
+          assigneeName: task.assigneeName ?? "Sin asignar",
+          status: task.status,
+          action,
+          relativeTime: formatRelativeTime(task.updatedAt),
+        };
+      });
+
+    const employeeCounter = new Map<string, number>();
     tasks.forEach((task) => {
-      if (getStatusKeyFromTask(task) === "done") return;
       const key = task.assigneeName ?? "Sin asignar";
-      counters.set(key, (counters.get(key) ?? 0) + 1);
+      employeeCounter.set(key, (employeeCounter.get(key) ?? 0) + 1);
     });
-
-    return [...counters.entries()]
-      .map(([name, tareas]) => ({ name, tareas }))
-      .sort((a, b) => b.tareas - a.tareas)
+    const totalEmployeeTasks = tasks.length || 1;
+    const tasksByEmployee = [...employeeCounter.entries()]
+      .map(([name, count]) => ({
+        name,
+        count,
+        percent: Math.round((count / totalEmployeeTasks) * 100),
+      }))
+      .sort((left, right) => right.count - left.count)
       .slice(0, 8);
+
+    return {
+      completedLast7,
+      updatedLast7,
+      createdLast7,
+      dueSoonNext7,
+      recentActivity,
+      tasksByEmployee,
+    };
   }, [tasks]);
 
   const selectedTask = useMemo(
@@ -777,6 +897,11 @@ export function ProjectBoard() {
     if (!currentStatus || currentStatus === toStatus) {
       return;
     }
+    const allowedTargets = WORKFLOW_TRANSITIONS[currentStatus];
+    if (!allowedTargets.includes(toStatus)) {
+      setError(getTransitionValidationMessage(currentStatus, toStatus));
+      return;
+    }
 
     const previousTasks = tasks;
     const optimisticStatusLabel = WORKFLOW_LABELS[toStatus];
@@ -840,7 +965,12 @@ export function ProjectBoard() {
     } catch (incomingError) {
       setTasks(previousTasks);
       if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
+        if (incomingError.code === "TASK_TRANSITION_NOT_ALLOWED") {
+          setError(getTransitionValidationMessage(currentStatus, toStatus));
+        } else {
+          const friendlyMessage = getTaskTransitionApiErrorMessage(incomingError.code);
+          setError(friendlyMessage ?? incomingError.message);
+        }
       } else {
         setError("No fue posible mover la tarea.");
       }
@@ -853,6 +983,17 @@ export function ProjectBoard() {
   const handleTaskDrop = async (taskId: number, toStatus: TaskWorkflowStatus) => {
     const taskToMove = tasks.find((task) => task.id === taskId);
     if (!taskToMove) {
+      return;
+    }
+
+    const currentStatus = getStatusKeyFromTask(taskToMove);
+    if (!currentStatus) {
+      return;
+    }
+
+    const allowedTargets = WORKFLOW_TRANSITIONS[currentStatus];
+    if (!allowedTargets.includes(toStatus)) {
+      setError(getTransitionValidationMessage(currentStatus, toStatus));
       return;
     }
 
@@ -923,14 +1064,16 @@ export function ProjectBoard() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsProjectMembersModalOpen(true)}
-            className="app-btn-secondary"
-          >
-            <Users className="size-4" />
-            Miembros
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsProjectMembersModalOpen(true)}
+              className="app-btn-secondary"
+            >
+              <Users className="size-4" />
+              Miembros
+            </button>
+          )}
         </div>
       </div>
 
@@ -948,7 +1091,7 @@ export function ProjectBoard() {
                   }`}
                 >
                   <LayoutGrid className="size-3.5" />
-                  Cuadrícula
+                  Lista
                 </button>
                 <button
                   type="button"
@@ -1152,62 +1295,122 @@ export function ProjectBoard() {
 
               {taskViewMode === "analytics" && (
                 <div className="p-5 space-y-4">
-                  <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <article className="rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-xs text-muted-foreground">Total de tareas</p>
-                      <p className="text-2xl font-semibold text-foreground">{tasks.length}</p>
+                  <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.completedLast7} finalizadas</p>
+                          <p className="text-xs text-muted-foreground">en los últimos 7 días</p>
+                        </div>
+                        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-success/14 text-success">
+                          <CheckCircle2 className="size-4" />
+                        </span>
+                      </div>
                     </article>
-                    <article className="rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-xs text-muted-foreground">Pendientes</p>
-                      <p className="text-2xl font-semibold text-foreground">
-                        {kanbanTasks.assigned.length + kanbanTasks.in_progress.length}
-                      </p>
+
+                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.updatedLast7} actualizadas</p>
+                          <p className="text-xs text-muted-foreground">en los últimos 7 días</p>
+                        </div>
+                        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/14 text-primary">
+                          <RefreshCcw className="size-4" />
+                        </span>
+                      </div>
                     </article>
-                    <article className="rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-xs text-muted-foreground">Retrasadas / vencidas</p>
-                      <p className="text-2xl font-semibold text-foreground">
-                        {taskComplianceDistribution[1].value + taskComplianceDistribution[2].value}
-                      </p>
+
+                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.createdLast7} creadas</p>
+                          <p className="text-xs text-muted-foreground">en los últimos 7 días</p>
+                        </div>
+                        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-accent/14 text-accent">
+                          <FilePlus2 className="size-4" />
+                        </span>
+                      </div>
+                    </article>
+
+                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.dueSoonNext7} vencen pronto</p>
+                          <p className="text-xs text-muted-foreground">en los próximos 7 días</p>
+                        </div>
+                        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-warning/14 text-warning">
+                          <CalendarClock className="size-4" />
+                        </span>
+                      </div>
                     </article>
                   </section>
 
                   <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     <article className="rounded-xl border border-border bg-background p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Distribución por estado</h4>
-                      <ChartContainer config={statusChartConfig} className="h-[260px] w-full">
-                        <PieChart>
-                          <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
-                          <Pie
-                            data={taskStatusDistribution}
-                            dataKey="value"
-                            nameKey="status"
-                            innerRadius={55}
-                            outerRadius={90}
-                            strokeWidth={2}
-                          />
-                        </PieChart>
-                      </ChartContainer>
+                      <h4 className="text-base font-semibold text-foreground">Resumen de estado</h4>
+                      <p className="text-sm text-muted-foreground">Instantánea del estado actual de las tareas.</p>
+                      <div className="mt-3 grid grid-cols-1 items-center gap-3 md:grid-cols-[1fr_210px]">
+                        <ChartContainer config={statusChartConfig} className="h-[240px] w-full">
+                          <PieChart>
+                            <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
+                            <Pie
+                              data={taskStatusDistribution}
+                              dataKey="value"
+                              nameKey="status"
+                              innerRadius={52}
+                              outerRadius={86}
+                              strokeWidth={2}
+                            />
+                          </PieChart>
+                        </ChartContainer>
+                        <div className="space-y-2">
+                          {taskStatusDistribution.map((statusItem) => (
+                            <div key={statusItem.status} className="flex items-center justify-between gap-2 text-sm">
+                              <span className="inline-flex items-center gap-2 text-muted-foreground">
+                                <span className="size-2.5 rounded-sm" style={{ backgroundColor: statusItem.fill }} />
+                                {statusItem.status}
+                              </span>
+                              <span className="font-semibold text-foreground">{statusItem.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </article>
 
                     <article className="rounded-xl border border-border bg-background p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Cumplimiento de tiempos</h4>
-                      <ChartContainer config={complianceChartConfig} className="h-[260px] w-full">
-                        <PieChart>
-                          <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
-                          <Pie
-                            data={taskComplianceDistribution}
-                            dataKey="value"
-                            nameKey="status"
-                            innerRadius={55}
-                            outerRadius={90}
-                            strokeWidth={2}
-                          />
-                        </PieChart>
-                      </ChartContainer>
+                      <h4 className="text-base font-semibold text-foreground">Actividad reciente</h4>
+                      <p className="text-sm text-muted-foreground">Últimos cambios registrados dentro del proyecto.</p>
+                      <div className="mt-3 space-y-2">
+                        {projectTaskAnalytics.recentActivity.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Sin actividad reciente.</p>
+                        ) : (
+                          projectTaskAnalytics.recentActivity.map((activity) => (
+                            <article
+                              key={activity.id}
+                              className="flex items-start gap-3 rounded-lg border border-border/80 bg-card/65 px-3 py-2.5"
+                            >
+                              <span className="inline-flex size-7 items-center justify-center rounded-full bg-primary/14 text-xs font-bold text-primary">
+                                {activity.assigneeName.slice(0, 1).toUpperCase()}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-foreground">
+                                  <span className="font-semibold">{activity.assigneeName}</span>
+                                  {" "}
+                                  {activity.action}
+                                  {" "}
+                                  <span className="font-semibold text-primary">{activity.title}</span>
+                                </p>
+                                <p className="text-xs text-muted-foreground">{activity.relativeTime} · {activity.status}</p>
+                              </div>
+                            </article>
+                          ))
+                        )}
+                      </div>
                     </article>
 
                     <article className="rounded-xl border border-border bg-background p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Prioridad de tareas</h4>
+                      <h4 className="text-base font-semibold text-foreground">Desglose de prioridad</h4>
+                      <p className="text-sm text-muted-foreground">Distribución actual por nivel de prioridad.</p>
                       <ChartContainer config={barChartConfig} className="h-[260px] w-full">
                         <BarChart data={taskPriorityDistribution}>
                           <CartesianGrid vertical={false} />
@@ -1220,16 +1423,28 @@ export function ProjectBoard() {
                     </article>
 
                     <article className="rounded-xl border border-border bg-background p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Carga por responsable (activas)</h4>
-                      <ChartContainer config={barChartConfig} className="h-[260px] w-full">
-                        <BarChart data={taskAssigneeWorkload}>
-                          <CartesianGrid vertical={false} />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                          <YAxis axisLine={false} tickLine={false} />
-                          <ChartTooltip content={<ChartTooltipContent formatter={(value) => `${value} tareas`} />} />
-                          <Bar dataKey="tareas" fill="var(--color-tareas)" radius={8} />
-                        </BarChart>
-                      </ChartContainer>
+                      <h4 className="text-base font-semibold text-foreground">Tareas por empleado</h4>
+                      <p className="text-sm text-muted-foreground">Carga operativa de los miembros del proyecto.</p>
+                      <div className="mt-4 space-y-3">
+                        {projectTaskAnalytics.tasksByEmployee.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Sin tareas asignadas para este proyecto.</p>
+                        ) : (
+                          projectTaskAnalytics.tasksByEmployee.map((row) => (
+                            <div key={row.name} className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="truncate text-foreground">{row.name}</span>
+                                <span className="text-muted-foreground">{row.count} tareas</span>
+                              </div>
+                              <div className="h-2 overflow-hidden rounded-full bg-secondary/80">
+                                <div
+                                  className="h-full rounded-full bg-primary"
+                                  style={{ width: `${Math.max(8, row.percent)}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </article>
                   </section>
                 </div>
