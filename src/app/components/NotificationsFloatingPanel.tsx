@@ -161,6 +161,12 @@ export function NotificationsFloatingPanel() {
         setIsOpen(false);
         return;
       }
+
+      if (taskId) {
+        navigate(`/tasks/standalone?taskId=${taskId}`);
+        setIsOpen(false);
+        return;
+      }
     }
 
     if (notification.resourceType === "project") {
