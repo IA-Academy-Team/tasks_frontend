@@ -53,8 +53,16 @@ const formatMinutes = (minutes: number) => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
+const parseDateForUi = (value: string) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T00:00:00`);
+  }
+
+  return new Date(value);
+};
+
 const formatDate = (value: string) =>
-  new Date(value).toLocaleDateString("es-ES", {
+  parseDateForUi(value).toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -80,7 +88,7 @@ const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
 const getUrgencyTone = (dueDate: string): EmployeeUrgencyTone => {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const due = new Date(dueDate);
+  const due = parseDateForUi(dueDate);
   const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
   const daysRemaining = Math.ceil((dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -329,7 +337,7 @@ export function Dashboard() {
     if (!employeeDashboard) return null;
 
     const orderedUpcoming = [...employeeDashboard.upcomingTasks].sort(
-      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+      (a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime(),
     );
     const nextToExpire = orderedUpcoming.slice(0, 6).map((task) => ({
       ...task,
@@ -432,7 +440,7 @@ export function Dashboard() {
         dueDate: row.dueDate,
         status: row.status,
       }))
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+      .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
 
     const overdueTasks = complianceRows
       .filter((row) => row.isDateOverdue || row.isEstimateDelayed === true)
@@ -444,7 +452,7 @@ export function Dashboard() {
         dueDate: row.dueDate,
         reason: row.isDateOverdue ? "Vencida por fecha" : "Retrasada por estimado",
       }))
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+      .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
 
     return {
       statusDistribution,
@@ -686,7 +694,7 @@ export function Dashboard() {
               </div>
               <button
                 type="button"
-                onClick={() => navigate("/tasks/standalone")}
+                onClick={() => navigate("/tasks/standalone?create=1")}
                 className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-[0_10px_28px_rgba(16,36,58,0.22)] transition-colors hover:bg-primary-hover"
               >
                 <Plus className="size-4" />

@@ -520,6 +520,18 @@ export function StandaloneTasks() {
     setSearchParams(nextParams, { replace: true });
   }, [isLoading, openTaskDetail, searchParams, setSearchParams, tasks]);
 
+  useEffect(() => {
+    const shouldOpenCreate = searchParams.get("create");
+    if (shouldOpenCreate !== "1") {
+      return;
+    }
+
+    setIsCreateModalOpen(true);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("create");
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   return (
     <div className="app-shell">
       <PageHero
