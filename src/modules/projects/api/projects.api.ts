@@ -1,12 +1,12 @@
 import { api, API_PREFIX } from "../../../shared/api/api";
 
-export type ProjectStatusFilter = "all" | "active" | "closed" | "cancelled";
-export type ProjectStatusUpdate = "active" | "closed" | "cancelled";
+export type ProjectStatusFilter = "all" | "active" | "closed";
+export type ProjectStatusUpdate = "active" | "closed";
 export type MembershipStatusFilter = "all" | "active" | "inactive";
 
 export interface ProjectSummary {
   id: number;
-  areaId: number;
+  areaId: number | null;
   areaName: string;
   projectStatusId: number;
   status: string;
@@ -44,6 +44,19 @@ export interface ReassignMembershipResult {
   toMembership: ProjectMembership;
 }
 
+export interface ReassignProjectTasksPayload {
+  fromEmployeeId: number;
+  toEmployeeId: number;
+}
+
+export interface ReassignProjectTasksResult {
+  projectId: number;
+  fromEmployeeId: number;
+  toEmployeeId: number;
+  reassignedTasks: number;
+  targetMembershipId: number;
+}
+
 export interface ProjectsResponse {
   data: ProjectSummary[];
 }
@@ -71,8 +84,12 @@ export interface ReassignProjectMembershipResponse {
   data: ReassignMembershipResult;
 }
 
+export interface ReassignProjectTasksResponse {
+  data: ReassignProjectTasksResult;
+}
+
 export interface CreateProjectPayload {
-  areaId: number;
+  areaId?: number | null;
   name: string;
   description?: string | null;
   startDate?: string | null;
@@ -80,7 +97,7 @@ export interface CreateProjectPayload {
 }
 
 export interface UpdateProjectPayload {
-  areaId?: number;
+  areaId?: number | null;
   name?: string;
   description?: string | null;
   startDate?: string | null;
@@ -127,7 +144,7 @@ export const getProjectById = (projectId: number) =>
 
 export const createProject = (payload: CreateProjectPayload) =>
   api.post<ProjectResponse>(`${API_PREFIX}/projects`, {
-    areaId: payload.areaId,
+    areaId: payload.areaId ?? null,
     name: payload.name,
     description: payload.description ?? null,
     startDate: withNullableDate(payload.startDate),
@@ -167,7 +184,7 @@ export const updateProjectStatus = (projectId: number, payload: UpdateProjectSta
 export const deleteProject = (projectId: number) =>
   api.delete<DeleteProjectResponse>(`${API_PREFIX}/projects/${projectId}`, {
     toast: {
-      successMessage: "Proyecto procesado correctamente.",
+      successMessage: "Proyecto eliminado permanentemente.",
       errorMessage: "No fue posible eliminar el proyecto.",
     },
   });
@@ -208,6 +225,20 @@ export const reassignProjectMembership = (
     toast: {
       successMessage: "Membresia reasignada correctamente.",
       errorMessage: "No fue posible reasignar la membresia.",
+    },
+  },
+);
+
+export const reassignProjectTasks = (
+  projectId: number,
+  payload: ReassignProjectTasksPayload,
+) => api.patch<ReassignProjectTasksResponse>(
+  `${API_PREFIX}/projects/${projectId}/tasks/reassign`,
+  payload,
+  {
+    toast: {
+      successMessage: "Tareas reasignadas correctamente.",
+      errorMessage: "No fue posible reasignar las tareas.",
     },
   },
 );

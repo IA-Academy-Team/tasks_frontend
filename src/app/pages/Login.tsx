@@ -72,10 +72,6 @@ export function Login() {
     if (incomingError instanceof ApiError) {
       const normalizedMessage = incomingError.message.trim().toLowerCase();
 
-      if (incomingError.code === 'USER_INACTIVE') {
-        return 'Tu cuenta está inactiva. Contacta a un administrador.';
-      }
-
       if (incomingError.code === 'EMAIL_DOMAIN_NOT_ALLOWED') {
         return 'Tu correo no tiene permiso para iniciar sesión en este entorno.';
       }
@@ -118,32 +114,32 @@ export function Login() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background-light dark:bg-background-dark px-4 py-8 flex items-center justify-center">
+    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-8 flex items-center justify-center">
       <div className="pointer-events-none absolute inset-0 opacity-50">
-        <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(80,72,229,0.16)_0%,rgba(8,16,40,0.65)_55%,rgba(8,16,40,0.9)_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(145deg,rgba(13,111,104,0.11)_0%,rgba(15,111,159,0.08)_55%,rgba(15,36,56,0.06)_100%)]" />
         <div className="absolute -top-20 -left-16 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
         <div className="absolute -bottom-24 -right-12 h-80 w-80 rounded-full bg-accent/20 blur-3xl" />
       </div>
 
       <div className="relative z-10 w-full max-w-[450px]">
-        <div className="rounded-2xl border border-slate-200/70 bg-white/95 p-8 shadow-2xl backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/60 md:p-10">
+        <div className="rounded-2xl border border-border/85 bg-card/95 p-8 shadow-2xl backdrop-blur-xl md:p-10">
           <div className="mb-8 flex flex-col items-center text-center">
-            <div className="mb-4 rounded-xl bg-primary p-3 text-white shadow-[0_12px_24px_rgba(80,72,229,0.3)]">
+            <div className="mb-4 rounded-xl bg-primary p-3 text-white shadow-[0_12px_24px_rgba(13,111,104,0.3)]">
               <Shield className="size-7" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Tasks</h1>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Tasks</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
               Plataforma profesional de gestión operativa
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="login-user" className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="login-user" className="mb-1.5 block text-sm font-medium text-foreground">
                 Correo electrónico
               </label>
               <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
                   <Mail className="size-5" />
                 </span>
                 <input
@@ -151,7 +147,7 @@ export function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/35 dark:border-slate-700 dark:bg-slate-800/60 dark:text-white"
+                  className="block w-full rounded-lg border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/35"
                   placeholder="nombre@empresa.com"
                   autoComplete="email"
                 />
@@ -160,7 +156,7 @@ export function Login() {
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label htmlFor="login-password" className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label htmlFor="login-password" className="block text-sm font-medium text-foreground">
                   Contraseña
                 </label>
                 <Link
@@ -171,7 +167,7 @@ export function Login() {
                 </Link>
               </div>
               <div className="relative">
-                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
                   <Lock className="size-5" />
                 </span>
                 <input
@@ -179,14 +175,14 @@ export function Login() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full rounded-lg border border-slate-200 bg-slate-50 py-3 pl-11 pr-12 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/35 dark:border-slate-700 dark:bg-slate-800/60 dark:text-white"
+                  className="block w-full rounded-lg border border-border bg-background py-3 pl-11 pr-12 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/35"
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((current) => !current)}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground transition-colors hover:text-foreground"
                   aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
                 >
                   {showPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
@@ -197,11 +193,11 @@ export function Login() {
             <label className="inline-flex items-center gap-2">
               <input
                 type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary dark:border-slate-700"
+                className="h-4 w-4 rounded border-border bg-card text-primary focus:ring-primary"
                 checked={rememberMe}
                 onChange={(event) => setRememberMe(event.target.checked)}
               />
-              <span className="text-xs text-slate-600 dark:text-slate-400">Mantener sesión activa</span>
+              <span className="text-xs text-muted-foreground">Mantener sesión activa</span>
             </label>
 
             <button
@@ -214,8 +210,8 @@ export function Login() {
             </button>
           </form>
 
-          <div className="mt-8 border-t border-slate-200 pt-6 dark:border-slate-800">
-            <p className="text-center text-sm text-slate-500 dark:text-slate-400">
+          <div className="mt-8 border-t border-border/85 pt-6">
+            <p className="text-center text-sm text-muted-foreground">
               ¿Necesitas acceso?{" "}
               <span className="font-semibold text-primary">Contacta al administrador</span>
             </p>

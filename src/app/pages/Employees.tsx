@@ -8,8 +8,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
-  UserCheck,
-  UserX,
   Users2,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -36,27 +34,13 @@ import {
   deleteEmployee,
   listEmployees,
   updateEmployee,
-  updateEmployeeStatus,
-  type EmployeeStatusFilter,
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
-import { cn } from "../components/ui/utils";
 
 export function Employees() {
   const PAGE_SIZE = 8;
-  const filterOptions: Array<{
-    value: EmployeeStatusFilter;
-    label: string;
-    icon: typeof ListFilter;
-    activeClassName: string;
-  }> = [
-    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
-    { value: "active", label: "Activos", icon: UserCheck, activeClassName: "border-success/40 bg-success/15 text-success" },
-    { value: "inactive", label: "Inactivos", icon: UserX, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
-  ];
 
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
-  const [statusFilter, setStatusFilter] = useState<EmployeeStatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -70,10 +54,6 @@ export function Employees() {
   const [image, setImage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [pendingDeleteEmployee, setPendingDeleteEmployee] = useState<EmployeeSummary | null>(null);
-  const [pendingStatusUpdateEmployee, setPendingStatusUpdateEmployee] = useState<{
-    employee: EmployeeSummary;
-    isActive: boolean;
-  } | null>(null);
 
   const resetForm = () => {
     setEditingEmployeeId(null);
@@ -87,7 +67,7 @@ export function Employees() {
   const loadEmployees = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await listEmployees(statusFilter);
+      const response = await listEmployees("all");
       setEmployees(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -98,7 +78,7 @@ export function Employees() {
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     void loadEmployees();
@@ -106,7 +86,7 @@ export function Employees() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, searchTerm]);
+  }, [searchTerm]);
 
   const startEdit = (employee: EmployeeSummary) => {
     setEditingEmployeeId(employee.id);
@@ -209,7 +189,6 @@ export function Employees() {
           password: trimmedPassword,
           phoneNumber: trimmedPhoneNumber || null,
           image: trimmedImage || null,
-          isActive: true,
         });
       }
 
@@ -233,20 +212,6 @@ export function Employees() {
     } catch (incomingError) {
       if (!(incomingError instanceof ApiError)) {
         toast.error("No fue posible eliminar el empleado.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleEmployeeStatusUpdate = async (employee: EmployeeSummary, isActive: boolean) => {
-    setIsSubmitting(true);
-    try {
-      await updateEmployeeStatus(employee.id, { isActive });
-      await loadEmployees();
-    } catch (incomingError) {
-      if (!(incomingError instanceof ApiError)) {
-        toast.error("No fue posible actualizar el estado del empleado.");
       }
     } finally {
       setIsSubmitting(false);
@@ -307,7 +272,7 @@ export function Employees() {
     <div className="app-shell">
       <PageHero
         title="Empleados"
-        subtitle="Gestion de empleados y estado operativo"
+        subtitle="Gestion de empleados"
         icon={<Users2 className="size-5" />}
       />
 
@@ -318,30 +283,6 @@ export function Employees() {
               <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de empleados</h3>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {filterOptions.map((option) => {
-                const Icon = option.icon;
-                const isSelected = statusFilter === option.value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setStatusFilter(option.value)}
-                    className={cn(
-                      "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
-                      isSelected
-                        ? option.activeClassName
-                        : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
-                    )}
-                    aria-pressed={isSelected}
-                    title={`Ver empleados ${option.label.toLowerCase()}`}
-                  >
-                    <Icon className="size-4" />
-                    <span>{option.label}</span>
-                  </button>
-                );
-              })}
-
               <div className="relative w-full min-[560px]:w-72">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
@@ -375,20 +316,19 @@ export function Employees() {
               <div className="overflow-x-auto">
                 <table className="min-w-full table-fixed text-sm">
                   <thead className="bg-secondary/55">
-                    <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
-                      <th className="w-[42%]">Empleado</th>
-                      <th className="w-[34%]">Areas</th>
-                      <th className="w-[14%]">Estado</th>
-                      <th className="w-[10%] text-right">Acciones</th>
+                    <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
+                      <th className="w-[42%] text-left">Empleado</th>
+                      <th className="w-[44%] text-left">Areas</th>
+                      <th className="w-[14%] text-right">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/70 bg-card">
                     {paginatedEmployees.length === 0 ? (
                       <tr>
-                        <td colSpan={4} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                        <td colSpan={3} className="px-4 py-12 text-center text-sm text-muted-foreground">
                           {searchTerm.trim().length > 0
                             ? "No se encontraron empleados con esa busqueda."
-                            : "No hay empleados para este filtro."}
+                            : "No hay empleados para mostrar."}
                         </td>
                       </tr>
                     ) : (
@@ -401,7 +341,7 @@ export function Employees() {
                           <tr key={employee.id} className="transition-colors hover:bg-secondary/35">
                             <td className="px-4 py-3.5">
                               <div className="flex min-w-0 items-center gap-3">
-                                <Avatar className="size-10 border border-border/60 bg-secondary/40">
+                                <Avatar className="size-10 border border-border/80 bg-secondary/60">
                                   {employee.image ? <AvatarImage src={employee.image} alt={employee.name} /> : null}
                                   <AvatarFallback className="bg-secondary text-xs font-semibold text-foreground">
                                     {getEmployeeInitials(employee.name) || "U"}
@@ -419,13 +359,13 @@ export function Employees() {
                                   {visibleAreaNames.map((areaName) => (
                                     <span
                                       key={`${employee.id}-${areaName}`}
-                                      className="inline-flex items-center rounded-md border border-border/70 bg-secondary/40 px-2 py-1 text-xs font-medium text-foreground/90"
+                                      className="inline-flex items-center rounded-md border border-border/80 bg-secondary/60 px-2 py-1 text-xs font-medium text-foreground"
                                     >
                                       {areaName}
                                     </span>
                                   ))}
                                   {additionalAreas > 0 && (
-                                    <span className="inline-flex items-center rounded-md border border-border/70 bg-card px-2 py-1 text-xs font-medium text-muted-foreground">
+                                    <span className="inline-flex items-center rounded-md border border-border/80 bg-card px-2 py-1 text-xs font-medium text-muted-foreground">
                                       +{additionalAreas}
                                     </span>
                                   )}
@@ -434,23 +374,12 @@ export function Employees() {
                                 <span className="text-sm text-muted-foreground">Sin area activa</span>
                               )}
                             </td>
-                            <td className="px-4 py-3.5">
-                              <span
-                                className={cn(
-                                  "inline-flex items-center gap-2 text-sm font-medium",
-                                  employee.isActive ? "text-success" : "text-warning",
-                                )}
-                              >
-                                <span className={cn("size-2 rounded-full", employee.isActive ? "bg-success" : "bg-warning")} />
-                                {employee.isActive ? "Activo" : "Inactivo"}
-                              </span>
-                            </td>
                             <td className="px-4 py-3.5 text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <button
                                     type="button"
-                                    className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                                    className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
                                     aria-label={`Acciones de ${employee.name}`}
                                   >
                                     <MoreVertical className="size-4" />
@@ -460,24 +389,6 @@ export function Employees() {
                                   <DropdownMenuItem onClick={() => startEdit(employee)}>
                                     <Pencil className="size-4" />
                                     Editar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => setPendingStatusUpdateEmployee({
-                                      employee,
-                                      isActive: !employee.isActive,
-                                    })}
-                                  >
-                                    {employee.isActive ? (
-                                      <>
-                                        <UserX className="size-4" />
-                                        Desactivar
-                                      </>
-                                    ) : (
-                                      <>
-                                        <UserCheck className="size-4" />
-                                        Activar
-                                      </>
-                                    )}
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
@@ -498,7 +409,7 @@ export function Employees() {
                 </table>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/70 bg-secondary/25 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/85 bg-secondary/55 px-4 py-3">
                 <p className="text-xs text-muted-foreground">
                   Mostrando {visibleStart} a {visibleEnd} de {filteredEmployees.length} empleados
                 </p>
@@ -546,7 +457,7 @@ export function Employees() {
           <DialogHeader>
             <DialogTitle>{editingEmployeeId ? "Editar empleado" : "Crear empleado"}</DialogTitle>
             <DialogDescription>
-              Gestiona los datos base y estado operativo del empleado.
+              Gestiona los datos base del empleado.
             </DialogDescription>
           </DialogHeader>
 
@@ -634,32 +545,6 @@ export function Employees() {
       </Dialog>
 
       <ConfirmActionDialog
-        open={pendingStatusUpdateEmployee !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingStatusUpdateEmployee(null);
-          }
-        }}
-        title="Actualizar estado del empleado"
-        description={
-          pendingStatusUpdateEmployee
-            ? `Se ${pendingStatusUpdateEmployee.isActive ? "activará" : "desactivará"} a ${pendingStatusUpdateEmployee.employee.name}.`
-            : ""
-        }
-        confirmLabel="Confirmar cambio"
-        variant={pendingStatusUpdateEmployee?.isActive ? "default" : "destructive"}
-        isProcessing={isSubmitting}
-        onConfirm={() => {
-          if (!pendingStatusUpdateEmployee) {
-            return;
-          }
-          const { employee, isActive } = pendingStatusUpdateEmployee;
-          setPendingStatusUpdateEmployee(null);
-          void handleEmployeeStatusUpdate(employee, isActive);
-        }}
-      />
-
-      <ConfirmActionDialog
         open={pendingDeleteEmployee !== null}
         onOpenChange={(open) => {
           if (!open) {
@@ -669,7 +554,7 @@ export function Employees() {
         title="Eliminar empleado"
         description={
           pendingDeleteEmployee
-            ? `Se eliminará a ${pendingDeleteEmployee.name}. Si existe historial, el backend archivará la cuenta en lugar de eliminarla definitivamente.`
+            ? `Se eliminará a ${pendingDeleteEmployee.name}.`
             : ""
         }
         confirmLabel="Eliminar"

@@ -1,6 +1,21 @@
 import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ArrowLeft, ChartPie, KanbanSquare, LayoutGrid, Pencil, Plus, Trash2, Users } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarClock,
+  ChartPie,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  FilePlus2,
+  KanbanSquare,
+  LayoutGrid,
+  Pencil,
+  Plus,
+  RefreshCcw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
@@ -13,6 +28,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { cn } from "../components/ui/utils";
 import {
   ChartContainer,
   ChartTooltip,
@@ -24,9 +42,7 @@ import {
   assignProjectMembership,
   getProjectById,
   listProjectMemberships,
-  reassignProjectMembership,
-  unassignProjectMembership,
-  type MembershipStatusFilter,
+  reassignProjectTasks,
   type ProjectMembership,
   type ProjectSummary,
 } from "../../modules/projects/api/projects.api";
@@ -55,6 +71,43 @@ const WORKFLOW_LABELS: Record<TaskWorkflowStatus, string> = {
   done: "Terminada",
 };
 
+const WORKFLOW_TRANSITIONS: Record<TaskWorkflowStatus, TaskWorkflowStatus[]> = {
+  assigned: ["in_progress"],
+  in_progress: ["done"],
+  done: [],
+};
+
+const getTransitionValidationMessage = (
+  fromStatus: TaskWorkflowStatus,
+  toStatus: TaskWorkflowStatus,
+) => {
+  if (fromStatus === "assigned" && toStatus === "done") {
+    return "No puedes marcar una tarea como Terminada directamente desde Asignada. Primero pásala a En proceso.";
+  }
+
+  return `Transición no permitida: ${WORKFLOW_LABELS[fromStatus]} → ${WORKFLOW_LABELS[toStatus]}.`;
+};
+
+const getTaskTransitionApiErrorMessage = (code: string | undefined): string | null => {
+  if (code === "TASK_TRANSITION_NOT_ALLOWED") {
+    return "La transición de estado no está permitida para esta tarea.";
+  }
+
+  if (code === "TASK_STATUS_UNCHANGED") {
+    return "La tarea ya se encuentra en ese estado.";
+  }
+
+  if (code === "TASK_WORK_SESSION_NOT_OPEN") {
+    return "No se pudo finalizar la tarea porque no tenía una sesión activa. Reintenta y, si persiste, actualiza el tablero.";
+  }
+
+  if (code === "TASK_WORK_SESSION_ALREADY_OPEN") {
+    return "La tarea ya tenía una sesión activa y se reintentó iniciar de nuevo. Actualiza el tablero e inténtalo otra vez.";
+  }
+
+  return null;
+};
+
 const STATUS_NAME_TO_KEY: Record<string, TaskWorkflowStatus> = {
   Asignada: "assigned",
   "En proceso": "in_progress",
@@ -72,6 +125,24 @@ const formatMinutes = (minutes: number): string => {
   if (hours === 0) return `${remainingMinutes} min`;
   if (remainingMinutes === 0) return `${hours}h`;
   return `${hours}h ${remainingMinutes}m`;
+};
+
+const formatRelativeTime = (value: string) => {
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) {
+    return "Hace un momento";
+  }
+
+  const diffMs = Date.now() - timestamp;
+  const diffMinutes = Math.max(1, Math.floor(diffMs / 60000));
+
+  if (diffMinutes < 60) return `Hace ${diffMinutes} min`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `Hace ${diffHours} h`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  return `Hace ${diffDays} d`;
 };
 
 const toInputDate = (date: Date) => {
@@ -111,12 +182,6 @@ const statusChartConfig = {
   Terminada: { label: "Terminada", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
-const complianceChartConfig = {
-  "En tiempo": { label: "En tiempo", color: "var(--chart-2)" },
-  "Atraso estimado": { label: "Atraso estimado", color: "var(--chart-4)" },
-  "Atraso por fecha": { label: "Atraso por fecha", color: "var(--chart-5)" },
-} satisfies ChartConfig;
-
 const barChartConfig = {
   tareas: { label: "Tareas", color: "var(--chart-1)" },
 } satisfies ChartConfig;
@@ -132,7 +197,6 @@ export function ProjectBoard() {
   const [memberships, setMemberships] = useState<ProjectMembership[]>([]);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
-  const [membershipStatusFilter, setMembershipStatusFilter] = useState<MembershipStatusFilter>("all");
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatusFilter>("all");
   const [taskViewMode, setTaskViewMode] = useState<ProjectTaskViewMode>("grid");
   const [isLoading, setIsLoading] = useState(true);
@@ -140,9 +204,6 @@ export function ProjectBoard() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [assignEmployeeId, setAssignEmployeeId] = useState("");
-  const [reassignMembershipId, setReassignMembershipId] = useState("");
-  const [reassignEmployeeId, setReassignEmployeeId] = useState("");
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPlannedStartDate, setTaskPlannedStartDate] = useState("");
@@ -153,6 +214,8 @@ export function ProjectBoard() {
   const [taskRecurrenceMode, setTaskRecurrenceMode] = useState<TaskRecurrenceMode>("none");
   const [taskRecurrenceEvery, setTaskRecurrenceEvery] = useState("1");
   const [taskRecurrenceUntilDate, setTaskRecurrenceUntilDate] = useState("");
+  const [isTaskAssigneeSelectOpen, setIsTaskAssigneeSelectOpen] = useState(false);
+  const [taskAssigneeSearchTerm, setTaskAssigneeSearchTerm] = useState("");
   const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
   const [isCompletingTask, setIsCompletingTask] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
@@ -162,8 +225,9 @@ export function ProjectBoard() {
   const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
-  const [isProjectMembersModalOpen, setIsProjectMembersModalOpen] = useState(false);
-  const [pendingUnassignMembership, setPendingUnassignMembership] = useState<ProjectMembership | null>(null);
+  const [isTaskReassignModalOpen, setIsTaskReassignModalOpen] = useState(false);
+  const [sourceEmployeeId, setSourceEmployeeId] = useState("");
+  const [targetEmployeeId, setTargetEmployeeId] = useState("");
   const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
 
   const numericProjectId = Number(projectId);
@@ -174,7 +238,7 @@ export function ProjectBoard() {
     setTaskPlannedStartDate("");
     setTaskDueDate("");
     setTaskEstimatedHours("");
-    setTaskAreaId(project ? String(project.areaId) : "");
+    setTaskAreaId(project?.areaId ? String(project.areaId) : "");
     setTaskAssigneeEmployeeId("");
     setTaskRecurrenceMode("none");
     setTaskRecurrenceEvery("1");
@@ -233,13 +297,18 @@ export function ProjectBoard() {
   }, [numericProjectId, taskStatusFilter]);
 
   const loadEmployees = useCallback(async () => {
+    if (!isAdmin) {
+      setEmployees([]);
+      return;
+    }
+
     try {
       const response = await listEmployees("active");
       setEmployees(response?.data ?? []);
     } catch {
       setEmployees([]);
     }
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -272,7 +341,7 @@ export function ProjectBoard() {
   }, [selectedTaskId, tasks]);
 
   const assignableEmployees = useMemo(() => {
-    return employees.filter((employee) => employee.role === "employee" && employee.isActive);
+    return employees.filter((employee) => employee.role === "employee");
   }, [employees]);
 
   const activeMemberships = useMemo(
@@ -280,22 +349,29 @@ export function ProjectBoard() {
     [memberships],
   );
 
-  const visibleMemberships = useMemo(() => {
-    if (membershipStatusFilter === "active") {
-      return memberships.filter((membership) => membership.isActive);
-    }
+  const taskReassignSourceOptions = useMemo(() => {
+    const employeeById = new Map<number, { id: number; label: string }>();
+    activeMemberships.forEach((membership) => {
+      employeeById.set(membership.employeeId, {
+        id: membership.employeeId,
+        label: `${membership.employeeName} (${membership.employeeEmail})`,
+      });
+    });
+    return [...employeeById.values()];
+  }, [activeMemberships]);
 
-    if (membershipStatusFilter === "inactive") {
-      return memberships.filter((membership) => !membership.isActive);
-    }
-
-    return memberships;
-  }, [membershipStatusFilter, memberships]);
+  const taskReassignTargetOptions = useMemo(
+    () => assignableEmployees.map((employee) => ({
+      id: employee.id,
+      label: `${employee.name} (${employee.email})`,
+    })),
+    [assignableEmployees],
+  );
 
   const taskAreaOptions = useMemo(() => {
     const options = new Map<number, string>();
 
-    if (project) {
+    if (project?.areaId) {
       options.set(project.areaId, project.areaName);
     }
 
@@ -326,16 +402,41 @@ export function ProjectBoard() {
 
   const taskAssigneeEmployeeOptions = useMemo(() => {
     const selectedAreaId = Number(taskAreaId);
+    const assignableEmployeesList = employees.filter(
+      (employee) => employee.role === "employee",
+    );
+
     if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
-      return [];
+      return assignableEmployeesList;
     }
 
-    return employees.filter((employee) => (
-      employee.role === "employee"
-      && employee.isActive
-      && (employee.currentAreaId === selectedAreaId || employee.areaIds.includes(selectedAreaId))
+    return assignableEmployeesList.filter((employee) => (
+      employee.currentAreaId === selectedAreaId || employee.areaIds.includes(selectedAreaId)
     ));
   }, [employees, taskAreaId]);
+
+  const taskAssigneeSearchOptions = useMemo(
+    () => taskAssigneeEmployeeOptions.map((employee) => ({
+      value: String(employee.id),
+      label: `${employee.name} (${employee.email})`,
+    })),
+    [taskAssigneeEmployeeOptions],
+  );
+
+  const visibleTaskAssigneeOptions = useMemo(() => {
+    const normalizedTerm = taskAssigneeSearchTerm.trim().toLowerCase();
+
+    if (!normalizedTerm) {
+      return taskAssigneeSearchOptions.slice(0, 6);
+    }
+
+    return taskAssigneeSearchOptions.filter((option) => option.label.toLowerCase().includes(normalizedTerm));
+  }, [taskAssigneeSearchOptions, taskAssigneeSearchTerm]);
+
+  const selectedTaskAssigneeOption = useMemo(
+    () => taskAssigneeSearchOptions.find((option) => option.value === taskAssigneeEmployeeId),
+    [taskAssigneeEmployeeId, taskAssigneeSearchOptions],
+  );
 
   const kanbanTasks = useMemo(() => {
     const grouped: Record<TaskWorkflowStatus, TaskSummary[]> = {
@@ -360,34 +461,6 @@ export function ProjectBoard() {
     { status: "Terminada", value: kanbanTasks.done.length, fill: "var(--chart-2)" },
   ]), [kanbanTasks]);
 
-  const taskComplianceDistribution = useMemo(() => {
-    const counters = {
-      onTime: 0,
-      estimateDelayed: 0,
-      dateOverdue: 0,
-    };
-
-    tasks.forEach((task) => {
-      if (task.isDateOverdue) {
-        counters.dateOverdue += 1;
-        return;
-      }
-
-      if (task.isEstimateDelayed === true) {
-        counters.estimateDelayed += 1;
-        return;
-      }
-
-      counters.onTime += 1;
-    });
-
-    return [
-      { status: "En tiempo", value: counters.onTime, fill: "var(--chart-2)" },
-      { status: "Atraso estimado", value: counters.estimateDelayed, fill: "var(--chart-4)" },
-      { status: "Atraso por fecha", value: counters.dateOverdue, fill: "var(--chart-5)" },
-    ];
-  }, [tasks]);
-
   const taskPriorityDistribution = useMemo(() => {
     const counters = new Map<string, number>();
 
@@ -398,19 +471,97 @@ export function ProjectBoard() {
     return [...counters.entries()].map(([name, tareas]) => ({ name, tareas }));
   }, [tasks]);
 
-  const taskAssigneeWorkload = useMemo(() => {
-    const counters = new Map<string, number>();
+  const projectTaskAnalytics = useMemo(() => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now);
+    sevenDaysAgo.setDate(now.getDate() - 7);
 
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const sevenDaysAhead = new Date(today);
+    sevenDaysAhead.setDate(today.getDate() + 7);
+
+    const completedLast7 = tasks.filter((task) => (
+      task.completedAt
+      && !Number.isNaN(new Date(task.completedAt).getTime())
+      && new Date(task.completedAt) >= sevenDaysAgo
+    )).length;
+
+    const updatedLast7 = tasks.filter((task) => {
+      const createdAt = new Date(task.createdAt).getTime();
+      const updatedAt = new Date(task.updatedAt).getTime();
+      return (
+        !Number.isNaN(createdAt)
+        && !Number.isNaN(updatedAt)
+        && updatedAt >= sevenDaysAgo.getTime()
+        && updatedAt > createdAt
+      );
+    }).length;
+
+    const createdLast7 = tasks.filter((task) => {
+      const createdAt = new Date(task.createdAt).getTime();
+      return !Number.isNaN(createdAt) && createdAt >= sevenDaysAgo.getTime();
+    }).length;
+
+    const dueSoonNext7 = tasks.filter((task) => {
+      const normalizedStatus = task.status.trim().toLowerCase();
+      if (normalizedStatus === "terminada") {
+        return false;
+      }
+      const dueDate = new Date(`${task.dueDate.slice(0, 10)}T00:00:00`);
+      if (Number.isNaN(dueDate.getTime())) {
+        return false;
+      }
+      return dueDate >= today && dueDate <= sevenDaysAhead;
+    }).length;
+
+    const recentActivity = [...tasks]
+      .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+      .slice(0, 6)
+      .map((task) => {
+        const updatedAtMs = new Date(task.updatedAt).getTime();
+        const createdAtMs = new Date(task.createdAt).getTime();
+        const completedAtMs = task.completedAt ? new Date(task.completedAt).getTime() : NaN;
+        let action = "actualizó la tarea";
+
+        if (!Number.isNaN(completedAtMs) && Math.abs(updatedAtMs - completedAtMs) <= 5 * 60 * 1000) {
+          action = "finalizó la tarea";
+        } else if (!Number.isNaN(createdAtMs) && Math.abs(updatedAtMs - createdAtMs) <= 5 * 60 * 1000) {
+          action = "creó la tarea";
+        }
+
+        return {
+          id: task.id,
+          title: task.title,
+          assigneeName: task.assigneeName ?? "Sin asignar",
+          status: task.status,
+          action,
+          relativeTime: formatRelativeTime(task.updatedAt),
+        };
+      });
+
+    const employeeCounter = new Map<string, number>();
     tasks.forEach((task) => {
-      if (getStatusKeyFromTask(task) === "done") return;
       const key = task.assigneeName ?? "Sin asignar";
-      counters.set(key, (counters.get(key) ?? 0) + 1);
+      employeeCounter.set(key, (employeeCounter.get(key) ?? 0) + 1);
     });
-
-    return [...counters.entries()]
-      .map(([name, tareas]) => ({ name, tareas }))
-      .sort((a, b) => b.tareas - a.tareas)
+    const totalEmployeeTasks = tasks.length || 1;
+    const tasksByEmployee = [...employeeCounter.entries()]
+      .map(([name, count]) => ({
+        name,
+        count,
+        percent: Math.round((count / totalEmployeeTasks) * 100),
+      }))
+      .sort((left, right) => right.count - left.count)
       .slice(0, 8);
+
+    return {
+      completedLast7,
+      updatedLast7,
+      createdLast7,
+      dueSoonNext7,
+      recentActivity,
+      tasksByEmployee,
+    };
   }, [tasks]);
 
   const selectedTask = useMemo(
@@ -461,65 +612,24 @@ export function ProjectBoard() {
     void loadTaskHistory(taskIdFromQuery);
   }, [loadTaskHistory, searchParams, selectedTaskId, tasks]);
 
-  const handleAssign = async () => {
-    const employeeId = Number(assignEmployeeId);
-    if (!Number.isInteger(employeeId) || employeeId <= 0 || !project) {
-      toast.error("Selecciona un empleado valido para asignar.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError("");
-    setSuccess("");
-    try {
-      await assignProjectMembership(project.id, { employeeId });
-      setSuccess("Membresia asignada correctamente.");
-      setAssignEmployeeId("");
-      await loadMemberships();
-    } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible asignar la membresia.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleUnassign = async (membership: ProjectMembership) => {
+  const handleReassignTasks = async () => {
     if (!project) return;
 
-    setIsSubmitting(true);
-    setError("");
-    setSuccess("");
-    try {
-      await unassignProjectMembership(project.id, membership.id);
-      setSuccess("Membresia desasignada.");
-      await loadMemberships();
-    } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible desasignar la membresia.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    const fromEmployeeId = Number(sourceEmployeeId);
+    const toEmployeeId = Number(targetEmployeeId);
 
-  const handleReassign = async () => {
-    if (!project) return;
-    const membershipId = Number(reassignMembershipId);
-    const toEmployeeId = Number(reassignEmployeeId);
-
-    if (!Number.isInteger(membershipId) || membershipId <= 0) {
-      toast.error("Selecciona una membresia activa para reasignar.");
+    if (!Number.isInteger(fromEmployeeId) || fromEmployeeId <= 0) {
+      toast.error("Selecciona el empleado origen.");
       return;
     }
 
     if (!Number.isInteger(toEmployeeId) || toEmployeeId <= 0) {
-      toast.error("Selecciona un empleado destino valido.");
+      toast.error("Selecciona el empleado destino.");
+      return;
+    }
+
+    if (fromEmployeeId === toEmployeeId) {
+      toast.error("El empleado origen y destino deben ser distintos.");
       return;
     }
 
@@ -527,16 +637,18 @@ export function ProjectBoard() {
     setError("");
     setSuccess("");
     try {
-      await reassignProjectMembership(project.id, membershipId, { toEmployeeId });
-      setSuccess("Membresia reasignada correctamente.");
-      setReassignMembershipId("");
-      setReassignEmployeeId("");
-      await loadMemberships();
+      const response = await reassignProjectTasks(project.id, { fromEmployeeId, toEmployeeId });
+      const reassignedCount = response?.data?.reassignedTasks ?? 0;
+      setSuccess(`Se reasignaron ${reassignedCount} tareas pendientes.`);
+      setIsTaskReassignModalOpen(false);
+      setSourceEmployeeId("");
+      setTargetEmployeeId("");
+      await Promise.all([loadTasks(), loadMemberships()]);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
         setError(incomingError.message);
       } else {
-        setError("No fue posible reasignar la membresia.");
+        setError("No fue posible reasignar las tareas.");
       }
     } finally {
       setIsSubmitting(false);
@@ -558,7 +670,7 @@ export function ProjectBoard() {
     setTaskAreaId(
       currentMembership?.currentAreaId
         ? String(currentMembership.currentAreaId)
-        : project
+        : project?.areaId
           ? String(project.areaId)
           : "",
     );
@@ -570,7 +682,7 @@ export function ProjectBoard() {
 
   const openCreateTaskModal = () => {
     resetTaskForm();
-    if (project) {
+    if (project?.areaId) {
       setTaskAreaId(String(project.areaId));
     }
     setError("");
@@ -588,7 +700,6 @@ export function ProjectBoard() {
       return;
     }
 
-    const selectedAreaId = Number(taskAreaId);
     const estimatedHours = taskEstimatedHours.trim()
       ? Number(taskEstimatedHours)
       : null;
@@ -600,11 +711,6 @@ export function ProjectBoard() {
       : 1;
     const hasRecurrence = !editingTaskId && taskRecurrenceMode !== "none";
     const estimatedMinutes = estimatedHours === null ? null : Math.round(estimatedHours * 60);
-
-    if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
-      toast.error("Selecciona un grupo/area.");
-      return;
-    }
 
     if (estimatedHours !== null && (!Number.isFinite(estimatedHours) || estimatedHours <= 0)) {
       toast.error("La estimacion de horas debe ser positiva.");
@@ -753,6 +859,11 @@ export function ProjectBoard() {
     if (!currentStatus || currentStatus === toStatus) {
       return;
     }
+    const allowedTargets = WORKFLOW_TRANSITIONS[currentStatus];
+    if (!allowedTargets.includes(toStatus)) {
+      setError(getTransitionValidationMessage(currentStatus, toStatus));
+      return;
+    }
 
     const previousTasks = tasks;
     const optimisticStatusLabel = WORKFLOW_LABELS[toStatus];
@@ -816,7 +927,12 @@ export function ProjectBoard() {
     } catch (incomingError) {
       setTasks(previousTasks);
       if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
+        if (incomingError.code === "TASK_TRANSITION_NOT_ALLOWED") {
+          setError(getTransitionValidationMessage(currentStatus, toStatus));
+        } else {
+          const friendlyMessage = getTaskTransitionApiErrorMessage(incomingError.code);
+          setError(friendlyMessage ?? incomingError.message);
+        }
       } else {
         setError("No fue posible mover la tarea.");
       }
@@ -829,6 +945,17 @@ export function ProjectBoard() {
   const handleTaskDrop = async (taskId: number, toStatus: TaskWorkflowStatus) => {
     const taskToMove = tasks.find((task) => task.id === taskId);
     if (!taskToMove) {
+      return;
+    }
+
+    const currentStatus = getStatusKeyFromTask(taskToMove);
+    if (!currentStatus) {
+      return;
+    }
+
+    const allowedTargets = WORKFLOW_TRANSITIONS[currentStatus];
+    if (!allowedTargets.includes(toStatus)) {
+      setError(getTransitionValidationMessage(currentStatus, toStatus));
       return;
     }
 
@@ -899,14 +1026,6 @@ export function ProjectBoard() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsProjectMembersModalOpen(true)}
-            className="app-btn-secondary"
-          >
-            <Users className="size-4" />
-            Miembros
-          </button>
         </div>
       </div>
 
@@ -924,7 +1043,7 @@ export function ProjectBoard() {
                   }`}
                 >
                   <LayoutGrid className="size-3.5" />
-                  Cuadrícula
+                  Lista
                 </button>
                 <button
                   type="button"
@@ -958,13 +1077,23 @@ export function ProjectBoard() {
                 <option value="done">Terminadas</option>
               </select>
               {isAdmin && (
-                <button
-                  type="button"
-                  onClick={openCreateTaskModal}
-                  className="app-btn-primary"
-                >
-                  <Plus className="size-4" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsTaskReassignModalOpen(true)}
+                    className="app-btn-secondary"
+                  >
+                    <RefreshCcw className="size-4" />
+                    Tareas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCreateTaskModal}
+                    className="app-btn-primary"
+                  >
+                    <Plus className="size-4" />
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -1021,7 +1150,7 @@ export function ProjectBoard() {
                                   Real: {formatMinutes(task.actualMinutes)}
                                 </p>
                                 {task.completionEvidence ? (
-                                  <p className="text-xs text-primary/85 mt-1 line-clamp-1">
+                                  <p className="text-xs text-primary mt-1 line-clamp-1">
                                     Evidencia: {task.completionEvidence}
                                   </p>
                                 ) : null}
@@ -1067,7 +1196,7 @@ export function ProjectBoard() {
                             <p className="font-medium">{task.title}</p>
                             <p className="text-muted-foreground">{task.description ?? "Sin descripcion"}</p>
                             {task.completionEvidence ? (
-                              <p className="mt-1 text-xs text-primary/85 line-clamp-1">
+                              <p className="mt-1 text-xs text-primary line-clamp-1">
                                 Evidencia: {task.completionEvidence}
                               </p>
                             ) : null}
@@ -1110,7 +1239,7 @@ export function ProjectBoard() {
                                 <button
                                   type="button"
                                   onClick={() => setPendingDeleteTask(task)}
-                                  className="inline-flex size-8 items-center justify-center rounded-md border border-destructive/30 bg-destructive/5 text-destructive transition-colors hover:bg-destructive/10"
+                                  className="inline-flex size-8 items-center justify-center rounded-md border border-destructive/45 bg-destructive/12 text-destructive transition-colors hover:bg-destructive/18"
                                   aria-label="Eliminar tarea"
                                   title="Eliminar"
                                 >
@@ -1128,62 +1257,122 @@ export function ProjectBoard() {
 
               {taskViewMode === "analytics" && (
                 <div className="p-5 space-y-4">
-                  <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <article className="rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-xs text-muted-foreground">Total de tareas</p>
-                      <p className="text-2xl font-semibold text-foreground">{tasks.length}</p>
+                  <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.completedLast7} finalizadas</p>
+                          <p className="text-xs text-muted-foreground">en los últimos 7 días</p>
+                        </div>
+                        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-success/14 text-success">
+                          <CheckCircle2 className="size-4" />
+                        </span>
+                      </div>
                     </article>
-                    <article className="rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-xs text-muted-foreground">Pendientes</p>
-                      <p className="text-2xl font-semibold text-foreground">
-                        {kanbanTasks.assigned.length + kanbanTasks.in_progress.length}
-                      </p>
+
+                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.updatedLast7} actualizadas</p>
+                          <p className="text-xs text-muted-foreground">en los últimos 7 días</p>
+                        </div>
+                        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/14 text-primary">
+                          <RefreshCcw className="size-4" />
+                        </span>
+                      </div>
                     </article>
-                    <article className="rounded-xl border border-border bg-background px-4 py-3">
-                      <p className="text-xs text-muted-foreground">Retrasadas / vencidas</p>
-                      <p className="text-2xl font-semibold text-foreground">
-                        {taskComplianceDistribution[1].value + taskComplianceDistribution[2].value}
-                      </p>
+
+                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.createdLast7} creadas</p>
+                          <p className="text-xs text-muted-foreground">en los últimos 7 días</p>
+                        </div>
+                        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-accent/14 text-accent">
+                          <FilePlus2 className="size-4" />
+                        </span>
+                      </div>
+                    </article>
+
+                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.dueSoonNext7} vencen pronto</p>
+                          <p className="text-xs text-muted-foreground">en los próximos 7 días</p>
+                        </div>
+                        <span className="inline-flex size-9 items-center justify-center rounded-lg bg-warning/14 text-warning">
+                          <CalendarClock className="size-4" />
+                        </span>
+                      </div>
                     </article>
                   </section>
 
                   <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     <article className="rounded-xl border border-border bg-background p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Distribución por estado</h4>
-                      <ChartContainer config={statusChartConfig} className="h-[260px] w-full">
-                        <PieChart>
-                          <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
-                          <Pie
-                            data={taskStatusDistribution}
-                            dataKey="value"
-                            nameKey="status"
-                            innerRadius={55}
-                            outerRadius={90}
-                            strokeWidth={2}
-                          />
-                        </PieChart>
-                      </ChartContainer>
+                      <h4 className="text-base font-semibold text-foreground">Resumen de estado</h4>
+                      <p className="text-sm text-muted-foreground">Instantánea del estado actual de las tareas.</p>
+                      <div className="mt-3 grid grid-cols-1 items-center gap-3 md:grid-cols-[1fr_210px]">
+                        <ChartContainer config={statusChartConfig} className="h-[240px] w-full">
+                          <PieChart>
+                            <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
+                            <Pie
+                              data={taskStatusDistribution}
+                              dataKey="value"
+                              nameKey="status"
+                              innerRadius={52}
+                              outerRadius={86}
+                              strokeWidth={2}
+                            />
+                          </PieChart>
+                        </ChartContainer>
+                        <div className="space-y-2">
+                          {taskStatusDistribution.map((statusItem) => (
+                            <div key={statusItem.status} className="flex items-center justify-between gap-2 text-sm">
+                              <span className="inline-flex items-center gap-2 text-muted-foreground">
+                                <span className="size-2.5 rounded-sm" style={{ backgroundColor: statusItem.fill }} />
+                                {statusItem.status}
+                              </span>
+                              <span className="font-semibold text-foreground">{statusItem.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </article>
 
                     <article className="rounded-xl border border-border bg-background p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Cumplimiento de tiempos</h4>
-                      <ChartContainer config={complianceChartConfig} className="h-[260px] w-full">
-                        <PieChart>
-                          <ChartTooltip content={<ChartTooltipContent nameKey="status" />} />
-                          <Pie
-                            data={taskComplianceDistribution}
-                            dataKey="value"
-                            nameKey="status"
-                            innerRadius={55}
-                            outerRadius={90}
-                            strokeWidth={2}
-                          />
-                        </PieChart>
-                      </ChartContainer>
+                      <h4 className="text-base font-semibold text-foreground">Actividad reciente</h4>
+                      <p className="text-sm text-muted-foreground">Últimos cambios registrados dentro del proyecto.</p>
+                      <div className="mt-3 space-y-2">
+                        {projectTaskAnalytics.recentActivity.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Sin actividad reciente.</p>
+                        ) : (
+                          projectTaskAnalytics.recentActivity.map((activity) => (
+                            <article
+                              key={activity.id}
+                              className="flex items-start gap-3 rounded-lg border border-border/80 bg-card/65 px-3 py-2.5"
+                            >
+                              <span className="inline-flex size-7 items-center justify-center rounded-full bg-primary/14 text-xs font-bold text-primary">
+                                {activity.assigneeName.slice(0, 1).toUpperCase()}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-foreground">
+                                  <span className="font-semibold">{activity.assigneeName}</span>
+                                  {" "}
+                                  {activity.action}
+                                  {" "}
+                                  <span className="font-semibold text-primary">{activity.title}</span>
+                                </p>
+                                <p className="text-xs text-muted-foreground">{activity.relativeTime} · {activity.status}</p>
+                              </div>
+                            </article>
+                          ))
+                        )}
+                      </div>
                     </article>
 
                     <article className="rounded-xl border border-border bg-background p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Prioridad de tareas</h4>
+                      <h4 className="text-base font-semibold text-foreground">Desglose de prioridad</h4>
+                      <p className="text-sm text-muted-foreground">Distribución actual por nivel de prioridad.</p>
                       <ChartContainer config={barChartConfig} className="h-[260px] w-full">
                         <BarChart data={taskPriorityDistribution}>
                           <CartesianGrid vertical={false} />
@@ -1196,16 +1385,28 @@ export function ProjectBoard() {
                     </article>
 
                     <article className="rounded-xl border border-border bg-background p-4">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Carga por responsable (activas)</h4>
-                      <ChartContainer config={barChartConfig} className="h-[260px] w-full">
-                        <BarChart data={taskAssigneeWorkload}>
-                          <CartesianGrid vertical={false} />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                          <YAxis axisLine={false} tickLine={false} />
-                          <ChartTooltip content={<ChartTooltipContent formatter={(value) => `${value} tareas`} />} />
-                          <Bar dataKey="tareas" fill="var(--color-tareas)" radius={8} />
-                        </BarChart>
-                      </ChartContainer>
+                      <h4 className="text-base font-semibold text-foreground">Tareas por empleado</h4>
+                      <p className="text-sm text-muted-foreground">Carga operativa de los miembros del proyecto.</p>
+                      <div className="mt-4 space-y-3">
+                        {projectTaskAnalytics.tasksByEmployee.length === 0 ? (
+                          <p className="text-sm text-muted-foreground">Sin tareas asignadas para este proyecto.</p>
+                        ) : (
+                          projectTaskAnalytics.tasksByEmployee.map((row) => (
+                            <div key={row.name} className="space-y-1.5">
+                              <div className="flex items-center justify-between gap-2 text-sm">
+                                <span className="truncate text-foreground">{row.name}</span>
+                                <span className="text-muted-foreground">{row.count} tareas</span>
+                              </div>
+                              <div className="h-2 overflow-hidden rounded-full bg-secondary/80">
+                                <div
+                                  className="h-full rounded-full bg-primary"
+                                  style={{ width: `${Math.max(8, row.percent)}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
                     </article>
                   </section>
                 </div>
@@ -1216,160 +1417,67 @@ export function ProjectBoard() {
 
       </div>
 
-      <Dialog open={isProjectMembersModalOpen} onOpenChange={setIsProjectMembersModalOpen}>
-        <DialogContent className="sm:max-w-6xl">
+      <Dialog open={isTaskReassignModalOpen} onOpenChange={setIsTaskReassignModalOpen}>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Miembros del proyecto</DialogTitle>
+            <DialogTitle>Reasignar tareas del proyecto</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                Gestiona miembros y reasignaciones sin ocupar espacio principal del tablero.
-              </p>
-              <select
-                value={membershipStatusFilter}
-                onChange={(event) => setMembershipStatusFilter(event.target.value as MembershipStatusFilter)}
-                className="app-control h-9 min-w-44"
-              >
-                <option value="all">Todos</option>
-                <option value="active">Activos</option>
-                <option value="inactive">Historicos</option>
-              </select>
+            <p className="text-sm text-muted-foreground">
+              Reasigna todas las tareas pendientes de un empleado a otro
+            </p>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium">Empleado origen</label>
+                <select
+                  value={sourceEmployeeId}
+                  onChange={(event) => setSourceEmployeeId(event.target.value)}
+                  className="app-control"
+                >
+                  <option value="">Selecciona empleado</option>
+                  {taskReassignSourceOptions.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Empleado destino</label>
+                <select
+                  value={targetEmployeeId}
+                  onChange={(event) => setTargetEmployeeId(event.target.value)}
+                  className="app-control"
+                >
+                  <option value="">Selecciona empleado</option>
+                  {taskReassignTargetOptions.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-
-            {isAdmin && (
-              <div className="rounded-xl border border-border/70 bg-secondary/20 p-4">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium mb-2">Asignar empleado</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={assignEmployeeId}
-                        onChange={(event) => setAssignEmployeeId(event.target.value)}
-                        className="app-control min-w-[260px]"
-                      >
-                        <option value="">Selecciona empleado</option>
-                        {assignableEmployees.map((employee) => (
-                          <option key={employee.id} value={employee.id}>
-                            {employee.name} ({employee.email})
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => {
-                          void handleAssign();
-                        }}
-                        className="app-btn-primary"
-                      >
-                        Asignar
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium mb-2">Reasignar membresia activa</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={reassignMembershipId}
-                        onChange={(event) => setReassignMembershipId(event.target.value)}
-                        className="app-control min-w-[240px]"
-                      >
-                        <option value="">Selecciona membresia</option>
-                        {activeMemberships.map((membership) => (
-                          <option key={membership.id} value={membership.id}>
-                            {membership.employeeName} ({membership.employeeEmail})
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={reassignEmployeeId}
-                        onChange={(event) => setReassignEmployeeId(event.target.value)}
-                        className="app-control min-w-[240px]"
-                      >
-                        <option value="">Empleado destino</option>
-                        {assignableEmployees.map((employee) => (
-                          <option key={employee.id} value={employee.id}>
-                            {employee.name} ({employee.email})
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => {
-                          void handleReassign();
-                        }}
-                        className="app-btn-secondary disabled:opacity-70"
-                      >
-                        Reasignar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {visibleMemberships.length === 0 ? (
-              <div className="p-4 text-sm text-muted-foreground rounded-xl border border-border/70">
-                No hay membresias para este filtro.
-              </div>
-            ) : (
-              <div className="max-h-[52vh] overflow-auto rounded-xl border border-border/70">
-                <table className="app-table">
-                  <thead className="app-table-head">
-                    <tr>
-                      <th className="app-th">Empleado</th>
-                      <th className="app-th">Area actual</th>
-                      <th className="app-th">Estado</th>
-                      <th className="app-th">Asignado</th>
-                      <th className="app-th">Desasignado</th>
-                      {isAdmin && <th className="app-th">Acciones</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleMemberships.map((membership) => (
-                      <tr key={membership.id} className="app-row">
-                        <td className="app-td">
-                          <p className="font-medium">{membership.employeeName}</p>
-                          <p className="text-muted-foreground">{membership.employeeEmail}</p>
-                        </td>
-                        <td className="app-td">{membership.currentAreaName ?? "Sin area activa"}</td>
-                        <td className="app-td">
-                          <span className={membership.isActive ? "text-success" : "text-warning"}>
-                            {membership.isActive ? "Activa" : "Finalizada"}
-                          </span>
-                        </td>
-                        <td className="app-td">{new Date(membership.assignedAt).toLocaleString()}</td>
-                        <td className="app-td">
-                          {membership.unassignedAt
-                            ? new Date(membership.unassignedAt).toLocaleString()
-                            : "-"}
-                        </td>
-                        {isAdmin && (
-                          <td className="app-td">
-                            {membership.isActive ? (
-                              <button
-                                type="button"
-                                disabled={isSubmitting}
-                                onClick={() => setPendingUnassignMembership(membership)}
-                                className="app-action-link-danger disabled:opacity-70"
-                              >
-                                Desasignar
-                              </button>
-                            ) : (
-                              <span className="text-muted-foreground">Sin acciones</span>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="app-btn-secondary"
+                onClick={() => setIsTaskReassignModalOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="app-btn-primary"
+                onClick={() => {
+                  void handleReassignTasks();
+                }}
+                disabled={isSubmitting}
+              >
+                Reasignar tareas
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1500,19 +1608,64 @@ export function ProjectBoard() {
             )}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Empleado</label>
-              <select
-                value={taskAssigneeEmployeeId}
-                onChange={(event) => setTaskAssigneeEmployeeId(event.target.value)}
-                className="app-control"
-                disabled={taskAssigneeEmployeeOptions.length === 0}
-              >
-                <option value="">Selecciona empleado</option>
-                {taskAssigneeEmployeeOptions.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} ({employee.email})
-                  </option>
-                ))}
-              </select>
+              <Popover open={isTaskAssigneeSelectOpen} onOpenChange={setIsTaskAssigneeSelectOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-expanded={isTaskAssigneeSelectOpen}
+                    className="app-control inline-flex h-10 w-full items-center justify-between gap-2 bg-card/95"
+                    disabled={taskAssigneeSearchOptions.length === 0}
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2">
+                      <Search className={cn("size-4 shrink-0", isTaskAssigneeSelectOpen ? "text-primary" : "text-muted-foreground")} />
+                      <span className={cn("truncate", selectedTaskAssigneeOption ? "text-foreground" : "text-muted-foreground")}>
+                        {selectedTaskAssigneeOption?.label ?? "Buscar empleado..."}
+                      </span>
+                    </span>
+                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  side="bottom"
+                  align="start"
+                  avoidCollisions={false}
+                  sideOffset={6}
+                  className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/90 bg-card/98 p-0"
+                >
+                  <Command className="bg-card">
+                    <CommandInput
+                      value={taskAssigneeSearchTerm}
+                      onValueChange={setTaskAssigneeSearchTerm}
+                      placeholder="Buscar empleado..."
+                    />
+                    <CommandList>
+                      <CommandEmpty>Sin empleados disponibles.</CommandEmpty>
+                      <CommandGroup>
+                        {visibleTaskAssigneeOptions.map((option) => (
+                          <CommandItem
+                            key={option.value}
+                            value={option.label}
+                            onSelect={() => {
+                              setTaskAssigneeEmployeeId(option.value);
+                              setTaskAssigneeSearchTerm("");
+                              setIsTaskAssigneeSelectOpen(false);
+                            }}
+                            className="gap-2"
+                          >
+                            <Check
+                              className={cn(
+                                "size-4 text-primary transition-opacity",
+                                taskAssigneeEmployeeId === option.value ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                            <span className="truncate">{option.label}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {taskAreaId && taskAssigneeEmployeeOptions.length === 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
                   No hay empleados activos asignados a esa area.
@@ -1561,32 +1714,6 @@ export function ProjectBoard() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <ConfirmActionDialog
-        open={pendingUnassignMembership !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingUnassignMembership(null);
-          }
-        }}
-        title="Desasignar miembro"
-        description={
-          pendingUnassignMembership
-            ? `Se desasignará a ${pendingUnassignMembership.employeeName} del proyecto.`
-            : ""
-        }
-        confirmLabel="Desasignar"
-        variant="destructive"
-        isProcessing={isSubmitting}
-        onConfirm={() => {
-          if (!pendingUnassignMembership) {
-            return;
-          }
-          const membershipToUnassign = pendingUnassignMembership;
-          setPendingUnassignMembership(null);
-          void handleUnassign(membershipToUnassign);
-        }}
-      />
 
       <ConfirmActionDialog
         open={pendingDeleteTask !== null}

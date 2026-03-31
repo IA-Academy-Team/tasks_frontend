@@ -8,8 +8,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleSlash2,
-  Eye,
   FolderKanban,
   ListChecks,
   ListFilter,
@@ -51,13 +49,12 @@ import {
 } from "../../modules/projects/api/projects.api";
 import { cn } from "../components/ui/utils";
 
-type NormalizedProjectStatus = "active" | "closed" | "cancelled" | "unknown";
+type NormalizedProjectStatus = "active" | "closed" | "unknown";
 
 const getNormalizedProjectStatus = (status: string): NormalizedProjectStatus => {
   const normalized = status.trim().toLowerCase();
   if (normalized === "active" || normalized === "activo") return "active";
   if (normalized === "closed" || normalized === "cerrado") return "closed";
-  if (normalized === "cancelled" || normalized === "cancelado") return "cancelled";
   return "unknown";
 };
 
@@ -68,33 +65,24 @@ const getProjectStatusMeta = (status: string) => {
     return {
       label: "Activo",
       textClassName: "text-success",
-      badgeClassName: "border-success/35 bg-success/15 text-success",
+      badgeClassName: "border-success/45 bg-success/14 text-success",
       barClassName: "bg-success",
     };
   }
 
   if (normalized === "closed") {
     return {
-      label: "Cerrado",
+      label: "Desactivado",
       textClassName: "text-warning",
-      badgeClassName: "border-warning/35 bg-warning/15 text-warning",
+      badgeClassName: "border-warning/45 bg-warning/14 text-warning",
       barClassName: "bg-warning",
-    };
-  }
-
-  if (normalized === "cancelled") {
-    return {
-      label: "Cancelado",
-      textClassName: "text-destructive",
-      badgeClassName: "border-destructive/35 bg-destructive/10 text-destructive",
-      barClassName: "bg-destructive/75",
     };
   }
 
   return {
     label: status || "Sin estado",
     textClassName: "text-muted-foreground",
-    badgeClassName: "border-border/70 bg-secondary/55 text-muted-foreground",
+    badgeClassName: "border-border/85 bg-secondary/65 text-muted-foreground",
     barClassName: "bg-muted-foreground/45",
   };
 };
@@ -144,14 +132,14 @@ const getProjectRisk = (project: ProjectSummary) => {
   if (diffInDays < 0) {
     return {
       label: "Retrasado",
-      className: "border-destructive/35 bg-destructive/10 text-destructive",
+      className: "border-destructive/45 bg-destructive/12 text-destructive",
     };
   }
 
   if (diffInDays <= 7) {
     return {
       label: "Proximo a vencer",
-      className: "border-warning/35 bg-warning/15 text-warning",
+      className: "border-warning/45 bg-warning/14 text-warning",
     };
   }
 
@@ -166,10 +154,9 @@ export function Projects() {
     icon: typeof ListFilter;
     activeClassName: string;
   }> = [
-    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/40 bg-accent/15 text-accent" },
-    { value: "active", label: "Activos", icon: CheckCircle2, activeClassName: "border-success/40 bg-success/15 text-success" },
-    { value: "closed", label: "Cerrados", icon: Archive, activeClassName: "border-warning/40 bg-warning/15 text-warning" },
-    { value: "cancelled", label: "Cancelados", icon: CircleSlash2, activeClassName: "border-destructive/40 bg-destructive/10 text-destructive" },
+    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/45 bg-accent/14 text-accent" },
+    { value: "active", label: "Activos", icon: CheckCircle2, activeClassName: "border-success/45 bg-success/14 text-success" },
+    { value: "closed", label: "Desactivados", icon: Archive, activeClassName: "border-warning/45 bg-warning/14 text-warning" },
   ];
 
   const navigate = useNavigate();
@@ -229,6 +216,11 @@ export function Projects() {
   }, [areaFilter, statusFilter]);
 
   const loadAreas = async () => {
+    if (!isAdmin) {
+      setAreas([]);
+      return;
+    }
+
     try {
       const response = await listAreas("all");
       setAreas(response?.data ?? []);
@@ -243,7 +235,7 @@ export function Projects() {
 
   useEffect(() => {
     void loadAreas();
-  }, []);
+  }, [isAdmin]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -281,7 +273,7 @@ export function Projects() {
 
   const startEdit = (project: ProjectSummary) => {
     setEditingProjectId(project.id);
-    setAreaId(String(project.areaId));
+    setAreaId(project.areaId ? String(project.areaId) : "");
     setName(project.name);
     setDescription(project.description ?? "");
     setStartDate(project.startDate ?? "");
@@ -289,24 +281,19 @@ export function Projects() {
     setIsProjectModalOpen(true);
   };
 
-  const openProjectDetail = (project: ProjectSummary) => {
-    setSelectedProjectForDetail(project);
-    setIsProjectDetailModalOpen(true);
-  };
-
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
     const trimmedName = name.trim();
-    const numericAreaId = Number(areaId);
+    const numericAreaId = areaId.trim() ? Number(areaId) : null;
 
     if (!trimmedName) {
       toast.error("El nombre del proyecto es obligatorio.");
       return;
     }
 
-    if (!Number.isInteger(numericAreaId) || numericAreaId <= 0) {
-      toast.error("Debes seleccionar un area valida.");
+    if (numericAreaId !== null && (!Number.isInteger(numericAreaId) || numericAreaId <= 0)) {
+      toast.error("El area seleccionada no es valida.");
       return;
     }
 
@@ -390,22 +377,24 @@ export function Projects() {
 
             <div className="flex w-full flex-col gap-2 xl:w-auto xl:items-end">
               <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
-                <div className="relative w-full sm:min-w-[220px]">
-                  <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                  <select
-                    value={areaFilter}
-                    onChange={(event) => setAreaFilter(event.target.value)}
-                    className="app-control h-9 pl-9 pr-8"
-                    title="Filtrar por area"
-                  >
-                    <option value="all">Todas las areas</option>
-                    {areas.map((area) => (
-                      <option key={area.id} value={area.id}>
-                        {area.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {isAdmin && (
+                  <div className="relative w-full sm:min-w-[220px]">
+                    <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <select
+                      value={areaFilter}
+                      onChange={(event) => setAreaFilter(event.target.value)}
+                      className="app-control h-9 pl-9 pr-8"
+                      title="Filtrar por area"
+                    >
+                      <option value="all">Todas las areas</option>
+                      {areas.map((area) => (
+                        <option key={area.id} value={area.id}>
+                          {area.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="relative w-full sm:min-w-72">
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -448,7 +437,7 @@ export function Projects() {
                         "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
                         isSelected
                           ? option.activeClassName
-                          : "border-border/70 bg-card text-muted-foreground hover:border-border hover:bg-secondary/70 hover:text-foreground",
+                          : "border-border/80 bg-card text-muted-foreground hover:border-border/90 hover:bg-secondary/80 hover:text-foreground",
                       )}
                       aria-pressed={isSelected}
                       title={`Ver proyectos ${option.label.toLowerCase()}`}
@@ -465,7 +454,7 @@ export function Projects() {
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Cargando proyectos...</div>
           ) : paginatedProjects.length === 0 ? (
-            <div className="rounded-2xl border border-border/70 bg-card/90 px-4 py-10 text-center text-sm text-muted-foreground">
+            <div className="rounded-2xl border border-border/85 bg-card/95 px-4 py-10 text-center text-sm text-muted-foreground">
               {searchTerm.trim().length > 0
                 ? "No se encontraron proyectos para esta busqueda."
                 : "No hay proyectos para este filtro."}
@@ -486,7 +475,6 @@ export function Projects() {
                       className={cn(
                         "group cursor-pointer rounded-2xl border border-border/80 bg-card/95 p-4 shadow-[0_12px_32px_rgba(16,36,58,0.11)] transition-all hover:-translate-y-0.5 hover:border-primary/45",
                         normalizedStatus === "closed" && "opacity-95",
-                        normalizedStatus === "cancelled" && "opacity-85",
                       )}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -507,41 +495,57 @@ export function Projects() {
                             <button
                               type="button"
                               onClick={(event) => event.stopPropagation()}
-                              className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground/75 transition-colors hover:bg-secondary hover:text-foreground"
+                              className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
                               aria-label={`Acciones de ${project.name}`}
                             >
                               <MoreVertical className="size-4" />
                             </button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-44">
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-44"
+                            onClick={(event) => event.stopPropagation()}
+                          >
                             {isAdmin && (
                               <>
-                                <DropdownMenuItem onClick={() => startEdit(project)}>
+                                <DropdownMenuItem
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    startEdit(project);
+                                  }}
+                                >
                                   <Pencil className="size-4" />
                                   Editar
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 {normalizedStatus === "active" && (
-                                  <>
-                                    <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "closed" })}>
-                                      <Archive className="size-4" />
-                                      Cerrar
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "cancelled" })}>
-                                      <CircleSlash2 className="size-4" />
-                                      Desactivar
-                                    </DropdownMenuItem>
-                                  </>
+                                  <DropdownMenuItem
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setPendingStatusUpdate({ project, status: "closed" });
+                                    }}
+                                  >
+                                    <Archive className="size-4" />
+                                    Desactivar
+                                  </DropdownMenuItem>
                                 )}
                                 {normalizedStatus !== "active" && (
-                                  <DropdownMenuItem onClick={() => setPendingStatusUpdate({ project, status: "active" })}>
+                                  <DropdownMenuItem
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setPendingStatusUpdate({ project, status: "active" });
+                                    }}
+                                  >
                                     <CheckCircle2 className="size-4" />
                                     Activar
                                   </DropdownMenuItem>
                                 )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
-                                  onClick={() => setPendingDeleteProject(project)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setPendingDeleteProject(project);
+                                  }}
                                   className="text-destructive focus:text-destructive"
                                 >
                                   <Trash2 className="size-4" />
@@ -580,7 +584,7 @@ export function Projects() {
                         </div>
                       </div>
 
-                      <div className="mt-4 flex items-center justify-between border-t border-border/70 pt-3 text-xs text-muted-foreground">
+                      <div className="mt-4 flex items-center justify-between border-t border-border/85 pt-3 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
                           <Users className="size-3.5" />
                           {project.activeMemberCount} miembros
@@ -595,7 +599,7 @@ export function Projects() {
                 })}
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/75 bg-secondary/25 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/85 bg-secondary/55 px-4 py-3">
                 <p className="text-xs text-muted-foreground">
                   Mostrando {visibleStart} a {visibleEnd} de {filteredProjects.length} proyectos
                 </p>
@@ -652,7 +656,7 @@ export function Projects() {
                 onChange={(event) => setAreaId(event.target.value)}
                 className="app-control"
               >
-                <option value="">Selecciona un area</option>
+                <option value="">Sin area (opcional)</option>
                 {areas.filter((area) => area.isActive).map((area) => (
                   <option key={area.id} value={area.id}>
                     {area.name}
@@ -765,13 +769,13 @@ export function Projects() {
         title="Eliminar proyecto"
         description={
           pendingDeleteProject
-            ? `Se eliminara "${pendingDeleteProject.name}". Si existe historial asociado, el backend lo archivara automaticamente.`
+            ? `Se eliminara permanentemente "${pendingDeleteProject.name}" junto con sus tareas y membresias del proyecto. Esta accion no se puede deshacer.`
             : ""
         }
         confirmLabel="Eliminar"
         variant="destructive"
         isProcessing={isSubmitting}
-        confirmDelaySeconds={5}
+        confirmDelaySeconds={8}
         onConfirm={() => {
           if (!pendingDeleteProject) {
             return;
@@ -795,9 +799,7 @@ export function Projects() {
             ? `Se cambiara el estado de "${pendingStatusUpdate.project.name}" a "${
               pendingStatusUpdate.status === "active"
                 ? "activo"
-                : pendingStatusUpdate.status === "closed"
-                  ? "cerrado"
-                  : "cancelado"
+                : "desactivado"
             }".`
             : ""
         }

@@ -9,13 +9,9 @@ export interface EmployeeSummary {
   email: string;
   role: "admin" | "employee";
   roleId: number;
-  isActive: boolean;
   emailVerified: boolean;
   phoneNumber: string | null;
   image: string | null;
-  employeeStatusId: number;
-  employeeStatus: string;
-  deactivatedAt: string | null;
   currentAreaId: number | null;
   currentAreaName: string | null;
   areaIds: number[];
@@ -80,7 +76,7 @@ export interface EmployeeProjectMembershipsResponse {
 export interface DeleteEmployeeResponse {
   data: {
     id: number;
-    mode: "deleted" | "archived";
+    mode: "deleted";
   };
 }
 
@@ -91,7 +87,6 @@ export interface CreateEmployeePayload {
   phoneNumber?: string | null;
   image?: string | null;
   emailVerified?: boolean;
-  isActive?: boolean;
 }
 
 export interface UpdateEmployeePayload {
@@ -102,10 +97,6 @@ export interface UpdateEmployeePayload {
   emailVerified?: boolean;
 }
 
-export interface UpdateEmployeeStatusPayload {
-  isActive: boolean;
-}
-
 export interface AssignEmployeeAreaPayload {
   areaId: number;
 }
@@ -114,7 +105,7 @@ export interface UnassignEmployeeAreaPayload {
   areaId?: number;
 }
 
-export const listEmployees = (status: EmployeeStatusFilter) =>
+export const listEmployees = (status: EmployeeStatusFilter = "all") =>
   api.get<EmployeesResponse>(`${API_PREFIX}/employees?status=${status}`);
 
 export const createEmployee = (payload: CreateEmployeePayload) =>
@@ -131,16 +122,6 @@ export const updateEmployee = (employeeId: number, payload: UpdateEmployeePayloa
       errorMessage: "No fue posible actualizar el empleado.",
     },
   });
-
-export const updateEmployeeStatus = (
-  employeeId: number,
-  payload: UpdateEmployeeStatusPayload,
-) => api.patch<EmployeeResponse>(`${API_PREFIX}/employees/${employeeId}/status`, payload, {
-  toast: {
-    successMessage: payload.isActive ? "Empleado activado correctamente." : "Empleado desactivado correctamente.",
-    errorMessage: "No fue posible actualizar el estado del empleado.",
-  },
-});
 
 export const listEmployeeAreaAssignments = (
   employeeId: number,

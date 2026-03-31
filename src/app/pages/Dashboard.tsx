@@ -4,7 +4,6 @@ import { Area, AreaChart, CartesianGrid, Line, Pie, PieChart, XAxis, YAxis } fro
 import {
   Activity,
   AlertTriangle,
-  ArrowRight,
   CalendarClock,
   Check,
   ChevronDown,
@@ -54,8 +53,16 @@ const formatMinutes = (minutes: number) => {
   return `${hours}h ${remainingMinutes}m`;
 };
 
+const parseDateForUi = (value: string) => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T00:00:00`);
+  }
+
+  return new Date(value);
+};
+
 const formatDate = (value: string) =>
-  new Date(value).toLocaleDateString("es-ES", {
+  parseDateForUi(value).toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -81,7 +88,7 @@ const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
 const getUrgencyTone = (dueDate: string): EmployeeUrgencyTone => {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const due = new Date(dueDate);
+  const due = parseDateForUi(dueDate);
   const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
   const daysRemaining = Math.ceil((dueDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -97,19 +104,19 @@ const employeeUrgencyStyles: Record<EmployeeUrgencyTone, {
   label: string;
 }> = {
   critical: {
-    ringClassName: "border-destructive/45 bg-destructive/8",
+    ringClassName: "border-destructive/45 bg-destructive/12",
     dotClassName: "bg-destructive",
     labelClassName: "text-destructive",
     label: "Alta",
   },
   warning: {
-    ringClassName: "border-warning/45 bg-warning/8",
+    ringClassName: "border-warning/45 bg-warning/14",
     dotClassName: "bg-warning",
     labelClassName: "text-warning",
     label: "Media",
   },
   normal: {
-    ringClassName: "border-primary/30 bg-primary/8",
+    ringClassName: "border-primary/45 bg-primary/14",
     dotClassName: "bg-primary",
     labelClassName: "text-primary",
     label: "Normal",
@@ -129,15 +136,6 @@ type AdminInsights = {
     doneTasks: number;
     totalTasks: number;
   }[];
-  projectRisk: Array<{
-    projectId: number;
-    projectName: string;
-    pendingCount: number;
-    overdueOrDelayedCount: number;
-    nextDueDate: string | null;
-    score: number;
-    level: "high" | "medium" | "low";
-  }>;
   pendingTasks: Array<{
     taskId: number;
     title: string;
@@ -154,24 +152,6 @@ type AdminInsights = {
     dueDate: string;
     reason: string;
   }>;
-};
-
-const projectRiskLevelStyles: Record<"high" | "medium" | "low", {
-  label: string;
-  className: string;
-}> = {
-  high: {
-    label: "Alto",
-    className: "border-destructive/35 bg-destructive/10 text-destructive",
-  },
-  medium: {
-    label: "Medio",
-    className: "border-warning/35 bg-warning/10 text-warning",
-  },
-  low: {
-    label: "Bajo",
-    className: "border-success/35 bg-success/10 text-success",
-  },
 };
 
 const pieChartConfig = {
@@ -222,7 +202,7 @@ const complianceTrendChartConfig = {
   },
 } satisfies ChartConfig;
 
-const ALERTS_PAGE_SIZE = 8;
+const ALERTS_PAGE_SIZE = 3;
 const COMPLIANCE_AXIS_TICKS = [0, 20, 40, 60, 80, 100];
 
 type SearchableOption = {
@@ -261,7 +241,7 @@ function SearchableSelect({
           type="button"
           aria-expanded={open}
           className={cn(
-            "app-control inline-flex h-10 w-full items-center justify-between gap-2 bg-card/70",
+            "app-control inline-flex h-10 w-full items-center justify-between gap-2 bg-card/95",
             disabled && "cursor-not-allowed opacity-60",
             className,
           )}
@@ -278,7 +258,7 @@ function SearchableSelect({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/80 bg-card p-0"
+        className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/90 bg-card/98 p-0"
       >
         <Command className="bg-card">
           <CommandInput placeholder={searchPlaceholder} />
@@ -357,7 +337,7 @@ export function Dashboard() {
     if (!employeeDashboard) return null;
 
     const orderedUpcoming = [...employeeDashboard.upcomingTasks].sort(
-      (a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
+      (a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime(),
     );
     const nextToExpire = orderedUpcoming.slice(0, 6).map((task) => ({
       ...task,
@@ -450,76 +430,6 @@ export function Dashboard() {
       }))
       .sort((a, b) => b.completionRate - a.completionRate || b.doneTasks - a.doneTasks);
 
-    const projectRiskAccumulator = new Map<number, {
-      projectId: number;
-      projectName: string;
-      pendingCount: number;
-      overdueOrDelayedCount: number;
-      upcomingCount: number;
-      nextDueDate: string | null;
-    }>();
-    const currentDate = new Date();
-    const currentDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
-    const sevenDaysAhead = new Date(currentDay);
-    sevenDaysAhead.setDate(currentDay.getDate() + 7);
-    const todayMs = currentDay.getTime();
-    const nextWeekMs = sevenDaysAhead.getTime();
-
-    for (const row of complianceRows) {
-      if (isDoneStatus(row.status)) continue;
-
-      const dueDateObject = new Date(`${row.dueDate}T00:00:00`);
-      const dueMs = Number.isNaN(dueDateObject.getTime()) ? Number.POSITIVE_INFINITY : dueDateObject.getTime();
-      const riskRecord = projectRiskAccumulator.get(row.projectId) ?? {
-        projectId: row.projectId,
-        projectName: row.projectName,
-        pendingCount: 0,
-        overdueOrDelayedCount: 0,
-        upcomingCount: 0,
-        nextDueDate: null,
-      };
-
-      riskRecord.pendingCount += 1;
-      if (row.isDateOverdue || row.isEstimateDelayed === true) {
-        riskRecord.overdueOrDelayedCount += 1;
-      }
-      if (dueMs >= todayMs && dueMs <= nextWeekMs) {
-        riskRecord.upcomingCount += 1;
-      }
-      if (riskRecord.nextDueDate === null || dueMs < Date.parse(riskRecord.nextDueDate)) {
-        riskRecord.nextDueDate = row.dueDate;
-      }
-
-      projectRiskAccumulator.set(row.projectId, riskRecord);
-    }
-
-    const projectRisk = Array.from(projectRiskAccumulator.values())
-      .map((entry) => {
-        const score = (entry.overdueOrDelayedCount * 3) + (entry.upcomingCount * 2) + entry.pendingCount;
-        const level: "high" | "medium" | "low" = entry.overdueOrDelayedCount > 0 || score >= 10
-          ? "high"
-          : score >= 5
-            ? "medium"
-            : "low";
-
-        return {
-          projectId: entry.projectId,
-          projectName: entry.projectName,
-          pendingCount: entry.pendingCount,
-          overdueOrDelayedCount: entry.overdueOrDelayedCount,
-          nextDueDate: entry.nextDueDate,
-          score,
-          level,
-        };
-      })
-      .sort((a, b) => (
-        b.score - a.score
-        || b.overdueOrDelayedCount - a.overdueOrDelayedCount
-        || (a.nextDueDate ? Date.parse(a.nextDueDate) : Number.POSITIVE_INFINITY)
-          - (b.nextDueDate ? Date.parse(b.nextDueDate) : Number.POSITIVE_INFINITY)
-      ))
-      .slice(0, 5);
-
     const pendingTasks = complianceRows
       .filter((row) => !isDoneStatus(row.status) && !row.isDateOverdue && row.isEstimateDelayed !== true)
       .map((row) => ({
@@ -530,7 +440,7 @@ export function Dashboard() {
         dueDate: row.dueDate,
         status: row.status,
       }))
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+      .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
 
     const overdueTasks = complianceRows
       .filter((row) => row.isDateOverdue || row.isEstimateDelayed === true)
@@ -542,12 +452,11 @@ export function Dashboard() {
         dueDate: row.dueDate,
         reason: row.isDateOverdue ? "Vencida por fecha" : "Retrasada por estimado",
       }))
-      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+      .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
 
     return {
       statusDistribution,
       projectPerformance,
-      projectRisk,
       pendingTasks,
       overdueTasks,
     };
@@ -724,6 +633,18 @@ export function Dashboard() {
     setOverdueAlertsPage(1);
   };
 
+  const openEmployeeTaskDetail = (task: {
+    id: number;
+    projectId: number;
+  }) => {
+    if (task.projectId > 0) {
+      navigate(`/projects/${task.projectId}?taskId=${task.id}`);
+      return;
+    }
+
+    navigate(`/tasks/standalone?taskId=${task.id}`);
+  };
+
   if (!user) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
@@ -759,7 +680,7 @@ export function Dashboard() {
         )}
       >
         {error && (
-          <section className="rounded-xl border border-destructive/35 bg-destructive/8 px-4 py-3 text-sm text-destructive">
+          <section className="rounded-xl border border-destructive/45 bg-destructive/12 px-4 py-3 text-sm text-destructive">
             {error}
           </section>
         )}
@@ -773,7 +694,7 @@ export function Dashboard() {
               </div>
               <button
                 type="button"
-                onClick={() => navigate("/tasks/standalone")}
+                onClick={() => navigate("/tasks/standalone?create=1")}
                 className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-[0_10px_28px_rgba(16,36,58,0.22)] transition-colors hover:bg-primary-hover"
               >
                 <Plus className="size-4" />
@@ -782,12 +703,12 @@ export function Dashboard() {
             </section>
 
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
                 <div className="mb-4 flex items-start justify-between">
-                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/14 text-primary">
                     <FolderKanban className="size-5" />
                   </span>
-                  <span className="rounded-md bg-success/15 px-2 py-1 text-[10px] font-bold text-success">+ hoy</span>
+                  <span className="rounded-md bg-success/14 px-2 py-1 text-[10px] font-bold text-success">+ hoy</span>
                 </div>
                 <p className="text-sm font-medium text-muted-foreground">Tareas activas</p>
                 <p className="mt-1 text-3xl font-black text-foreground">
@@ -795,9 +716,9 @@ export function Dashboard() {
                 </p>
               </article>
 
-              <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
                 <div className="mb-4 flex items-start justify-between">
-                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/14 text-primary">
                     <CheckCircle2 className="size-5" />
                   </span>
                   <span className="rounded-md bg-primary/15 px-2 py-1 text-[10px] font-bold text-primary">Semana actual</span>
@@ -806,20 +727,20 @@ export function Dashboard() {
                 <p className="mt-1 text-3xl font-black text-foreground">{employeeDashboard.summary.doneTasks}</p>
               </article>
 
-              <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
                 <div className="mb-4 flex items-start justify-between">
-                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-destructive/14 text-destructive">
                     <CalendarClock className="size-5" />
                   </span>
-                  <span className="rounded-md bg-destructive/12 px-2 py-1 text-[10px] font-bold text-destructive">Atención</span>
+                  <span className="rounded-md bg-destructive/14 px-2 py-1 text-[10px] font-bold text-destructive">Atención</span>
                 </div>
                 <p className="text-sm font-medium text-muted-foreground">Próximas a vencer</p>
                 <p className="mt-1 text-3xl font-black text-foreground">{employeeDashboard.summary.upcomingTasks}</p>
               </article>
 
-              <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
                 <div className="mb-4 flex items-start justify-between">
-                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/12 text-primary">
+                  <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/14 text-primary">
                     <Timer className="size-5" />
                   </span>
                   <span className="rounded-md bg-secondary px-2 py-1 text-[10px] font-bold text-muted-foreground">Mes</span>
@@ -838,20 +759,32 @@ export function Dashboard() {
                   </h3>
                   <button
                     type="button"
-                    onClick={() => navigate("/projects")}
+                    onClick={() => navigate("/tasks/standalone")}
                     className="text-sm font-semibold text-primary transition-colors hover:text-primary-hover"
                   >
                     Ver tareas
                   </button>
                 </div>
-                <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/95 shadow-[0_10px_24px_rgba(16,36,58,0.1)] divide-y divide-border/70">
+                <div className="overflow-hidden rounded-2xl border border-border/85 bg-card/95 shadow-[0_10px_24px_rgba(16,36,58,0.1)] divide-y divide-border/85">
                   {employeeInsights.nextToExpire.length === 0 ? (
                     <p className="px-5 py-8 text-sm text-muted-foreground">No hay tareas próximas a vencer.</p>
                   ) : (
                     employeeInsights.nextToExpire.map((task) => {
                       const urgencyStyle = employeeUrgencyStyles[task.urgency];
                       return (
-                        <article key={task.id} className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-secondary/35">
+                        <article
+                          key={task.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openEmployeeTaskDetail(task)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openEmployeeTaskDetail(task);
+                            }
+                          }}
+                          className="flex cursor-pointer items-center gap-4 px-5 py-4 transition-colors hover:bg-secondary/35"
+                        >
                           <span className={cn("inline-flex size-10 items-center justify-center rounded-full border-2", urgencyStyle.ringClassName)}>
                             <span className={cn("size-2.5 rounded-full", urgencyStyle.dotClassName)} />
                           </span>
@@ -876,7 +809,7 @@ export function Dashboard() {
                   Sesión activa
                 </h3>
                 {employeeInsights.inProgressTask ? (
-                  <article className="relative overflow-hidden rounded-2xl border-2 border-primary/30 bg-primary/12 p-5">
+                  <article className="relative overflow-hidden rounded-2xl border-2 border-primary/45 bg-primary/14 p-5">
                     <span className="mb-3 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
                       <span className="size-2 rounded-full bg-primary animate-pulse" />
                       En progreso
@@ -899,7 +832,7 @@ export function Dashboard() {
                   </article>
                 )}
 
-                <article className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.08)]">
+                <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.08)]">
                   <h4 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">En pausa</h4>
                   <div className="space-y-3">
                     {employeeInsights.pausedTasks.length === 0 ? (
@@ -920,7 +853,7 @@ export function Dashboard() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border/70 bg-card/95 p-6 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+            <section className="rounded-2xl border border-border/85 bg-card/95 p-6 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-xl font-bold text-foreground">Activity Overview</h3>
@@ -972,7 +905,7 @@ export function Dashboard() {
                     setDateFrom(from);
                     setDateTo(to);
                   }}
-                  triggerClassName="bg-card/70"
+                  triggerClassName="bg-card/95"
                   placeholder="Rango por fecha limite"
                 />
                 <SearchableSelect
@@ -996,7 +929,7 @@ export function Dashboard() {
                 <select
                   value={complianceFilter}
                   onChange={(event) => setComplianceFilter(event.target.value as ComplianceFilter)}
-                  className="app-control h-10 bg-card/70"
+                  className="app-control h-10 bg-card/95"
                 >
                   <option value="all">Cumplimiento: todos</option>
                   <option value="on_time">En tiempo</option>
@@ -1018,15 +951,15 @@ export function Dashboard() {
               riskTasks={adminInsights.overdueTasks.length}
             />
 
-            <section className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden xl:grid-cols-[1.05fr_0.95fr_1.4fr]">
+            <section className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden xl:grid-cols-[0.8fr_0.9fr_1.65fr]">
               <div className="flex min-h-0 flex-col gap-3">
-                <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 overflow-hidden">
+                <article className="app-panel app-panel-pad border-border/85 bg-card/95 min-h-0 flex-1 overflow-hidden">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Rendimiento por proyecto</h2>
                       <p className="text-sm text-muted-foreground">Top de iniciativas con mayor avance real.</p>
                     </div>
-                    <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/12 text-primary">
+                    <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/14 text-primary">
                       <Activity className="size-4.5" />
                     </span>
                   </div>
@@ -1034,7 +967,7 @@ export function Dashboard() {
                     <p className="mt-4 text-sm text-muted-foreground">Sin datos para los filtros activos.</p>
                   ) : (
                     <div className="mt-3 max-h-[calc(100%-3.5rem)] space-y-3 overflow-y-auto pr-1">
-                      {adminInsights.projectPerformance.slice(0, 6).map((row) => (
+                      {adminInsights.projectPerformance.slice().map((row) => (
                         <div key={row.projectId} className="space-y-1.5">
                           <div className="flex items-center justify-between text-xs">
                             <span className="truncate pr-3 font-semibold uppercase tracking-wide text-muted-foreground">{row.projectName}</span>
@@ -1052,56 +985,10 @@ export function Dashboard() {
                     </div>
                   )}
                 </article>
-
-                <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 overflow-hidden">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">Proyectos en riesgo (7 días)</h3>
-                    <span className="text-[11px] text-muted-foreground">Top {adminInsights.projectRisk.length}</span>
-                  </div>
-                  {adminInsights.projectRisk.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Sin señales de riesgo para los filtros activos.</p>
-                  ) : (
-                    <div className="max-h-[calc(100%-2.25rem)] overflow-y-auto">
-                      <table className="w-full text-xs">
-                        <thead>
-                          <tr className="text-muted-foreground">
-                            <th className="py-1 text-left font-medium">Proyecto</th>
-                            <th className="py-1 text-right font-medium">Pend.</th>
-                            <th className="py-1 text-right font-medium">Riesgo</th>
-                            <th className="py-1 text-right font-medium">Próx.</th>
-                            <th className="py-1 text-right font-medium">Nivel</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {adminInsights.projectRisk.map((risk) => {
-                            const riskLevelStyle = projectRiskLevelStyles[risk.level];
-                            return (
-                              <tr key={risk.projectId} className="border-t border-border/60">
-                                <td className="py-1.5 pr-2 text-foreground">
-                                  <span className="line-clamp-1">{risk.projectName}</span>
-                                </td>
-                                <td className="py-1.5 text-right text-foreground">{risk.pendingCount}</td>
-                                <td className="py-1.5 text-right text-foreground">{risk.overdueOrDelayedCount}</td>
-                                <td className="py-1.5 text-right text-muted-foreground">
-                                  {risk.nextDueDate ? formatDate(risk.nextDueDate) : "-"}
-                                </td>
-                                <td className="py-1.5 text-right">
-                                  <span className={cn("inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold", riskLevelStyle.className)}>
-                                    {riskLevelStyle.label}
-                                  </span>
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </article>
               </div>
 
               <div className="flex min-h-0 flex-col gap-3">
-                <article className="app-panel app-panel-pad border-border/70 bg-card/95 shrink-0">
+                <article className="app-panel app-panel-pad border-border/85 bg-card/95 shrink-0">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Distribución por estado</h2>
@@ -1138,7 +1025,7 @@ export function Dashboard() {
                   </div>
                 </article>
 
-                <article className="app-panel app-panel-pad border-border/70 bg-card/95 min-h-0 flex-1">
+                <article className="app-panel app-panel-pad border-border/85 bg-card/95 min-h-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Tendencia de cumplimiento</h2>
@@ -1205,8 +1092,8 @@ export function Dashboard() {
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col gap-3">
-                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95">
-                  <header className="flex items-center justify-between border-b border-border/70 bg-secondary/20 px-3 py-2.5">
+                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/85 bg-card/95">
+                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/55 px-3 py-2.5">
                     <h2 className="text-base font-semibold text-warning">Tareas pendientes</h2>
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {adminInsights.pendingTasks.length}
@@ -1230,7 +1117,11 @@ export function Dashboard() {
                           </tr>
                         ) : (
                           paginatedPendingTasks.map((row) => (
-                            <tr key={row.taskId} className="app-row">
+                            <tr
+                              key={row.taskId}
+                              className="app-row cursor-pointer hover:bg-secondary/55"
+                              onClick={() => navigate(`/tasks/standalone?taskId=${row.taskId}`)}
+                            >
                               <td className="app-td">{row.title}</td>
                               <td className="app-td">{row.projectName}</td>
                               <td className="app-td">{row.assigneeName ?? "Sin asignar"}</td>
@@ -1243,7 +1134,7 @@ export function Dashboard() {
                     </table>
                   </div>
                   {adminInsights.pendingTasks.length > 0 && (
-                    <footer className="flex items-center justify-start gap-2 border-t border-border/70 px-3 py-2 text-xs">
+                    <footer className="flex items-center justify-start gap-2 border-t border-border/85 px-3 py-2 text-xs">
                       <button
                         type="button"
                         onClick={() => setPendingAlertsPage((current) => Math.max(1, current - 1))}
@@ -1269,8 +1160,8 @@ export function Dashboard() {
                   )}
                 </section>
 
-                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/70 bg-card/95">
-                  <header className="flex items-center justify-between border-b border-border/70 bg-secondary/20 px-3 py-2.5">
+                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/85 bg-card/95">
+                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/55 px-3 py-2.5">
                     <h2 className="text-base font-semibold text-destructive">Tareas retrasadas/vencidas</h2>
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {adminInsights.overdueTasks.length}
@@ -1294,7 +1185,11 @@ export function Dashboard() {
                           </tr>
                         ) : (
                           paginatedOverdueTasks.map((row) => (
-                            <tr key={row.taskId} className="app-row">
+                            <tr
+                              key={row.taskId}
+                              className="app-row cursor-pointer hover:bg-secondary/55"
+                              onClick={() => navigate(`/tasks/standalone?taskId=${row.taskId}`)}
+                            >
                               <td className="app-td">{row.title}</td>
                               <td className="app-td">{row.projectName}</td>
                               <td className="app-td">{row.assigneeName ?? "Sin asignar"}</td>
@@ -1307,7 +1202,7 @@ export function Dashboard() {
                     </table>
                   </div>
                   {adminInsights.overdueTasks.length > 0 && (
-                    <footer className="flex items-center justify-start gap-2 border-t border-border/70 px-3 py-2 text-xs">
+                    <footer className="flex items-center justify-start gap-2 border-t border-border/85 px-3 py-2 text-xs">
                       <button
                         type="button"
                         onClick={() => setOverdueAlertsPage((current) => Math.max(1, current - 1))}
@@ -1338,7 +1233,7 @@ export function Dashboard() {
         )}
 
         {isAdmin && !error && (!adminDashboard || !taskComplianceReport || !adminInsights) && (
-          <section className="rounded-xl border border-border/70 bg-card/90 px-4 py-5 text-sm text-muted-foreground">
+          <section className="rounded-xl border border-border/85 bg-card/95 px-4 py-5 text-sm text-muted-foreground">
             No fue posible procesar la informacion del dashboard con los datos actuales.
           </section>
         )}

@@ -104,7 +104,7 @@ export function ProfileEditorModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="overflow-hidden border-border/80 bg-card/95 p-0 shadow-2xl backdrop-blur-sm sm:max-w-xl">
-        <DialogHeader className="border-b border-border/70 bg-[linear-gradient(135deg,rgba(15,118,110,0.16),rgba(17,120,173,0.08),transparent)] px-5 py-4 text-left">
+        <DialogHeader className="border-b border-border/80 bg-[linear-gradient(135deg,rgba(13,111,104,0.16),rgba(15,111,159,0.08),transparent)] px-5 py-4 text-left">
           <DialogTitle className="flex items-center gap-2.5 text-base font-semibold text-foreground">
             <UserCircle2 className="size-5 text-primary" />
             Editar perfil
@@ -123,7 +123,7 @@ export function ProfileEditorModal({
                 {image ? (
                   <img src={image} alt={name || "Usuario"} className="size-full object-cover" />
                 ) : (
-                  <span className="inline-flex size-full items-center justify-center text-sm font-semibold text-foreground/75">
+                  <span className="inline-flex size-full items-center justify-center text-sm font-semibold text-foreground">
                     {initials || "U"}
                   </span>
                 )}
@@ -132,7 +132,7 @@ export function ProfileEditorModal({
                 <p className="truncate text-sm font-semibold text-foreground">{name || "Usuario"}</p>
                 <p className="truncate text-xs text-muted-foreground">{profile?.email ?? "Sin correo"}</p>
               </div>
-              <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary">
+              <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-primary/45 bg-primary/14 px-2.5 py-1 text-[11px] font-semibold text-primary">
                 <Shield className="size-3.5" />
                 {roleLabel}
               </span>
@@ -198,7 +198,7 @@ export function ProfileEditorModal({
               </div>
             </div>
 
-            <DialogFooter className="border-t border-border/70 pt-4">
+            <DialogFooter className="border-t border-border/85 pt-4">
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}

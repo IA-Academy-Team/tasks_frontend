@@ -13,10 +13,10 @@ const appComponents = plugin(({ addComponents }) => {
     ".app-hero": {
       position: "relative",
       overflow: "hidden",
-      borderBottom: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
+      borderBottom: "1px solid color-mix(in srgb, var(--border) 82%, transparent)",
       minHeight: "5.4rem",
       padding: "1rem clamp(1.25rem, 2.2vw, 2rem)",
-      boxShadow: "0 4px 14px rgba(18, 38, 59, 0.05)",
+      boxShadow: "0 4px 12px rgba(15, 36, 56, 0.07)",
       backgroundColor: "var(--card)",
     },
     ".app-content": {
@@ -28,9 +28,9 @@ const appComponents = plugin(({ addComponents }) => {
     },
     ".app-panel": {
       borderRadius: "1rem",
-      border: "1px solid color-mix(in srgb, var(--border) 80%, transparent)",
+      border: "1px solid color-mix(in srgb, var(--border) 92%, transparent)",
       backgroundColor: "var(--card)",
-      boxShadow: "0 10px 24px rgba(18, 38, 59, 0.07)",
+      boxShadow: "0 8px 18px rgba(15, 36, 56, 0.09), inset 0 1px 0 rgba(255, 255, 255, 0.55)",
     },
     ".app-panel-pad": {
       padding: "clamp(1rem, 1.4vw, 1.5rem)",
@@ -40,12 +40,12 @@ const appComponents = plugin(({ addComponents }) => {
       alignItems: "center",
       justifyContent: "space-between",
       gap: "0.75rem",
-      borderBottom: "1px solid color-mix(in srgb, var(--border) 70%, transparent)",
-      backgroundColor: "color-mix(in srgb, var(--secondary) 62%, transparent)",
+      borderBottom: "1px solid color-mix(in srgb, var(--border) 85%, transparent)",
+      backgroundColor: "color-mix(in srgb, var(--secondary) 84%, transparent)",
       padding: "1rem 1.25rem",
     },
     ".app-band": {
-      backgroundColor: "color-mix(in srgb, var(--secondary) 32%, transparent)",
+      backgroundColor: "color-mix(in srgb, var(--secondary) 72%, transparent)",
     },
     ".app-title": {
       fontSize: "2rem",
@@ -75,18 +75,18 @@ const appComponents = plugin(({ addComponents }) => {
       width: "100%",
       height: "2.5rem",
       borderRadius: "0.75rem",
-      border: "1px solid var(--border)",
+      border: "1px solid color-mix(in srgb, var(--border) 96%, transparent)",
       backgroundColor: "var(--input-background)",
       color: "var(--foreground)",
       padding: "0 0.75rem",
       fontSize: "0.875rem",
       outline: "none",
       transition: "border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease",
-      boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.55)",
+      boxShadow: "0 1px 2px rgba(15, 36, 56, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.56)",
     },
     ".app-control:focus-visible": {
       borderColor: "var(--ring)",
-      boxShadow: "0 0 0 2px color-mix(in srgb, var(--ring) 35%, transparent)",
+      boxShadow: "0 0 0 3px color-mix(in srgb, var(--ring) 28%, transparent)",
     },
     ".app-control:disabled": {
       opacity: "0.65",
@@ -120,16 +120,17 @@ const appComponents = plugin(({ addComponents }) => {
       justifyContent: "center",
       gap: "0.5rem",
       borderRadius: "0.75rem",
-      border: "1px solid var(--border)",
-      backgroundColor: "var(--card)",
+      border: "1px solid color-mix(in srgb, var(--border) 95%, transparent)",
+      backgroundColor: "color-mix(in srgb, var(--card) 92%, var(--secondary) 8%)",
       color: "var(--foreground)",
       fontSize: "0.875rem",
       fontWeight: "500",
       padding: "0.625rem 1rem",
-      transition: "background-color 160ms ease, opacity 160ms ease",
+      transition: "background-color 160ms ease, border-color 160ms ease, opacity 160ms ease",
     },
     ".app-btn-secondary:hover": {
       backgroundColor: "var(--secondary)",
+      borderColor: "color-mix(in srgb, var(--accent) 32%, var(--border))",
     },
     ".app-btn-secondary:disabled": {
       opacity: "0.65",
@@ -140,14 +141,14 @@ const appComponents = plugin(({ addComponents }) => {
       fontSize: "0.875rem",
     },
     ".app-table-head": {
-      backgroundColor: "color-mix(in srgb, var(--secondary) 72%, transparent)",
+      backgroundColor: "color-mix(in srgb, var(--secondary) 92%, transparent)",
     },
     ".app-th": {
       padding: "0.75rem 1rem",
       textAlign: "left",
       verticalAlign: "middle",
       fontSize: "0.8125rem",
-      fontWeight: "600",
+      fontWeight: "650",
       color: "var(--muted-foreground)",
     },
     ".app-td": {
@@ -155,7 +156,7 @@ const appComponents = plugin(({ addComponents }) => {
       verticalAlign: "top",
     },
     ".app-row": {
-      borderTop: "1px solid var(--border)",
+      borderTop: "1px solid color-mix(in srgb, var(--border) 94%, transparent)",
     },
     ".app-action-link": {
       color: "var(--primary)",
