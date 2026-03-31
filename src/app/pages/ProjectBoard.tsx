@@ -15,7 +15,6 @@ import {
   RefreshCcw,
   Search,
   Trash2,
-  Users,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { toast } from "react-toastify";
@@ -43,9 +42,7 @@ import {
   assignProjectMembership,
   getProjectById,
   listProjectMemberships,
-  reassignProjectMembership,
-  unassignProjectMembership,
-  type MembershipStatusFilter,
+  reassignProjectTasks,
   type ProjectMembership,
   type ProjectSummary,
 } from "../../modules/projects/api/projects.api";
@@ -200,7 +197,6 @@ export function ProjectBoard() {
   const [memberships, setMemberships] = useState<ProjectMembership[]>([]);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
-  const [membershipStatusFilter, setMembershipStatusFilter] = useState<MembershipStatusFilter>("all");
   const [taskStatusFilter, setTaskStatusFilter] = useState<TaskStatusFilter>("all");
   const [taskViewMode, setTaskViewMode] = useState<ProjectTaskViewMode>("grid");
   const [isLoading, setIsLoading] = useState(true);
@@ -208,9 +204,6 @@ export function ProjectBoard() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [assignEmployeeId, setAssignEmployeeId] = useState("");
-  const [reassignMembershipId, setReassignMembershipId] = useState("");
-  const [reassignEmployeeId, setReassignEmployeeId] = useState("");
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPlannedStartDate, setTaskPlannedStartDate] = useState("");
@@ -232,8 +225,9 @@ export function ProjectBoard() {
   const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
-  const [isProjectMembersModalOpen, setIsProjectMembersModalOpen] = useState(false);
-  const [pendingUnassignMembership, setPendingUnassignMembership] = useState<ProjectMembership | null>(null);
+  const [isTaskReassignModalOpen, setIsTaskReassignModalOpen] = useState(false);
+  const [sourceEmployeeId, setSourceEmployeeId] = useState("");
+  const [targetEmployeeId, setTargetEmployeeId] = useState("");
   const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
 
   const numericProjectId = Number(projectId);
@@ -355,17 +349,24 @@ export function ProjectBoard() {
     [memberships],
   );
 
-  const visibleMemberships = useMemo(() => {
-    if (membershipStatusFilter === "active") {
-      return memberships.filter((membership) => membership.isActive);
-    }
+  const taskReassignSourceOptions = useMemo(() => {
+    const employeeById = new Map<number, { id: number; label: string }>();
+    activeMemberships.forEach((membership) => {
+      employeeById.set(membership.employeeId, {
+        id: membership.employeeId,
+        label: `${membership.employeeName} (${membership.employeeEmail})`,
+      });
+    });
+    return [...employeeById.values()];
+  }, [activeMemberships]);
 
-    if (membershipStatusFilter === "inactive") {
-      return memberships.filter((membership) => !membership.isActive);
-    }
-
-    return memberships;
-  }, [membershipStatusFilter, memberships]);
+  const taskReassignTargetOptions = useMemo(
+    () => assignableEmployees.map((employee) => ({
+      id: employee.id,
+      label: `${employee.name} (${employee.email})`,
+    })),
+    [assignableEmployees],
+  );
 
   const taskAreaOptions = useMemo(() => {
     const options = new Map<number, string>();
@@ -611,65 +612,24 @@ export function ProjectBoard() {
     void loadTaskHistory(taskIdFromQuery);
   }, [loadTaskHistory, searchParams, selectedTaskId, tasks]);
 
-  const handleAssign = async () => {
-    const employeeId = Number(assignEmployeeId);
-    if (!Number.isInteger(employeeId) || employeeId <= 0 || !project) {
-      toast.error("Selecciona un empleado valido para asignar.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError("");
-    setSuccess("");
-    try {
-      await assignProjectMembership(project.id, { employeeId });
-      setSuccess("Membresia asignada correctamente.");
-      setAssignEmployeeId("");
-      await loadMemberships();
-    } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible asignar la membresia.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleUnassign = async (membership: ProjectMembership) => {
+  const handleReassignTasks = async () => {
     if (!project) return;
 
-    setIsSubmitting(true);
-    setError("");
-    setSuccess("");
-    try {
-      await unassignProjectMembership(project.id, membership.id);
-      setSuccess("Membresia desasignada.");
-      await loadMemberships();
-    } catch (incomingError) {
-      if (incomingError instanceof ApiError) {
-        setError(incomingError.message);
-      } else {
-        setError("No fue posible desasignar la membresia.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+    const fromEmployeeId = Number(sourceEmployeeId);
+    const toEmployeeId = Number(targetEmployeeId);
 
-  const handleReassign = async () => {
-    if (!project) return;
-    const membershipId = Number(reassignMembershipId);
-    const toEmployeeId = Number(reassignEmployeeId);
-
-    if (!Number.isInteger(membershipId) || membershipId <= 0) {
-      toast.error("Selecciona una membresia activa para reasignar.");
+    if (!Number.isInteger(fromEmployeeId) || fromEmployeeId <= 0) {
+      toast.error("Selecciona el empleado origen.");
       return;
     }
 
     if (!Number.isInteger(toEmployeeId) || toEmployeeId <= 0) {
-      toast.error("Selecciona un empleado destino valido.");
+      toast.error("Selecciona el empleado destino.");
+      return;
+    }
+
+    if (fromEmployeeId === toEmployeeId) {
+      toast.error("El empleado origen y destino deben ser distintos.");
       return;
     }
 
@@ -677,16 +637,18 @@ export function ProjectBoard() {
     setError("");
     setSuccess("");
     try {
-      await reassignProjectMembership(project.id, membershipId, { toEmployeeId });
-      setSuccess("Membresia reasignada correctamente.");
-      setReassignMembershipId("");
-      setReassignEmployeeId("");
-      await loadMemberships();
+      const response = await reassignProjectTasks(project.id, { fromEmployeeId, toEmployeeId });
+      const reassignedCount = response?.data?.reassignedTasks ?? 0;
+      setSuccess(`Se reasignaron ${reassignedCount} tareas pendientes.`);
+      setIsTaskReassignModalOpen(false);
+      setSourceEmployeeId("");
+      setTargetEmployeeId("");
+      await Promise.all([loadTasks(), loadMemberships()]);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
         setError(incomingError.message);
       } else {
-        setError("No fue posible reasignar la membresia.");
+        setError("No fue posible reasignar las tareas.");
       }
     } finally {
       setIsSubmitting(false);
@@ -1064,16 +1026,6 @@ export function ProjectBoard() {
               </p>
             </div>
           </div>
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={() => setIsProjectMembersModalOpen(true)}
-              className="app-btn-secondary"
-            >
-              <Users className="size-4" />
-              Miembros
-            </button>
-          )}
         </div>
       </div>
 
@@ -1125,13 +1077,23 @@ export function ProjectBoard() {
                 <option value="done">Terminadas</option>
               </select>
               {isAdmin && (
-                <button
-                  type="button"
-                  onClick={openCreateTaskModal}
-                  className="app-btn-primary"
-                >
-                  <Plus className="size-4" />
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsTaskReassignModalOpen(true)}
+                    className="app-btn-secondary"
+                  >
+                    <RefreshCcw className="size-4" />
+                    Tareas
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCreateTaskModal}
+                    className="app-btn-primary"
+                  >
+                    <Plus className="size-4" />
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -1455,160 +1417,67 @@ export function ProjectBoard() {
 
       </div>
 
-      <Dialog open={isProjectMembersModalOpen} onOpenChange={setIsProjectMembersModalOpen}>
-        <DialogContent className="sm:max-w-6xl">
+      <Dialog open={isTaskReassignModalOpen} onOpenChange={setIsTaskReassignModalOpen}>
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Miembros del proyecto</DialogTitle>
+            <DialogTitle>Reasignar tareas del proyecto</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm text-muted-foreground">
-                Gestiona miembros y reasignaciones sin ocupar espacio principal del tablero.
-              </p>
-              <select
-                value={membershipStatusFilter}
-                onChange={(event) => setMembershipStatusFilter(event.target.value as MembershipStatusFilter)}
-                className="app-control h-9 min-w-44"
-              >
-                <option value="all">Todos</option>
-                <option value="active">Activos</option>
-                <option value="inactive">Historicos</option>
-              </select>
+            <p className="text-sm text-muted-foreground">
+              Reasigna todas las tareas pendientes de un empleado a otro
+            </p>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium">Empleado origen</label>
+                <select
+                  value={sourceEmployeeId}
+                  onChange={(event) => setSourceEmployeeId(event.target.value)}
+                  className="app-control"
+                >
+                  <option value="">Selecciona empleado</option>
+                  {taskReassignSourceOptions.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Empleado destino</label>
+                <select
+                  value={targetEmployeeId}
+                  onChange={(event) => setTargetEmployeeId(event.target.value)}
+                  className="app-control"
+                >
+                  <option value="">Selecciona empleado</option>
+                  {taskReassignTargetOptions.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-
-            {isAdmin && (
-              <div className="rounded-xl border border-border/85 bg-secondary/55 p-4">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium mb-2">Asignar empleado</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={assignEmployeeId}
-                        onChange={(event) => setAssignEmployeeId(event.target.value)}
-                        className="app-control min-w-[260px]"
-                      >
-                        <option value="">Selecciona empleado</option>
-                        {assignableEmployees.map((employee) => (
-                          <option key={employee.id} value={employee.id}>
-                            {employee.name} ({employee.email})
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => {
-                          void handleAssign();
-                        }}
-                        className="app-btn-primary"
-                      >
-                        Asignar
-                      </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-sm font-medium mb-2">Reasignar membresia activa</p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={reassignMembershipId}
-                        onChange={(event) => setReassignMembershipId(event.target.value)}
-                        className="app-control min-w-[240px]"
-                      >
-                        <option value="">Selecciona membresia</option>
-                        {activeMemberships.map((membership) => (
-                          <option key={membership.id} value={membership.id}>
-                            {membership.employeeName} ({membership.employeeEmail})
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={reassignEmployeeId}
-                        onChange={(event) => setReassignEmployeeId(event.target.value)}
-                        className="app-control min-w-[240px]"
-                      >
-                        <option value="">Empleado destino</option>
-                        {assignableEmployees.map((employee) => (
-                          <option key={employee.id} value={employee.id}>
-                            {employee.name} ({employee.email})
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={isSubmitting}
-                        onClick={() => {
-                          void handleReassign();
-                        }}
-                        className="app-btn-secondary disabled:opacity-70"
-                      >
-                        Reasignar
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {visibleMemberships.length === 0 ? (
-              <div className="p-4 text-sm text-muted-foreground rounded-xl border border-border/85">
-                No hay membresias para este filtro.
-              </div>
-            ) : (
-              <div className="max-h-[52vh] overflow-auto rounded-xl border border-border/85">
-                <table className="app-table">
-                  <thead className="app-table-head">
-                    <tr>
-                      <th className="app-th">Empleado</th>
-                      <th className="app-th">Area actual</th>
-                      <th className="app-th">Estado</th>
-                      <th className="app-th">Asignado</th>
-                      <th className="app-th">Desasignado</th>
-                      {isAdmin && <th className="app-th">Acciones</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleMemberships.map((membership) => (
-                      <tr key={membership.id} className="app-row">
-                        <td className="app-td">
-                          <p className="font-medium">{membership.employeeName}</p>
-                          <p className="text-muted-foreground">{membership.employeeEmail}</p>
-                        </td>
-                        <td className="app-td">{membership.currentAreaName ?? "Sin area activa"}</td>
-                        <td className="app-td">
-                          <span className={membership.isActive ? "text-success" : "text-warning"}>
-                            {membership.isActive ? "Activa" : "Finalizada"}
-                          </span>
-                        </td>
-                        <td className="app-td">{new Date(membership.assignedAt).toLocaleString()}</td>
-                        <td className="app-td">
-                          {membership.unassignedAt
-                            ? new Date(membership.unassignedAt).toLocaleString()
-                            : "-"}
-                        </td>
-                        {isAdmin && (
-                          <td className="app-td">
-                            {membership.isActive ? (
-                              <button
-                                type="button"
-                                disabled={isSubmitting}
-                                onClick={() => setPendingUnassignMembership(membership)}
-                                className="app-action-link-danger disabled:opacity-70"
-                              >
-                                Desasignar
-                              </button>
-                            ) : (
-                              <span className="text-muted-foreground">Sin acciones</span>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="app-btn-secondary"
+                onClick={() => setIsTaskReassignModalOpen(false)}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="app-btn-primary"
+                onClick={() => {
+                  void handleReassignTasks();
+                }}
+                disabled={isSubmitting}
+              >
+                Reasignar tareas
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -1845,32 +1714,6 @@ export function ProjectBoard() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <ConfirmActionDialog
-        open={pendingUnassignMembership !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingUnassignMembership(null);
-          }
-        }}
-        title="Desasignar miembro"
-        description={
-          pendingUnassignMembership
-            ? `Se desasignará a ${pendingUnassignMembership.employeeName} del proyecto.`
-            : ""
-        }
-        confirmLabel="Desasignar"
-        variant="destructive"
-        isProcessing={isSubmitting}
-        onConfirm={() => {
-          if (!pendingUnassignMembership) {
-            return;
-          }
-          const membershipToUnassign = pendingUnassignMembership;
-          setPendingUnassignMembership(null);
-          void handleUnassign(membershipToUnassign);
-        }}
-      />
 
       <ConfirmActionDialog
         open={pendingDeleteTask !== null}

@@ -44,6 +44,19 @@ export interface ReassignMembershipResult {
   toMembership: ProjectMembership;
 }
 
+export interface ReassignProjectTasksPayload {
+  fromEmployeeId: number;
+  toEmployeeId: number;
+}
+
+export interface ReassignProjectTasksResult {
+  projectId: number;
+  fromEmployeeId: number;
+  toEmployeeId: number;
+  reassignedTasks: number;
+  targetMembershipId: number;
+}
+
 export interface ProjectsResponse {
   data: ProjectSummary[];
 }
@@ -69,6 +82,10 @@ export interface ProjectMembershipResponse {
 
 export interface ReassignProjectMembershipResponse {
   data: ReassignMembershipResult;
+}
+
+export interface ReassignProjectTasksResponse {
+  data: ReassignProjectTasksResult;
 }
 
 export interface CreateProjectPayload {
@@ -208,6 +225,20 @@ export const reassignProjectMembership = (
     toast: {
       successMessage: "Membresia reasignada correctamente.",
       errorMessage: "No fue posible reasignar la membresia.",
+    },
+  },
+);
+
+export const reassignProjectTasks = (
+  projectId: number,
+  payload: ReassignProjectTasksPayload,
+) => api.patch<ReassignProjectTasksResponse>(
+  `${API_PREFIX}/projects/${projectId}/tasks/reassign`,
+  payload,
+  {
+    toast: {
+      successMessage: "Tareas reasignadas correctamente.",
+      errorMessage: "No fue posible reasignar las tareas.",
     },
   },
 );
