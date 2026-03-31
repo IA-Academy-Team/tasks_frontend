@@ -46,74 +46,74 @@
   /* 2. PALETA DE COLORES - LIGHT MODE */
   /* ─────────────────────────────────────────────────────────────────────── */
 
-  /* Primario (Teal profesional) */
-  --primary: #0d6f68;
-  --primary-hover: #0a5a4f;
-  --primary-active: #084539;
+  /* Primario (Teal profesional refinado) */
+  --primary: #0f6b67;
+  --primary-hover: #0d5b58;
+  --primary-active: #0a4d4b;
   --primary-foreground: #ffffff;
-  --primary-light: #e0f2f1;
+  --primary-light: #ddf1ee;
 
-  /* Secundario (Grises neutros) */
-  --secondary: #f0f4f8;
-  --secondary-foreground: #1f2937;
-  --secondary-hover: #e5ecf2;
-  --secondary-active: #d9e3ec;
+  /* Secundario (Azules neutros) */
+  --secondary: #e7eef7;
+  --secondary-foreground: #163149;
+  --secondary-hover: #dde8f4;
+  --secondary-active: #d2dfed;
 
   /* Fondo y superficies */
-  --background: #f9fafc;
+  --background: #f3f6fb;
   --card: #ffffff;
-  --card-foreground: #1f2937;
+  --card-foreground: #11273c;
   --popover: #ffffff;
-  --popover-foreground: #1f2937;
+  --popover-foreground: #11273c;
 
   /* Texto */
-  --foreground: #111827;
-  --muted-foreground: #6b7280;
-  --muted: #f3f4f6;
+  --foreground: #0f2438;
+  --muted-foreground: #486074;
+  --muted: #edf2f8;
 
   /* Acentos */
   --accent: #0f6f9f;
-  --accent-hover: #0d5a85;
+  --accent-hover: #0d5f87;
   --accent-foreground: #ffffff;
-  --accent-light: #ecf7ff;
+  --accent-light: #e9f4fc;
 
   /* Estados */
   --success: #117a43;
-  --success-hover: #0e6238;
+  --success-hover: #0f693a;
   --success-foreground: #ffffff;
-  --success-light: #ecfdf5;
+  --success-light: #e8f8ef;
 
   --warning: #9d5314;
-  --warning-hover: #7d430f;
+  --warning-hover: #834611;
   --warning-foreground: #ffffff;
-  --warning-light: #fffbeb;
+  --warning-light: #fff4e7;
 
-  --destructive: #dc2626;
-  --destructive-hover: #b91c1c;
+  --destructive: #b42318;
+  --destructive-hover: #982015;
   --destructive-foreground: #ffffff;
-  --destructive-light: #fee2e2;
+  --destructive-light: #fdecea;
 
   /* Info (variante de accent) */
   --info: #0f6f9f;
   --info-foreground: #ffffff;
-  --info-light: #ecf7ff;
+  --info-light: #e9f4fc;
 
   /* Bordes */
-  --border: #e5e7eb;
-  --border-subtle: #f3f4f6;
+  --border: rgba(15, 36, 56, 0.16);
+  --border-subtle: #e3ebf4;
 
   /* Input */
   --input: transparent;
   --input-background: #ffffff;
-  --input-border: #d1d5db;
-  --input-placeholder: #9ca3af;
+  --input-border: #b9c9db;
+  --input-placeholder: #6f8397;
 
   /* Switch */
-  --switch-background: #d1d5db;
+  --switch-background: #b9c9db;
   --switch-foreground: #ffffff;
 
   /* Ring (focus visible) */
-  --ring: #0d6f68;
+  --ring: #0f6b67;
 
   /* ─────────────────────────────────────────────────────────────────────── */
   /* 3. ESPACIADO (Sistema 8px base) */
@@ -157,27 +157,27 @@
   /* 7. CHARTS Y VISUALIZACIONES */
   /* ─────────────────────────────────────────────────────────────────────── */
   --chart-1: #0f6f9f;
-  --chart-2: #117a43;
+  --chart-2: #0f6b67;
   --chart-3: #9d5314;
-  --chart-4: #0d6f68;
-  --chart-5: #6b7280;
+  --chart-4: #1f8d52;
+  --chart-5: #5d7388;
 
-  --pie-status-assigned: #1b8bc0;
-  --pie-status-in-progress: #0d6f68;
-  --pie-status-done: #16984f;
-  --pie-status-overdue: #dc2626;
+  --pie-status-assigned: #2990cc;
+  --pie-status-in-progress: #19a5a0;
+  --pie-status-done: #23b45f;
+  --pie-status-overdue: #e13b44;
 
   /* ─────────────────────────────────────────────────────────────────────── */
   /* 8. SIDEBAR */
   /* ─────────────────────────────────────────────────────────────────────── */
-  --sidebar: #f9fafc;
-  --sidebar-foreground: #111827;
-  --sidebar-primary: #0d6f68;
+  --sidebar: #f3f6fb;
+  --sidebar-foreground: #0f2438;
+  --sidebar-primary: #0f6b67;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(13, 111, 104, 0.1);
-  --sidebar-accent-foreground: #0d6f68;
-  --sidebar-border: #e5e7eb;
-  --sidebar-ring: rgba(13, 111, 104, 0.2);
+  --sidebar-accent: rgba(15, 111, 159, 0.12);
+  --sidebar-accent-foreground: #0f6f9f;
+  --sidebar-border: #d4e0ec;
+  --sidebar-ring: rgba(15, 107, 103, 0.24);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -378,8 +378,8 @@
   body {
     @apply bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(circle at 12% 8%, rgba(13, 111, 104, 0.08), transparent 34%),
-      radial-gradient(circle at 82% 18%, rgba(15, 111, 159, 0.06), transparent 40%);
+      radial-gradient(circle at 12% 8%, rgba(15, 107, 103, 0.07), transparent 36%),
+      radial-gradient(circle at 82% 18%, rgba(15, 111, 159, 0.06), transparent 42%);
     min-height: 100vh;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
@@ -517,7 +517,7 @@
     &:focus {
       outline: none;
       border-color: var(--ring);
-      box-shadow: 0 0 0 3px rgba(13, 111, 104, 0.1);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 22%, transparent);
     }
 
     &:disabled {
