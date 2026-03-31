@@ -312,17 +312,17 @@ export function Employees() {
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Cargando empleados...</div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-[0_14px_34px_rgba(16,36,58,0.12)] backdrop-blur-sm">
+            <div className="app-panel overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full table-fixed text-sm">
-                  <thead className="bg-secondary/55">
+                  <thead className="bg-secondary/72">
                     <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
                       <th className="w-[42%] text-left">Empleado</th>
                       <th className="w-[44%] text-left">Areas</th>
                       <th className="w-[14%] text-right">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/70 bg-card">
+                  <tbody className="divide-y divide-border/80 bg-card">
                     {paginatedEmployees.length === 0 ? (
                       <tr>
                         <td colSpan={3} className="px-4 py-12 text-center text-sm text-muted-foreground">
@@ -379,7 +379,7 @@ export function Employees() {
                                 <DropdownMenuTrigger asChild>
                                   <button
                                     type="button"
-                                    className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                                    className="app-btn-secondary size-8 p-0"
                                     aria-label={`Acciones de ${employee.name}`}
                                   >
                                     <MoreVertical className="size-4" />

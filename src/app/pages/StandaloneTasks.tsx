@@ -552,7 +552,7 @@ export function StandaloneTasks() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/80 bg-secondary/45 px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/75"
+                  className="app-btn-secondary h-9 px-3.5"
                 >
                   <ListFilter className="size-4 text-muted-foreground" />
                   Estado: {filterOptions.find((option) => option.value === statusFilter)?.label ?? "Todas"}
@@ -574,7 +574,7 @@ export function StandaloneTasks() {
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-border/80 bg-secondary/45 px-3.5 text-sm font-medium text-foreground transition-colors hover:bg-secondary/75"
+                  className="app-btn-secondary h-9 px-3.5"
                 >
                   <ListFilter className="size-4 text-muted-foreground" />
                   Prioridad: {priorityFilterOptions.find((option) => option.value === priorityFilter)?.label ?? "Todas"}
@@ -599,7 +599,7 @@ export function StandaloneTasks() {
                   type="search"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="h-9 w-[220px] rounded-xl border border-border/80 bg-card pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary/55 focus:ring-2 focus:ring-primary/25"
+                  className="app-control h-9 w-[220px] pl-9 pr-3"
                   placeholder="Buscar tarea..."
                 />
               </label>
@@ -607,7 +607,7 @@ export function StandaloneTasks() {
 
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-colors hover:bg-primary-hover"
+              className="app-btn-primary size-10 p-0"
               onClick={() => {
                 resetForm();
                 setIsCreateModalOpen(true);
@@ -623,14 +623,14 @@ export function StandaloneTasks() {
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Cargando tareas...</div>
         ) : sortedTasks.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border/85 bg-card/90 px-4 py-8 text-sm text-muted-foreground">
+          <div className="app-panel app-panel-pad border-dashed py-8 text-sm text-muted-foreground">
             {isAdmin ? "No hay tareas para este filtro." : "No hay tareas sueltas para este filtro."}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
+          <div className="app-panel overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[980px] text-left">
-              <thead className="border-b border-border/85 bg-secondary/72">
+              <thead className="border-b border-border/85 bg-secondary/80">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Tarea</th>
                   {isAdmin && <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Proyecto</th>}
@@ -711,7 +711,7 @@ export function StandaloneTasks() {
               </tbody>
             </table>
             </div>
-            <div className="flex flex-wrap items-center gap-3 border-t border-border/85 bg-secondary/55 px-4 py-3 justify-end">
+            <div className="flex flex-wrap items-center gap-3 border-t border-border/85 bg-secondary/62 px-4 py-3 justify-end">
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <UserRound className="size-3.5" />
@@ -722,7 +722,7 @@ export function StandaloneTasks() {
                     type="button"
                     onClick={() => setCurrentPage((previous) => Math.max(1, previous - 1))}
                     disabled={currentPage === 1}
-                    className="rounded-lg border border-border/85 bg-card p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                    className="app-btn-secondary size-8 p-0 text-xs disabled:cursor-not-allowed disabled:opacity-45"
                     aria-label="Pagina anterior"
                   >
                     <ChevronLeft className="size-4" />
@@ -734,7 +734,7 @@ export function StandaloneTasks() {
                     type="button"
                     onClick={() => setCurrentPage((previous) => Math.min(totalPages, previous + 1))}
                     disabled={currentPage >= totalPages}
-                    className="rounded-lg border border-border/85 bg-card p-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-45"
+                    className="app-btn-secondary size-8 p-0 text-xs disabled:cursor-not-allowed disabled:opacity-45"
                     aria-label="Pagina siguiente"
                   >
                     <ChevronRight className="size-4" />

@@ -1110,9 +1110,9 @@ export function ProjectBoard() {
                         key={column.key}
                         onDragOver={(event) => event.preventDefault()}
                         onDrop={(event) => handleColumnDrop(event, column.key)}
-                        className="rounded-xl border border-border bg-background/80 min-h-[220px] flex flex-col"
+                        className="app-panel min-h-[220px] flex flex-col"
                       >
-                        <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center justify-between">
+                        <div className="app-band px-3 py-2 border-b border-border flex items-center justify-between">
                           <p className="text-sm font-semibold text-foreground">{column.title}</p>
                           <span className="text-xs text-muted-foreground">
                             {kanbanTasks[column.key].length}
@@ -1230,7 +1230,7 @@ export function ProjectBoard() {
                                 <button
                                   type="button"
                                   onClick={() => startTaskEdit(task)}
-                                  className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
+                                  className="app-btn-secondary size-8 p-0 text-foreground/80 hover:text-foreground"
                                   aria-label="Editar tarea"
                                   title="Editar"
                                 >
@@ -1258,7 +1258,7 @@ export function ProjectBoard() {
               {taskViewMode === "analytics" && (
                 <div className="p-5 space-y-4">
                   <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                    <article className="app-panel px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.completedLast7} finalizadas</p>
@@ -1270,7 +1270,7 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                    <article className="app-panel px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.updatedLast7} actualizadas</p>
@@ -1282,7 +1282,7 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                    <article className="app-panel px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.createdLast7} creadas</p>
@@ -1294,7 +1294,7 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                    <article className="app-panel px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.dueSoonNext7} vencen pronto</p>
@@ -1308,7 +1308,7 @@ export function ProjectBoard() {
                   </section>
 
                   <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    <article className="rounded-xl border border-border bg-background p-4">
+                    <article className="app-panel p-4">
                       <h4 className="text-base font-semibold text-foreground">Resumen de estado</h4>
                       <p className="text-sm text-muted-foreground">Instantánea del estado actual de las tareas.</p>
                       <div className="mt-3 grid grid-cols-1 items-center gap-3 md:grid-cols-[1fr_210px]">
@@ -1339,7 +1339,7 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background p-4">
+                    <article className="app-panel p-4">
                       <h4 className="text-base font-semibold text-foreground">Actividad reciente</h4>
                       <p className="text-sm text-muted-foreground">Últimos cambios registrados dentro del proyecto.</p>
                       <div className="mt-3 space-y-2">
@@ -1349,7 +1349,7 @@ export function ProjectBoard() {
                           projectTaskAnalytics.recentActivity.map((activity) => (
                             <article
                               key={activity.id}
-                              className="flex items-start gap-3 rounded-lg border border-border/80 bg-card/65 px-3 py-2.5"
+                              className="flex items-start gap-3 rounded-lg border border-border/80 bg-secondary/45 px-3 py-2.5"
                             >
                               <span className="inline-flex size-7 items-center justify-center rounded-full bg-primary/14 text-xs font-bold text-primary">
                                 {activity.assigneeName.slice(0, 1).toUpperCase()}
@@ -1370,7 +1370,7 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background p-4">
+                    <article className="app-panel p-4">
                       <h4 className="text-base font-semibold text-foreground">Desglose de prioridad</h4>
                       <p className="text-sm text-muted-foreground">Distribución actual por nivel de prioridad.</p>
                       <ChartContainer config={barChartConfig} className="h-[260px] w-full">

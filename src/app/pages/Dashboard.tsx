@@ -680,7 +680,7 @@ export function Dashboard() {
         )}
       >
         {error && (
-          <section className="rounded-xl border border-destructive/45 bg-destructive/12 px-4 py-3 text-sm text-destructive">
+          <section className="app-panel px-4 py-3 text-sm text-destructive">
             {error}
           </section>
         )}
@@ -695,7 +695,7 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => navigate("/tasks/standalone?create=1")}
-                className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-[0_10px_28px_rgba(16,36,58,0.22)] transition-colors hover:bg-primary-hover"
+                className="app-btn-primary h-11 px-5 font-bold"
               >
                 <Plus className="size-4" />
                 Tarea
@@ -703,7 +703,7 @@ export function Dashboard() {
             </section>
 
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="app-panel p-5">
                 <div className="mb-4 flex items-start justify-between">
                   <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/14 text-primary">
                     <FolderKanban className="size-5" />
@@ -716,7 +716,7 @@ export function Dashboard() {
                 </p>
               </article>
 
-              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="app-panel p-5">
                 <div className="mb-4 flex items-start justify-between">
                   <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/14 text-primary">
                     <CheckCircle2 className="size-5" />
@@ -727,7 +727,7 @@ export function Dashboard() {
                 <p className="mt-1 text-3xl font-black text-foreground">{employeeDashboard.summary.doneTasks}</p>
               </article>
 
-              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="app-panel p-5">
                 <div className="mb-4 flex items-start justify-between">
                   <span className="inline-flex size-11 items-center justify-center rounded-xl bg-destructive/14 text-destructive">
                     <CalendarClock className="size-5" />
@@ -738,7 +738,7 @@ export function Dashboard() {
                 <p className="mt-1 text-3xl font-black text-foreground">{employeeDashboard.summary.upcomingTasks}</p>
               </article>
 
-              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="app-panel p-5">
                 <div className="mb-4 flex items-start justify-between">
                   <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/14 text-primary">
                     <Timer className="size-5" />
@@ -765,7 +765,7 @@ export function Dashboard() {
                     Ver tareas
                   </button>
                 </div>
-                <div className="overflow-hidden rounded-2xl border border-border/85 bg-card/95 shadow-[0_10px_24px_rgba(16,36,58,0.1)] divide-y divide-border/85">
+                <div className="app-panel overflow-hidden divide-y divide-border/85">
                   {employeeInsights.nextToExpire.length === 0 ? (
                     <p className="px-5 py-8 text-sm text-muted-foreground">No hay tareas próximas a vencer.</p>
                   ) : (
@@ -832,7 +832,7 @@ export function Dashboard() {
                   </article>
                 )}
 
-                <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.08)]">
+                <article className="app-panel p-5">
                   <h4 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">En pausa</h4>
                   <div className="space-y-3">
                     {employeeInsights.pausedTasks.length === 0 ? (
@@ -853,7 +853,7 @@ export function Dashboard() {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border/85 bg-card/95 p-6 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+            <section className="app-panel p-6">
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-xl font-bold text-foreground">Activity Overview</h3>
@@ -953,11 +953,10 @@ export function Dashboard() {
 
             <section className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden xl:grid-cols-[0.8fr_0.9fr_1.65fr]">
               <div className="flex min-h-0 flex-col gap-3">
-                <article className="app-panel app-panel-pad border-border/85 bg-card/95 min-h-0 flex-1 overflow-hidden">
+                <article className="app-panel app-panel-pad min-h-0 flex-1 overflow-hidden">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Rendimiento por proyecto</h2>
-                      <p className="text-sm text-muted-foreground">Top de iniciativas con mayor avance real.</p>
                     </div>
                     <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/14 text-primary">
                       <Activity className="size-4.5" />
@@ -988,11 +987,10 @@ export function Dashboard() {
               </div>
 
               <div className="flex min-h-0 flex-col gap-3">
-                <article className="app-panel app-panel-pad border-border/85 bg-card/95 shrink-0">
+                <article className="app-panel app-panel-pad shrink-0">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Distribución por estado</h2>
-                      <p className="text-sm text-muted-foreground">Vista de salud operativa actual.</p>
                     </div>
                     <p className="text-xs text-muted-foreground">{adminDashboard.teamSummary.totalTasks} tareas</p>
                   </div>
@@ -1025,11 +1023,10 @@ export function Dashboard() {
                   </div>
                 </article>
 
-                <article className="app-panel app-panel-pad border-border/85 bg-card/95 min-h-0 flex-1">
+                <article className="app-panel app-panel-pad min-h-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Tendencia de cumplimiento</h2>
-                      <p className="text-sm text-muted-foreground mb-2">Alineación operativa de los últimos 7 días</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-success">{latestComplianceValue}%</p>
@@ -1092,8 +1089,8 @@ export function Dashboard() {
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col gap-3">
-                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/85 bg-card/95">
-                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/55 px-3 py-2.5">
+                <section className="app-panel min-h-0 flex flex-1 flex-col overflow-hidden">
+                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/62 px-3 py-2.5">
                     <h2 className="text-base font-semibold text-warning">Tareas pendientes</h2>
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {adminInsights.pendingTasks.length}
@@ -1103,7 +1100,7 @@ export function Dashboard() {
                     <table className="app-table">
                       <thead className="app-table-head">
                         <tr>
-                          <th className="app-th">Tarea pendiente</th>
+                          <th className="app-th">Tarea</th>
                           <th className="app-th">Proyecto</th>
                           <th className="app-th">Empleado</th>
                           <th className="app-th">Estado</th>
@@ -1160,8 +1157,8 @@ export function Dashboard() {
                   )}
                 </section>
 
-                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/85 bg-card/95">
-                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/55 px-3 py-2.5">
+                <section className="app-panel min-h-0 flex flex-1 flex-col overflow-hidden">
+                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/62 px-3 py-2.5">
                     <h2 className="text-base font-semibold text-destructive">Tareas retrasadas/vencidas</h2>
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {adminInsights.overdueTasks.length}
@@ -1171,7 +1168,7 @@ export function Dashboard() {
                     <table className="app-table">
                       <thead className="app-table-head">
                         <tr>
-                          <th className="app-th">Tarea retrasada/vencida</th>
+                          <th className="app-th">Tarea</th>
                           <th className="app-th">Proyecto</th>
                           <th className="app-th">Empleado</th>
                           <th className="app-th">Motivo</th>
@@ -1233,7 +1230,7 @@ export function Dashboard() {
         )}
 
         {isAdmin && !error && (!adminDashboard || !taskComplianceReport || !adminInsights) && (
-          <section className="rounded-xl border border-border/85 bg-card/95 px-4 py-5 text-sm text-muted-foreground">
+          <section className="app-panel px-4 py-5 text-sm text-muted-foreground">
             No fue posible procesar la informacion del dashboard con los datos actuales.
           </section>
         )}

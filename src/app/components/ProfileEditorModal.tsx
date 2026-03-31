@@ -103,8 +103,8 @@ export function ProfileEditorModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden border-border/80 bg-card/95 p-0 shadow-2xl backdrop-blur-sm sm:max-w-xl">
-        <DialogHeader className="border-b border-border/80 bg-[linear-gradient(135deg,rgba(13,111,104,0.16),rgba(15,111,159,0.08),transparent)] px-5 py-4 text-left">
+      <DialogContent className="overflow-hidden border-border/80 bg-card/95 p-0 shadow-[var(--shadow-xl)] backdrop-blur-sm sm:max-w-xl">
+        <DialogHeader className="app-band border-b border-border/80 px-5 py-4 text-left">
           <DialogTitle className="flex items-center gap-2.5 text-base font-semibold text-foreground">
             <UserCircle2 className="size-5 text-primary" />
             Editar perfil

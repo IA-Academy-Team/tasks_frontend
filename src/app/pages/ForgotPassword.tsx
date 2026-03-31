@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft, ArrowRight, Mail, Shield } from 'lucide-react';
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -20,15 +22,11 @@ export function ForgotPassword() {
       </div>
 
       <div className="relative z-10 w-full max-w-[450px]">
-        <div className="rounded-2xl border border-border/85 bg-card/95 p-8 shadow-2xl backdrop-blur-xl md:p-10">
-          <div className="mb-8 flex flex-col items-center text-center">
-            <div className="mb-4 rounded-xl bg-primary p-3 text-white shadow-[0_12px_24px_rgba(13,111,104,0.3)]">
+        <div className="rounded-2xl border border-border/90 bg-card/95 p-8 shadow-[var(--shadow-xl)] backdrop-blur-xl md:p-10">
+          <div className="mb-5 flex justify-center">
+            <div className="rounded-xl bg-primary p-3 text-white shadow-[0_12px_24px_rgba(13,111,104,0.3)]">
               <Shield className="size-7" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Tasks</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Plataforma profesional de gestión operativa
-            </p>
           </div>
 
           <div className="mb-5 text-center">
@@ -50,12 +48,12 @@ export function ForgotPassword() {
                   <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
                     <Mail className="size-5" />
                   </span>
-                  <input
+                  <Input
                     id="forgot-email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full rounded-lg border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/35"
+                    className="h-12 rounded-md pl-11 pr-4"
                     placeholder="nombre@empresa.com"
                     autoComplete="email"
                     required
@@ -63,13 +61,13 @@ export function ForgotPassword() {
                 </div>
               </div>
 
-              <button
+              <Button
                 type="submit"
-                className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="h-12 w-full rounded-md"
               >
                 Enviar enlace
                 <ArrowRight className="ml-2 size-4" />
-              </button>
+              </Button>
             </form>
           ) : (
             <div className="rounded-lg border border-border bg-secondary/50 px-4 py-3 text-sm text-foreground">

@@ -370,9 +370,6 @@ export function Projects() {
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-1">
               <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de proyectos</h3>
-              <p className="text-sm text-muted-foreground">
-                Supervisa el estado de cada iniciativa sin perder visibilidad operativa.
-              </p>
             </div>
 
             <div className="flex w-full flex-col gap-2 xl:w-auto xl:items-end">
@@ -454,7 +451,7 @@ export function Projects() {
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Cargando proyectos...</div>
           ) : paginatedProjects.length === 0 ? (
-            <div className="rounded-2xl border border-border/85 bg-card/95 px-4 py-10 text-center text-sm text-muted-foreground">
+            <div className="app-panel app-panel-pad py-10 text-center text-sm text-muted-foreground">
               {searchTerm.trim().length > 0
                 ? "No se encontraron proyectos para esta busqueda."
                 : "No hay proyectos para este filtro."}
@@ -473,7 +470,7 @@ export function Projects() {
                       key={project.id}
                       onClick={() => navigate(`/projects/${project.id}`)}
                       className={cn(
-                        "group cursor-pointer rounded-2xl border border-border/80 bg-card/95 p-4 shadow-[0_12px_32px_rgba(16,36,58,0.11)] transition-all hover:-translate-y-0.5 hover:border-primary/45",
+                        "app-panel group cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:border-primary/45",
                         normalizedStatus === "closed" && "opacity-95",
                       )}
                     >
@@ -495,7 +492,7 @@ export function Projects() {
                             <button
                               type="button"
                               onClick={(event) => event.stopPropagation()}
-                              className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                              className="app-btn-secondary size-8 p-0"
                               aria-label={`Acciones de ${project.name}`}
                             >
                               <MoreVertical className="size-4" />
@@ -599,7 +596,7 @@ export function Projects() {
                 })}
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/85 bg-secondary/55 px-4 py-3">
+              <div className="app-panel app-band flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <p className="text-xs text-muted-foreground">
                   Mostrando {visibleStart} a {visibleEnd} de {filteredProjects.length} proyectos
                 </p>
