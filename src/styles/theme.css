@@ -46,74 +46,74 @@
   /* 2. PALETA DE COLORES - LIGHT MODE */
   /* ─────────────────────────────────────────────────────────────────────── */
 
-  /* Primario (Pastel brillante) */
-  --primary: #38bfb3;
-  --primary-hover: #2faea3;
-  --primary-active: #289c92;
+  /* Primario (Solido y legible) */
+  --primary: #0f7f76;
+  --primary-hover: #0d7068;
+  --primary-active: #0b625b;
   --primary-foreground: #ffffff;
-  --primary-light: #e8fbf8;
+  --primary-light: #def5f2;
 
-  /* Secundario (Azul pastel brillante) */
-  --secondary: #e9f2fe;
-  --secondary-foreground: #234560;
-  --secondary-hover: #deebfb;
-  --secondary-active: #d2e3f8;
+  /* Secundario (neutral frio con mejor presencia) */
+  --secondary: #e4edf8;
+  --secondary-foreground: #193851;
+  --secondary-hover: #d9e6f5;
+  --secondary-active: #cedff1;
 
   /* Fondo y superficies */
-  --background: #f5faff;
+  --background: #f2f7fd;
   --card: #ffffff;
-  --card-foreground: #1f3850;
+  --card-foreground: #143047;
   --popover: #ffffff;
-  --popover-foreground: #1f3850;
+  --popover-foreground: #143047;
 
   /* Texto */
-  --foreground: #1c344a;
-  --muted-foreground: #5f7c96;
-  --muted: #edf4fc;
+  --foreground: #112b40;
+  --muted-foreground: #47647f;
+  --muted: #eaf2fb;
 
   /* Acentos */
-  --accent: #5faee5;
-  --accent-hover: #4d9cd3;
+  --accent: #197fba;
+  --accent-hover: #156ea2;
   --accent-foreground: #ffffff;
-  --accent-light: #eaf6ff;
+  --accent-light: #ddeefe;
 
   /* Estados */
-  --success: #4fcf82;
-  --success-hover: #3fbd72;
+  --success: #1f9d5a;
+  --success-hover: #1a874d;
   --success-foreground: #ffffff;
-  --success-light: #e9fbf0;
+  --success-light: #dbf4e7;
 
-  --warning: #e5b75b;
-  --warning-hover: #d3a549;
+  --warning: #c9831e;
+  --warning-hover: #b27419;
   --warning-foreground: #ffffff;
-  --warning-light: #fff8e7;
+  --warning-light: #faeed8;
 
-  --destructive: #ee8b93;
-  --destructive-hover: #de7982;
+  --destructive: #d64551;
+  --destructive-hover: #be3945;
   --destructive-foreground: #ffffff;
-  --destructive-light: #fff0f2;
+  --destructive-light: #f9e0e3;
 
   /* Info (variante de accent) */
-  --info: #5faee5;
+  --info: #197fba;
   --info-foreground: #ffffff;
-  --info-light: #eaf6ff;
+  --info-light: #ddeefe;
 
   /* Bordes */
-  --border: rgba(49, 90, 126, 0.18);
-  --border-subtle: #dce8f5;
+  --border: rgba(18, 46, 71, 0.2);
+  --border-subtle: #d4e3f2;
 
   /* Input */
   --input: transparent;
   --input-background: #ffffff;
-  --input-border: #bdd0e6;
-  --input-placeholder: #7f97ae;
+  --input-border: #a6c0da;
+  --input-placeholder: #5f7b95;
 
   /* Switch */
-  --switch-background: #c0d4ea;
+  --switch-background: #aac2dc;
   --switch-foreground: #ffffff;
 
   /* Ring (focus visible) */
-  --ring: #43b7ad;
+  --ring: #0f7f76;
 
   /* ─────────────────────────────────────────────────────────────────────── */
   /* 3. ESPACIADO (Sistema 8px base) */
@@ -156,28 +156,28 @@
   /* ─────────────────────────────────────────────────────────────────────── */
   /* 7. CHARTS Y VISUALIZACIONES */
   /* ─────────────────────────────────────────────────────────────────────── */
-  --chart-1: #67b8ec;
-  --chart-2: #5fcdc4;
-  --chart-3: #edc878;
-  --chart-4: #69d79b;
-  --chart-5: #91a9c2;
+  --chart-1: #2297d6;
+  --chart-2: #12a79d;
+  --chart-3: #d69a3b;
+  --chart-4: #28b86a;
+  --chart-5: #637f99;
 
-  --pie-status-assigned: #5fb5eb;
-  --pie-status-in-progress: #49c8be;
-  --pie-status-done: #4fd081;
-  --pie-status-overdue: #ef7f8f;
+  --pie-status-assigned: #2498d8;
+  --pie-status-in-progress: #15aea4;
+  --pie-status-done: #2cbc70;
+  --pie-status-overdue: #e04c5a;
 
   /* ─────────────────────────────────────────────────────────────────────── */
   /* 8. SIDEBAR */
   /* ─────────────────────────────────────────────────────────────────────── */
-  --sidebar: #f5faff;
-  --sidebar-foreground: #1c344a;
-  --sidebar-primary: #38bfb3;
+  --sidebar: #f2f7fd;
+  --sidebar-foreground: #112b40;
+  --sidebar-primary: #0f7f76;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(95, 174, 229, 0.2);
-  --sidebar-accent-foreground: #3e94cc;
-  --sidebar-border: #d7e4f2;
-  --sidebar-ring: rgba(56, 191, 179, 0.32);
+  --sidebar-accent: rgba(25, 127, 186, 0.16);
+  --sidebar-accent-foreground: #166ca1;
+  --sidebar-border: #cddff1;
+  --sidebar-ring: rgba(15, 127, 118, 0.24);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
@@ -378,8 +378,8 @@
   body {
     @apply bg-background text-foreground antialiased;
     background-image:
-      radial-gradient(circle at 12% 8%, rgba(78, 208, 193, 0.24), transparent 39%),
-      radial-gradient(circle at 82% 18%, rgba(108, 184, 236, 0.22), transparent 45%);
+      radial-gradient(circle at 12% 8%, rgba(21, 158, 146, 0.16), transparent 38%),
+      radial-gradient(circle at 82% 18%, rgba(44, 142, 208, 0.14), transparent 44%);
     min-height: 100vh;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
