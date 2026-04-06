@@ -603,7 +603,7 @@ export function StandaloneTasks() {
             </DropdownMenu>
 
             {isAdmin && (
-              <label className="relative w-[280px] shrink-0">
+              <label className="relative mb-0 w-[280px] shrink-0">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="search"
