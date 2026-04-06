@@ -637,8 +637,8 @@ export function StandaloneTasks() {
             {isAdmin ? "No hay tareas para este filtro." : "No hay tareas asignadas para este filtro."}
           </div>
         ) : (
-          <div className="app-panel min-h-0 flex-1 overflow-hidden flex flex-col">
-            <div className="min-h-0 flex-1 overflow-auto">
+          <div className="app-panel overflow-hidden flex flex-col">
+            <div className="overflow-auto">
               <table className="w-full min-w-[980px] text-left">
               <thead className="sticky top-0 z-10 border-b border-border/85 bg-secondary/80">
                 <tr>
