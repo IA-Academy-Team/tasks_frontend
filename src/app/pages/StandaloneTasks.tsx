@@ -24,7 +24,6 @@ import { cn } from "../components/ui/utils";
 import {
   createStandaloneTask,
   listTasks,
-  listStandaloneTasks,
   transitionTaskStatus,
   type TaskStatusFilter,
   type TaskSummary,
@@ -165,11 +164,17 @@ export function StandaloneTasks() {
   const [detailEstimatedHours, setDetailEstimatedHours] = useState("");
   const [detailStatus, setDetailStatus] = useState<TaskWorkflowStatus>("assigned");
 
+  const canEditTaskAttributes = useMemo(() => {
+    if (!selectedTask) return false;
+    if (isAdmin) return true;
+    return selectedTask.createdByUserId === user?.id;
+  }, [isAdmin, selectedTask, user?.id]);
+
   const loadTasks = useCallback(async () => {
     try {
-      const response = isAdmin
+      const response = (isAdmin || isEmployee)
         ? await listTasks({ status: statusFilter, includeStandalone: true })
-        : await listStandaloneTasks({ status: statusFilter });
+        : await listTasks({ status: statusFilter, includeStandalone: false });
       setTasks(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -180,7 +185,7 @@ export function StandaloneTasks() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin, statusFilter]);
+  }, [isAdmin, isEmployee, statusFilter]);
 
   useEffect(() => {
     void loadTasks();
@@ -418,6 +423,11 @@ export function StandaloneTasks() {
       || ((estimatedMinutes ?? null) !== (selectedTask.estimatedMinutes ?? null))
     );
 
+    if (!canEditTaskAttributes && fieldsChanged) {
+      toast.error("Solo puedes cambiar el estado de tareas que no creaste.");
+      return;
+    }
+
     if (!statusChanged && !fieldsChanged) {
       toast.info("No hay cambios para guardar.");
       return;
@@ -425,7 +435,7 @@ export function StandaloneTasks() {
 
     setIsDetailSaving(true);
     try {
-      if (fieldsChanged) {
+      if (fieldsChanged && canEditTaskAttributes) {
         await updateTask(selectedTask.id, {
           title: trimmedTitle,
           description: detailDescription.trim() || null,
@@ -538,16 +548,16 @@ export function StandaloneTasks() {
         title="Tareas"
         subtitle={isAdmin
           ? "Audita y consulta todas las tareas operativas del sistema."
-          : "Crea y consulta tareas independientes sin necesidad de proyecto."}
+          : "Crea y consulta tus tareas asignadas (proyecto y sueltas)."}
         icon={<ClipboardList className="size-5" />}
       />
 
       <div className="app-content">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de tareas</h3>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 xl:w-auto xl:overflow-visible">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -593,13 +603,13 @@ export function StandaloneTasks() {
             </DropdownMenu>
 
             {isAdmin && (
-              <label className="relative">
+              <label className="relative w-[280px] shrink-0">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="search"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="app-control h-9 w-[220px] pl-9 pr-3"
+                  className="app-control h-9 w-full pl-9 pr-3"
                   placeholder="Buscar tarea..."
                 />
               </label>
@@ -607,7 +617,7 @@ export function StandaloneTasks() {
 
             <button
               type="button"
-              className="app-btn-primary size-10 p-0"
+              className="app-btn-primary size-10 shrink-0 p-0"
               onClick={() => {
                 resetForm();
                 setIsCreateModalOpen(true);
@@ -615,7 +625,7 @@ export function StandaloneTasks() {
               title="Crear tarea suelta"
               aria-label="Crear tarea suelta"
             >
-              <Plus className="size-5" />
+              <Plus className="size-4" />
             </button>
           </div>
         </div>
@@ -624,7 +634,7 @@ export function StandaloneTasks() {
           <div className="text-sm text-muted-foreground">Cargando tareas...</div>
         ) : sortedTasks.length === 0 ? (
           <div className="app-panel app-panel-pad border-dashed py-8 text-sm text-muted-foreground">
-            {isAdmin ? "No hay tareas para este filtro." : "No hay tareas sueltas para este filtro."}
+            {isAdmin ? "No hay tareas para este filtro." : "No hay tareas asignadas para este filtro."}
           </div>
         ) : (
           <div className="app-panel overflow-hidden">
@@ -633,7 +643,7 @@ export function StandaloneTasks() {
               <thead className="border-b border-border/85 bg-secondary/80">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Tarea</th>
-                  {isAdmin && <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Proyecto</th>}
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Proyecto</th>
                   {isAdmin && <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Responsable</th>}
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Estado</th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Prioridad</th>
@@ -661,19 +671,17 @@ export function StandaloneTasks() {
                         </p>
                       ) : null}
                     </td>
-                    {isAdmin && (
-                      <td className="px-4 py-3 text-sm text-foreground">
-                        <span className={cn(
-                          "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
-                          task.projectId > 0
-                            ? "border border-primary/20 bg-primary/10 text-primary"
-                            : "border border-border bg-secondary/50 text-muted-foreground",
-                        )}
-                        >
-                          {task.projectId > 0 ? task.projectName : "Tarea suelta"}
-                        </span>
-                      </td>
-                    )}
+                    <td className="px-4 py-3 text-sm text-foreground">
+                      <span className={cn(
+                        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
+                        task.projectId > 0
+                          ? "border border-primary/20 bg-primary/10 text-primary"
+                          : "border border-border bg-secondary/50 text-muted-foreground",
+                      )}
+                      >
+                        {task.projectId > 0 ? task.projectName : "Tarea suelta"}
+                      </span>
+                    </td>
                     {isAdmin && (
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
@@ -904,6 +912,7 @@ export function StandaloneTasks() {
                   value={detailTitle}
                   onChange={(event) => setDetailTitle(event.target.value)}
                   className="app-control"
+                  disabled={!canEditTaskAttributes}
                 />
               </div>
 
@@ -913,6 +922,7 @@ export function StandaloneTasks() {
                   value={detailDescription}
                   onChange={(event) => setDetailDescription(event.target.value)}
                   className="app-control min-h-[90px]"
+                  disabled={!canEditTaskAttributes}
                 />
               </div>
 
@@ -923,6 +933,7 @@ export function StandaloneTasks() {
                   value={detailStartDate}
                   onChange={(event) => setDetailStartDate(event.target.value)}
                   className="app-control"
+                  disabled={!canEditTaskAttributes}
                 />
               </div>
 
@@ -933,6 +944,7 @@ export function StandaloneTasks() {
                   value={detailDueDate}
                   onChange={(event) => setDetailDueDate(event.target.value)}
                   className="app-control"
+                  disabled={!canEditTaskAttributes}
                 />
               </div>
 
@@ -955,6 +967,7 @@ export function StandaloneTasks() {
                   value={detailPriorityId}
                   onChange={(event) => setDetailPriorityId(event.target.value)}
                   className="app-control"
+                  disabled={!canEditTaskAttributes}
                 >
                   <option value="1">Alta</option>
                   <option value="2">Media</option>
@@ -971,8 +984,15 @@ export function StandaloneTasks() {
                   value={detailEstimatedHours}
                   onChange={(event) => setDetailEstimatedHours(event.target.value)}
                   className="app-control"
+                  disabled={!canEditTaskAttributes}
                 />
               </div>
+
+              {!canEditTaskAttributes ? (
+                <div className="md:col-span-2 rounded-xl border border-border/70 bg-secondary/45 px-3 py-2 text-xs text-muted-foreground">
+                  Esta tarea fue creada por otro usuario. Solo puedes actualizar su estado.
+                </div>
+              ) : null}
 
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-1.5">Proyecto</label>

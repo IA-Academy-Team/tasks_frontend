@@ -287,15 +287,14 @@ export function Areas() {
         className="min-h-0 py-3"
       />
 
-      <div className="app-content flex-1 min-h-0 overflow-hidden gap-3 py-3 md:gap-3 md:py-4">
-        <section className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2 mt-4">
+      <div className="app-content flex-1 min-h-0 overflow-hidden gap-3 p-8 md:gap-3 md:py-8">
+        <section className="space-y-4">
+          <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-1">
               <h3 className="text-2xl font-bold tracking-tight text-foreground">Estructura organizacional</h3>
             </div>
-          </div>
 
-          <div className="mb-8 flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 lg:w-auto lg:overflow-visible">
+            <div className="flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 xl:w-auto xl:overflow-visible">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
@@ -324,7 +323,7 @@ export function Areas() {
                   type="text"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="app-control h-10 pl-9"
+                  className="app-control h-9 pl-9"
                   placeholder="Buscar area..."
                 />
               </div>
@@ -333,10 +332,11 @@ export function Areas() {
                 onClick={() => {
                   void openCreateAreaModal();
                 }}
-                className="app-btn-primary h-10 shrink-0 px-4"
+                className="app-btn-primary size-10 shrink-0 p-0"
               >
                 <Plus className="size-4" />
               </button>
+            </div>
           </div>
         </section>
 

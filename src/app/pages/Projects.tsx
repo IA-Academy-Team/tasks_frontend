@@ -368,7 +368,7 @@ export function Projects() {
 
       <div className="app-content">
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between mb-8">
+          <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-1">
               <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de proyectos</h3>
             </div>
@@ -436,7 +436,7 @@ export function Projects() {
                       resetForm();
                       setIsProjectModalOpen(true);
                     }}
-                    className="app-btn-primary h-10 shrink-0 px-4"
+                    className="app-btn-primary size-10 shrink-0 p-0"
                     aria-label="Crear proyecto"
                     title="Crear proyecto"
                   >
