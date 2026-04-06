@@ -492,7 +492,7 @@ export function StandaloneTasks() {
     return [...filtered].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
   }, [isAdmin, priorityFilter, searchTerm, tasks]);
 
-  const pageSize = 10;
+  const pageSize = 9;
   const totalPages = Math.max(1, Math.ceil(sortedTasks.length / pageSize));
   const paginatedTasks = useMemo(() => {
     const offset = (currentPage - 1) * pageSize;
@@ -543,7 +543,7 @@ export function StandaloneTasks() {
   }, [searchParams, setSearchParams]);
 
   return (
-    <div className="app-shell">
+    <div className="app-shell h-full min-h-0 overflow-hidden">
       <PageHero
         title="Tareas"
         subtitle={isAdmin
@@ -552,8 +552,8 @@ export function StandaloneTasks() {
         icon={<ClipboardList className="size-5" />}
       />
 
-      <div className="app-content">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="app-content min-h-0 overflow-hidden">
+        <div className="shrink-0 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de tareas</h3>
           </div>
@@ -633,14 +633,14 @@ export function StandaloneTasks() {
         {isLoading ? (
           <div className="text-sm text-muted-foreground">Cargando tareas...</div>
         ) : sortedTasks.length === 0 ? (
-          <div className="app-panel app-panel-pad border-dashed py-8 text-sm text-muted-foreground">
+          <div className="app-panel app-panel-pad shrink-0 border-dashed py-8 text-sm text-muted-foreground">
             {isAdmin ? "No hay tareas para este filtro." : "No hay tareas asignadas para este filtro."}
           </div>
         ) : (
-          <div className="app-panel overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="app-panel min-h-0 flex-1 overflow-hidden flex flex-col">
+            <div className="min-h-0 flex-1 overflow-auto">
               <table className="w-full min-w-[980px] text-left">
-              <thead className="border-b border-border/85 bg-secondary/80">
+              <thead className="sticky top-0 z-10 border-b border-border/85 bg-secondary/80">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Tarea</th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Proyecto</th>
