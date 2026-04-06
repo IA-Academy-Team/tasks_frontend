@@ -3,6 +3,7 @@ import {
   BriefcaseBusiness,
   Building2,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleSlash2,
@@ -31,6 +32,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
@@ -56,12 +59,10 @@ export function Areas() {
   const filterOptions: Array<{
     value: AreaStatusFilter;
     label: string;
-    icon: typeof ListFilter;
-    activeClassName: string;
   }> = [
-    { value: "all", label: "Todas", icon: ListFilter, activeClassName: "border-accent/45 bg-accent/14 text-accent" },
-    { value: "active", label: "Activas", icon: CheckCircle2, activeClassName: "border-success/45 bg-success/14 text-success" },
-    { value: "inactive", label: "Inactivas", icon: CircleSlash2, activeClassName: "border-warning/45 bg-warning/14 text-warning" },
+    { value: "all", label: "Todas" },
+    { value: "active", label: "Activas" },
+    { value: "inactive", label: "Inactivas" },
   ];
 
   const [areas, setAreas] = useState<AreaSummary[]>([]);
@@ -294,9 +295,30 @@ export function Areas() {
             </div>
           </div>
 
-          <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end">
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
-              <div className="relative w-full sm:min-w-72">
+          <div className="mb-8 flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 lg:w-auto lg:overflow-visible">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="app-btn-secondary h-9 shrink-0 px-3.5"
+                  >
+                    <ListFilter className="size-4 text-muted-foreground" />
+                    Estado: {filterOptions.find((option) => option.value === statusFilter)?.label ?? "Todas"}
+                    <ChevronDown className="size-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as AreaStatusFilter)}>
+                    {filterOptions.map((option) => (
+                      <DropdownMenuRadioItem key={option.value} value={option.value}>
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="relative w-[280px] shrink-0">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
@@ -311,37 +333,10 @@ export function Areas() {
                 onClick={() => {
                   void openCreateAreaModal();
                 }}
-                className="app-btn-primary h-10 px-4"
+                className="app-btn-primary h-10 shrink-0 px-4"
               >
                 <Plus className="size-4" />
               </button>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-2 my-2">
-              {filterOptions.map((option) => {
-                const Icon = option.icon;
-                const isSelected = statusFilter === option.value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setStatusFilter(option.value)}
-                    className={cn(
-                      "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
-                      isSelected
-                        ? option.activeClassName
-                        : "border-border/80 bg-card text-muted-foreground hover:border-border/90 hover:bg-secondary/80 hover:text-foreground",
-                    )}
-                    aria-pressed={isSelected}
-                    title={`Ver areas ${option.label.toLowerCase()}`}
-                  >
-                    <Icon className="size-4" />
-                    <span>{option.label}</span>
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </section>
 

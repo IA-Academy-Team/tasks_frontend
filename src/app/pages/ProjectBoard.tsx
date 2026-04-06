@@ -224,6 +224,9 @@ export function ProjectBoard() {
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isEmployeeTaskDetailModalOpen, setIsEmployeeTaskDetailModalOpen] = useState(false);
+  const [employeeTaskDetail, setEmployeeTaskDetail] = useState<TaskSummary | null>(null);
+  const [employeeTaskNextStatus, setEmployeeTaskNextStatus] = useState<TaskWorkflowStatus>("assigned");
   const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
   const [isTaskReassignModalOpen, setIsTaskReassignModalOpen] = useState(false);
   const [sourceEmployeeId, setSourceEmployeeId] = useState("");
@@ -569,6 +572,30 @@ export function ProjectBoard() {
     [selectedTaskId, tasks],
   );
 
+  const employeeTaskDetailCurrentStatus = useMemo(
+    () => (employeeTaskDetail ? getStatusKeyFromTask(employeeTaskDetail) : null),
+    [employeeTaskDetail],
+  );
+
+  const employeeTaskDetailStatusOptions = useMemo(() => {
+    if (!employeeTaskDetailCurrentStatus) {
+      return [] as TaskWorkflowStatus[];
+    }
+
+    return [
+      employeeTaskDetailCurrentStatus,
+      ...WORKFLOW_TRANSITIONS[employeeTaskDetailCurrentStatus],
+    ];
+  }, [employeeTaskDetailCurrentStatus]);
+
+  const canEmployeeManageSelectedTask = useMemo(() => {
+    if (!employeeTaskDetail || !user?.email) {
+      return false;
+    }
+
+    return (employeeTaskDetail.assigneeEmail ?? "").toLowerCase() === user.email.toLowerCase();
+  }, [employeeTaskDetail, user?.email]);
+
   const loadTaskHistory = useCallback(async (taskId: number) => {
     setIsLoadingTaskHistory(true);
     try {
@@ -590,6 +617,13 @@ export function ProjectBoard() {
     setError("");
     setSelectedTaskId(taskId);
     void loadTaskHistory(taskId);
+  };
+
+  const openEmployeeTaskDetailModal = (task: TaskSummary) => {
+    const currentStatus = getStatusKeyFromTask(task) ?? "assigned";
+    setEmployeeTaskDetail(task);
+    setEmployeeTaskNextStatus(currentStatus);
+    setIsEmployeeTaskDetailModalOpen(true);
   };
 
   useEffect(() => {
@@ -977,6 +1011,32 @@ export function ProjectBoard() {
     await executeTaskTransition(pendingCompletionTask.id, "done", payload);
   };
 
+  const handleEmployeeTaskStatusSave = async () => {
+    if (!employeeTaskDetail || !employeeTaskDetailCurrentStatus) {
+      return;
+    }
+
+    if (!canEmployeeManageSelectedTask) {
+      setError("Solo puedes cambiar el estado de tareas asignadas a tu usuario.");
+      return;
+    }
+
+    if (employeeTaskNextStatus === employeeTaskDetailCurrentStatus) {
+      setIsEmployeeTaskDetailModalOpen(false);
+      return;
+    }
+
+    if (employeeTaskNextStatus === "done") {
+      setPendingCompletionTask(employeeTaskDetail);
+      setIsEmployeeTaskDetailModalOpen(false);
+      setIsCompletionModalOpen(true);
+      return;
+    }
+
+    await executeTaskTransition(employeeTaskDetail.id, employeeTaskNextStatus);
+    setIsEmployeeTaskDetailModalOpen(false);
+  };
+
   const handleColumnDrop = (event: DragEvent<HTMLDivElement>, toStatus: TaskWorkflowStatus) => {
     event.preventDefault();
     const rawTaskId = event.dataTransfer.getData("application/task-id");
@@ -1126,7 +1186,12 @@ export function ProjectBoard() {
                               <article
                                 key={task.id}
                                 draggable={movingTaskId === null}
-                                onClick={() => handleSelectTask(task.id)}
+                                onClick={() => {
+                                  handleSelectTask(task.id);
+                                  if (!isAdmin) {
+                                    openEmployeeTaskDetailModal(task);
+                                  }
+                                }}
                                 onDragStart={(event) => {
                                   event.dataTransfer.setData("application/task-id", String(task.id));
                                   event.dataTransfer.effectAllowed = "move";
@@ -1190,7 +1255,12 @@ export function ProjectBoard() {
                           className={`app-row cursor-pointer ${
                             selectedTaskId === task.id ? "bg-primary/5" : ""
                           }`}
-                          onClick={() => handleSelectTask(task.id)}
+                          onClick={() => {
+                            handleSelectTask(task.id);
+                            if (!isAdmin) {
+                              openEmployeeTaskDetailModal(task);
+                            }
+                          }}
                         >
                           <td className="app-td">
                             <p className="font-medium">{task.title}</p>
@@ -1693,6 +1763,91 @@ export function ProjectBoard() {
               </button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isEmployeeTaskDetailModalOpen}
+        onOpenChange={(open) => {
+          setIsEmployeeTaskDetailModalOpen(open);
+          if (!open) {
+            setEmployeeTaskDetail(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Detalle de tarea</DialogTitle>
+          </DialogHeader>
+
+          {employeeTaskDetail ? (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-foreground">{employeeTaskDetail.title}</p>
+                <p className="text-sm text-muted-foreground">{employeeTaskDetail.description ?? "Sin descripcion"}</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Inicio</p>
+                  <p className="text-sm text-foreground">{employeeTaskDetail.plannedStartDate}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Limite</p>
+                  <p className="text-sm text-foreground">{employeeTaskDetail.dueDate}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Estimado</p>
+                  <p className="text-sm text-foreground">{employeeTaskDetail.estimatedMinutes ? `${employeeTaskDetail.estimatedMinutes} min` : "Sin estimado"}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Responsable</p>
+                  <p className="text-sm text-foreground">{employeeTaskDetail.assigneeName ?? "Sin asignar"}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Estado</label>
+                <select
+                  value={employeeTaskNextStatus}
+                  onChange={(event) => setEmployeeTaskNextStatus(event.target.value as TaskWorkflowStatus)}
+                  className="app-control"
+                  disabled={!canEmployeeManageSelectedTask || movingTaskId === employeeTaskDetail.id}
+                >
+                  {employeeTaskDetailStatusOptions.map((statusKey) => (
+                    <option key={statusKey} value={statusKey}>
+                      {WORKFLOW_LABELS[statusKey]}
+                    </option>
+                  ))}
+                </select>
+                {!canEmployeeManageSelectedTask && (
+                  <p className="mt-2 text-xs text-warning">
+                    Solo puedes actualizar tareas asignadas a tu usuario.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  onClick={() => setIsEmployeeTaskDetailModalOpen(false)}
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  className="app-btn-primary"
+                  onClick={() => {
+                    void handleEmployeeTaskStatusSave();
+                  }}
+                  disabled={!canEmployeeManageSelectedTask || movingTaskId === employeeTaskDetail.id}
+                >
+                  {employeeTaskNextStatus === "done" ? "Finalizar tarea" : "Guardar estado"}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

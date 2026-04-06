@@ -545,7 +545,7 @@ export function StandaloneTasks() {
       <div className="app-content">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-lg font-semibold text-foreground">Listado de tareas</h3>
+            <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de tareas</h3>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <DropdownMenu>
