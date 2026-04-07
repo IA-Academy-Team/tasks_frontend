@@ -108,6 +108,23 @@ const toStatusLabel = (status: TaskWorkflowStatus): TaskStatusLabel => {
   return "Asignada";
 };
 
+const WORKFLOW_TRANSITIONS: Record<TaskWorkflowStatus, TaskWorkflowStatus[]> = {
+  assigned: ["in_progress"],
+  in_progress: ["done"],
+  done: [],
+};
+
+const getTransitionValidationMessage = (
+  fromStatus: TaskWorkflowStatus,
+  toStatus: TaskWorkflowStatus,
+) => {
+  if (fromStatus === "assigned" && toStatus === "done") {
+    return "No puedes marcar una tarea como Terminada directamente desde Asignada. Primero pásala a En proceso.";
+  }
+
+  return "La transición de estado no está permitida.";
+};
+
 export function StandaloneTasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
@@ -413,7 +430,8 @@ export function StandaloneTasks() {
       estimatedMinutes = Math.round(numericHours * 60);
     }
 
-    const statusChanged = detailStatus !== toWorkflowStatus(selectedTask.status);
+    const currentStatus = toWorkflowStatus(selectedTask.status);
+    const statusChanged = detailStatus !== currentStatus;
     const fieldsChanged = (
       trimmedTitle !== selectedTask.title
       || detailDescription.trim() !== (selectedTask.description ?? "")
@@ -447,6 +465,12 @@ export function StandaloneTasks() {
       }
 
       if (statusChanged) {
+        const allowedTargets = WORKFLOW_TRANSITIONS[currentStatus];
+        if (!allowedTargets.includes(detailStatus)) {
+          toast.error(getTransitionValidationMessage(currentStatus, detailStatus));
+          return;
+        }
+
         if (detailStatus === "done") {
           setPendingCompletionTask(selectedTask);
           setIsCompletionModalOpen(true);

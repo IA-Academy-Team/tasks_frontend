@@ -1026,6 +1026,12 @@ export function ProjectBoard() {
       return;
     }
 
+    const allowedTargets = WORKFLOW_TRANSITIONS[employeeTaskDetailCurrentStatus];
+    if (!allowedTargets.includes(employeeTaskNextStatus)) {
+      setError(getTransitionValidationMessage(employeeTaskDetailCurrentStatus, employeeTaskNextStatus));
+      return;
+    }
+
     if (employeeTaskNextStatus === "done") {
       setPendingCompletionTask(employeeTaskDetail);
       setIsEmployeeTaskDetailModalOpen(false);
