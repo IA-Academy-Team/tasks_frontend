@@ -452,7 +452,7 @@ export function Dashboard() {
       .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
 
     const overdueTasks = complianceRows
-      .filter((row) => row.isDateOverdue || row.isEstimateDelayed === true)
+      .filter((row) => !isDoneStatus(row.status) && (row.isDateOverdue || row.isEstimateDelayed === true))
       .map((row) => ({
         taskId: row.taskId,
         title: row.title,
