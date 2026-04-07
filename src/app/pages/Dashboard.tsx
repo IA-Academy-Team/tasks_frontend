@@ -352,6 +352,8 @@ export function Dashboard() {
 
     const now = new Date();
     const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weeklyEndDay = new Date(currentDay);
+    weeklyEndDay.setDate(currentDay.getDate() + 6);
     const weeklyDistribution = Array.from({ length: 7 }, (_, offset) => {
       const day = new Date(currentDay);
       day.setDate(currentDay.getDate() + offset);
@@ -364,6 +366,10 @@ export function Dashboard() {
       };
     });
     const weeklyTotal = weeklyDistribution.reduce((sum, item) => sum + item.value, 0);
+    const overdueOrOutOfRangeCount = orderedUpcoming.filter((task) => {
+      const due = parseDateForUi(task.dueDate);
+      return due < currentDay || due > weeklyEndDay;
+    }).length;
     const maxWeeklyValue = Math.max(...weeklyDistribution.map((item) => item.value), 1);
 
     const criticalTasks = nextToExpire.filter((task) => task.urgency === "critical").length;
@@ -376,6 +382,7 @@ export function Dashboard() {
       criticalTasks,
       warningTasks,
       hasWeeklyActivity: weeklyTotal > 0,
+      overdueOrOutOfRangeCount,
       weeklyDistribution: weeklyDistribution.map((item) => ({
         ...item,
         height: Math.max(8, Math.round((item.value / maxWeeklyValue) * 100)),
@@ -887,7 +894,9 @@ export function Dashboard() {
                 ) : (
                   <div className="flex h-full w-full items-center justify-center rounded-xl border border-dashed border-border/70 bg-secondary/25 px-4 text-center">
                     <p className="text-sm text-muted-foreground">
-                      Sin actividad semanal registrada para este usuario en los próximos 7 días.
+                      {employeeInsights.overdueOrOutOfRangeCount > 0
+                        ? `Sin tareas con fecha límite en los próximos 7 días. Hay ${employeeInsights.overdueOrOutOfRangeCount} tarea(s) activa(s) vencidas o fuera de rango semanal.`
+                        : "Sin actividad semanal registrada para este usuario en los próximos 7 días."}
                     </p>
                   </div>
                 )}
