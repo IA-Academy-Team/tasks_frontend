@@ -363,6 +363,7 @@ export function Dashboard() {
         value,
       };
     });
+    const weeklyTotal = weeklyDistribution.reduce((sum, item) => sum + item.value, 0);
     const maxWeeklyValue = Math.max(...weeklyDistribution.map((item) => item.value), 1);
 
     const criticalTasks = nextToExpire.filter((task) => task.urgency === "critical").length;
@@ -374,6 +375,7 @@ export function Dashboard() {
       pausedTasks,
       criticalTasks,
       warningTasks,
+      hasWeeklyActivity: weeklyTotal > 0,
       weeklyDistribution: weeklyDistribution.map((item) => ({
         ...item,
         height: Math.max(8, Math.round((item.value / maxWeeklyValue) * 100)),
@@ -856,7 +858,7 @@ export function Dashboard() {
             <section className="app-panel p-6">
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-bold text-foreground">Activity Overview</h3>
+                  <h3 className="text-xl font-bold text-foreground">Resumen de actividad</h3>
                   <p className="text-sm text-muted-foreground">Picos de actividad proyectada en los próximos 7 días.</p>
                 </div>
                 <div className="inline-flex gap-2">
@@ -866,21 +868,29 @@ export function Dashboard() {
               </div>
 
               <div className="flex h-56 items-end justify-between gap-3 px-2">
-                {employeeInsights.weeklyDistribution.map((item) => (
-                  <div key={item.key} className="group relative flex flex-1 items-end">
-                    <div
-                      className={cn(
-                        "w-full rounded-t-lg transition-all",
-                        item.value > 0 ? "bg-primary hover:bg-primary-hover" : "bg-primary/20",
-                      )}
-                      style={{ height: `${Math.max(14, item.height)}%` }}
-                      title={`${item.value} tareas`}
-                    />
-                    <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-foreground px-2 py-1 text-[10px] font-semibold text-background opacity-0 transition-opacity group-hover:opacity-100">
-                      {item.value} tareas
+                {employeeInsights.hasWeeklyActivity ? (
+                  employeeInsights.weeklyDistribution.map((item) => (
+                    <div key={item.key} className="group relative flex flex-1 items-end">
+                      <div
+                        className={cn(
+                          "w-full rounded-t-lg transition-all",
+                          item.value > 0 ? "bg-primary hover:bg-primary-hover" : "bg-primary/20",
+                        )}
+                        style={{ height: `${Math.max(14, item.height)}%` }}
+                        title={`${item.value} tareas`}
+                      />
+                      <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-foreground px-2 py-1 text-[10px] font-semibold text-background opacity-0 transition-opacity group-hover:opacity-100">
+                        {item.value} tareas
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center rounded-xl border border-dashed border-border/70 bg-secondary/25 px-4 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      Sin actividad semanal registrada para este usuario en los próximos 7 días.
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
 
               <div className="mt-3 flex justify-between px-2">
