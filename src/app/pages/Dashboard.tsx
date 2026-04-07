@@ -408,26 +408,8 @@ export function Dashboard() {
       return null;
     }
 
-    const teamSummary = adminDashboard.teamSummary ?? EMPTY_AGGREGATE;
-    const complianceSummary = taskComplianceReport.summary ?? {
-      totalTasks: 0,
-      onTimeTasks: 0,
-      estimateDelayedTasks: 0,
-      dateOverdueTasks: 0,
-    };
     const complianceRows = Array.isArray(taskComplianceReport.rows) ? taskComplianceReport.rows : [];
     const projectProductivity = Array.isArray(adminDashboard.projectProductivity) ? adminDashboard.projectProductivity : [];
-
-    const statusDistribution = [
-      { status: "Asignada", value: teamSummary.assignedTasks, fill: "var(--pie-status-assigned)" },
-      { status: "En proceso", value: teamSummary.inProgressTasks, fill: "var(--pie-status-in-progress)" },
-      { status: "Terminada", value: teamSummary.doneTasks, fill: "var(--pie-status-done)" },
-      {
-        status: "Retrasada/Vencida",
-        value: complianceSummary.estimateDelayedTasks + complianceSummary.dateOverdueTasks,
-        fill: "var(--pie-status-overdue)",
-      },
-    ];
 
     const projectPerformance = projectProductivity
       .map((project) => ({
@@ -462,6 +444,37 @@ export function Dashboard() {
         reason: row.isDateOverdue ? "Vencida por fecha" : "Retrasada por estimado",
       }))
       .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
+
+    const statusDistribution = [
+      {
+        status: "Asignada",
+        value: complianceRows.filter((row) => (
+          row.status.trim().toLowerCase() === "asignada"
+          && !row.isDateOverdue
+          && row.isEstimateDelayed !== true
+        )).length,
+        fill: "var(--pie-status-assigned)",
+      },
+      {
+        status: "En proceso",
+        value: complianceRows.filter((row) => (
+          row.status.trim().toLowerCase() === "en proceso"
+          && !row.isDateOverdue
+          && row.isEstimateDelayed !== true
+        )).length,
+        fill: "var(--pie-status-in-progress)",
+      },
+      {
+        status: "Terminada",
+        value: complianceRows.filter((row) => isDoneStatus(row.status)).length,
+        fill: "var(--pie-status-done)",
+      },
+      {
+        status: "Retrasada/Vencida",
+        value: overdueTasks.length,
+        fill: "var(--pie-status-overdue)",
+      },
+    ];
 
     return {
       statusDistribution,
