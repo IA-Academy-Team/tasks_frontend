@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock3, ListFilter, Plus, Search, UserRound } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock3, ListFilter, Plus, Search, Trash2, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
@@ -23,6 +23,7 @@ import {
 import { cn } from "../components/ui/utils";
 import {
   createStandaloneTask,
+  deleteTask,
   listTasks,
   transitionTaskStatus,
   type TaskStatusFilter,
@@ -158,6 +159,7 @@ export function StandaloneTasks() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isDetailSaving, setIsDetailSaving] = useState(false);
+  const [isDetailDeleting, setIsDetailDeleting] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const [isCompletingTask, setIsCompletingTask] = useState(false);
   const [pendingCompletionTask, setPendingCompletionTask] = useState<TaskSummary | null>(null);
@@ -259,6 +261,24 @@ export function StandaloneTasks() {
     setDetailPriorityId("2");
     setDetailEstimatedHours("");
     setDetailStatus("assigned");
+  };
+
+  const handleDeleteTaskFromDetail = async () => {
+    if (!selectedTask || !isAdmin) return;
+
+    setIsDetailDeleting(true);
+    try {
+      await deleteTask(selectedTask.id);
+      await loadTasks();
+      setIsDetailModalOpen(false);
+      resetTaskDetail();
+    } catch (incomingError) {
+      if (!(incomingError instanceof ApiError)) {
+        toast.error("No fue posible eliminar la tarea.");
+      }
+    } finally {
+      setIsDetailDeleting(false);
+    }
   };
 
   const handleConfirmTaskCompletion = async (payload: {
@@ -1047,25 +1067,38 @@ export function StandaloneTasks() {
                 </div>
               ) : null}
 
-              <div className="md:col-span-2 flex items-center justify-end gap-3">
-                <button
-                  type="button"
-                  className="app-btn-secondary"
-                  onClick={() => {
-                    setIsDetailModalOpen(false);
-                    resetTaskDetail();
-                  }}
-                  disabled={isDetailSaving}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="app-btn-primary"
-                  disabled={isDetailSaving}
-                >
-                  {isDetailSaving ? "Guardando..." : "Guardar cambios"}
-                </button>
+              <div className="md:col-span-2 flex items-center justify-between gap-3">
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    className="app-btn-secondary text-destructive border-destructive/30 hover:bg-destructive/10"
+                    onClick={handleDeleteTaskFromDetail}
+                    disabled={isDetailSaving || isDetailDeleting}
+                  >
+                    <Trash2 className="size-4" />
+                    {isDetailDeleting ? "Eliminando..." : "Eliminar tarea"}
+                  </button>
+                ) : <span />}
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="app-btn-secondary"
+                    onClick={() => {
+                      setIsDetailModalOpen(false);
+                      resetTaskDetail();
+                    }}
+                    disabled={isDetailSaving || isDetailDeleting}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="app-btn-primary"
+                    disabled={isDetailSaving || isDetailDeleting}
+                  >
+                    {isDetailSaving ? "Guardando..." : "Guardar cambios"}
+                  </button>
+                </div>
               </div>
             </form>
           ) : null}
