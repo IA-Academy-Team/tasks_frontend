@@ -485,71 +485,69 @@ export function Projects() {
                           )}
                         </div>
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
+                        {isAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={(event) => event.stopPropagation()}
+                                className="app-btn-secondary size-8 p-0"
+                                aria-label={`Acciones de ${project.name}`}
+                              >
+                                <MoreVertical className="size-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-44"
                               onClick={(event) => event.stopPropagation()}
-                              className="app-btn-secondary size-8 p-0"
-                              aria-label={`Acciones de ${project.name}`}
                             >
-                              <MoreVertical className="size-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-44"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            {isAdmin && (
-                              <>
+                              <DropdownMenuItem
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  startEdit(project);
+                                }}
+                              >
+                                <Pencil className="size-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {normalizedStatus === "active" && (
                                 <DropdownMenuItem
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    startEdit(project);
+                                    setPendingStatusUpdate({ project, status: "closed" });
                                   }}
                                 >
-                                  <Pencil className="size-4" />
-                                  Editar
+                                  <Archive className="size-4" />
+                                  Desactivar
                                 </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {normalizedStatus === "active" && (
-                                  <DropdownMenuItem
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setPendingStatusUpdate({ project, status: "closed" });
-                                    }}
-                                  >
-                                    <Archive className="size-4" />
-                                    Desactivar
-                                  </DropdownMenuItem>
-                                )}
-                                {normalizedStatus !== "active" && (
-                                  <DropdownMenuItem
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setPendingStatusUpdate({ project, status: "active" });
-                                    }}
-                                  >
-                                    <CheckCircle2 className="size-4" />
-                                    Activar
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
+                              )}
+                              {normalizedStatus !== "active" && (
                                 <DropdownMenuItem
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    setPendingDeleteProject(project);
+                                    setPendingStatusUpdate({ project, status: "active" });
                                   }}
-                                  className="text-destructive focus:text-destructive"
                                 >
-                                  <Trash2 className="size-4" />
-                                  Eliminar
+                                  <CheckCircle2 className="size-4" />
+                                  Activar
                                 </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setPendingDeleteProject(project);
+                                }}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="size-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
 
                       <div className="mt-3 min-w-0">
