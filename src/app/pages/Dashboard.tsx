@@ -339,7 +339,7 @@ export function Dashboard() {
     const orderedUpcoming = [...employeeDashboard.upcomingTasks].sort(
       (a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime(),
     );
-    const nextToExpire = orderedUpcoming.slice(0, 6).map((task) => ({
+    const nextToExpire = orderedUpcoming.slice(0, 4).map((task) => ({
       ...task,
       urgency: getUrgencyTone(task.dueDate),
     }));
