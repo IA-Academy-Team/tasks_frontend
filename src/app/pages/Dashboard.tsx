@@ -831,7 +831,18 @@ export function Dashboard() {
                   Sesión activa
                 </h3>
                 {employeeInsights.inProgressTask ? (
-                  <article className="relative overflow-hidden rounded-2xl border-2 border-primary/45 bg-primary/14 p-5">
+                  <article
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openEmployeeTaskDetail(employeeInsights.inProgressTask)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openEmployeeTaskDetail(employeeInsights.inProgressTask);
+                      }
+                    }}
+                    className="relative overflow-hidden rounded-2xl border-2 border-primary/45 bg-primary/14 p-5 cursor-pointer transition-colors hover:bg-primary/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                  >
                     <span className="mb-3 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
                       <span className="size-2 rounded-full bg-primary animate-pulse" />
                       En progreso
