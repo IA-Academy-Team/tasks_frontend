@@ -1168,76 +1168,6 @@ export function ProjectBoard() {
             <div className="p-6 text-sm text-muted-foreground">No hay tareas para este filtro.</div>
           ) : (
             <>
-              {taskViewMode === "kanban" && (
-                <div className="app-band p-5 border-b border-border">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {KANBAN_COLUMNS.map((column) => (
-                      <div
-                        key={column.key}
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={(event) => handleColumnDrop(event, column.key)}
-                        className="app-panel min-h-[220px] flex flex-col"
-                      >
-                        <div className="app-band px-3 py-2 border-b border-border flex items-center justify-between">
-                          <p className="text-sm font-semibold text-foreground">{column.title}</p>
-                          <span className="text-xs text-muted-foreground">
-                            {kanbanTasks[column.key].length}
-                          </span>
-                        </div>
-                        <div className="p-3 space-y-2 flex-1">
-                          {kanbanTasks[column.key].length === 0 ? (
-                            <p className="text-xs text-muted-foreground">Sin tareas</p>
-                          ) : (
-                            kanbanTasks[column.key].map((task) => (
-                              <article
-                                key={task.id}
-                                draggable={movingTaskId === null}
-                                onClick={() => {
-                                  handleSelectTask(task.id);
-                                  if (!isAdmin) {
-                                    openEmployeeTaskDetailModal(task);
-                                  }
-                                }}
-                                onDragStart={(event) => {
-                                  event.dataTransfer.setData("application/task-id", String(task.id));
-                                  event.dataTransfer.effectAllowed = "move";
-                                }}
-                                className={`rounded-lg border bg-card p-3 shadow-sm transition-opacity ${
-                                  selectedTaskId === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
-                                } ${
-                                  movingTaskId === task.id ? "opacity-50" : ""
-                                }`}
-                              >
-                                <p className="text-sm font-medium text-foreground">{task.title}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {task.assigneeName
-                                    ? `${task.assigneeName} · ${task.priority}`
-                                    : `Sin asignar · ${task.priority}`}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Limite: {task.dueDate}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Real: {formatMinutes(task.actualMinutes)}
-                                </p>
-                                {task.completionEvidence ? (
-                                  <p className="text-xs text-primary mt-1 line-clamp-1">
-                                    Evidencia: {task.completionEvidence}
-                                  </p>
-                                ) : null}
-                                <p className={`text-xs mt-1 ${getComplianceBadge(task).className}`}>
-                                  {getComplianceBadge(task).label}
-                                </p>
-                              </article>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {taskViewMode === "grid" && (
                 <div className="overflow-x-auto">
                   <table className="app-table">
@@ -1491,6 +1421,87 @@ export function ProjectBoard() {
           )}
         </section>
 
+        {taskViewMode === "kanban" && tasks.length > 0 && (
+          <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {KANBAN_COLUMNS.map((column) => (
+              <div
+                key={column.key}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => handleColumnDrop(event, column.key)}
+                className="overflow-hidden rounded-xl border border-border bg-card"
+              >
+                <div className="flex items-center justify-between border-b border-border bg-secondary/45 px-3 py-2">
+                  <p className="text-sm font-semibold text-foreground">{column.title}</p>
+                  <span className="text-xs text-muted-foreground">{kanbanTasks[column.key].length}</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full table-fixed text-sm">
+                    <thead className="bg-secondary/35">
+                      <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.09em] [&>th]:text-muted-foreground">
+                        <th className="w-[64%]">Tarea</th>
+                        <th className="w-[18%]">Limite</th>
+                        <th className="w-[18%]">Real</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/80">
+                      {kanbanTasks[column.key].length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                            Sin tareas
+                          </td>
+                        </tr>
+                      ) : (
+                        kanbanTasks[column.key].map((task) => (
+                          <tr key={task.id}>
+                            <td className="px-3 py-2 align-top">
+                              <article
+                                draggable={movingTaskId === null}
+                                onClick={() => {
+                                  handleSelectTask(task.id);
+                                  if (!isAdmin) {
+                                    openEmployeeTaskDetailModal(task);
+                                  }
+                                }}
+                                onDragStart={(event) => {
+                                  event.dataTransfer.setData("application/task-id", String(task.id));
+                                  event.dataTransfer.effectAllowed = "move";
+                                }}
+                                className={`cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-opacity ${
+                                  selectedTaskId === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
+                                } ${
+                                  movingTaskId === task.id ? "opacity-50" : ""
+                                }`}
+                              >
+                                <p className="text-sm font-medium text-foreground">{task.title}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {task.assigneeName
+                                    ? `${task.assigneeName} · ${task.priority}`
+                                    : `Sin asignar · ${task.priority}`}
+                                </p>
+                                {task.completionEvidence ? (
+                                  <p className="mt-1 line-clamp-1 text-xs text-primary">
+                                    Evidencia: {task.completionEvidence}
+                                  </p>
+                                ) : null}
+                                <p className={`mt-1 text-xs ${getComplianceBadge(task).className}`}>
+                                  {getComplianceBadge(task).label}
+                                </p>
+                              </article>
+                            </td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{task.dueDate}</td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatMinutes(task.actualMinutes)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
+
       </div>
 
       <Dialog open={isTaskReassignModalOpen} onOpenChange={setIsTaskReassignModalOpen}>
@@ -1587,7 +1598,7 @@ export function ProjectBoard() {
               <label className="block text-sm font-medium mb-1">Estimacion de horas</label>
               <input
                 type="number"
-                min={0.05}
+                min={0}
                 step="0.25"
                 value={taskEstimatedHours}
                 onChange={(event) => setTaskEstimatedHours(event.target.value)}

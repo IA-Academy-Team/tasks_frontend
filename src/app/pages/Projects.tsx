@@ -770,7 +770,7 @@ export function Projects() {
         title="Eliminar proyecto"
         description={
           pendingDeleteProject
-            ? `Se eliminara permanentemente "${pendingDeleteProject.name}" junto con sus tareas y membresias del proyecto. Esta accion no se puede deshacer.`
+            ? `Se eliminara permanentemente "${pendingDeleteProject.name}" junto con las tareas del proyecto. Esta accion no se puede deshacer.`
             : ""
         }
         confirmLabel="Eliminar"
