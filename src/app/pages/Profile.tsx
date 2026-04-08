@@ -18,8 +18,8 @@ export function Profile() {
   const [image, setImage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [, setError] = useState("");
+  const [, setSuccess] = useState("");
 
   useEffect(() => {
     const loadProfile = async () => {

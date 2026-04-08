@@ -201,8 +201,8 @@ export function ProjectBoard() {
   const [taskViewMode, setTaskViewMode] = useState<ProjectTaskViewMode>("grid");
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [, setError] = useState("");
+  const [, setSuccess] = useState("");
 
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [taskDescription, setTaskDescription] = useState("");
@@ -221,8 +221,8 @@ export function ProjectBoard() {
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
   const [pendingCompletionTask, setPendingCompletionTask] = useState<TaskSummary | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
-  const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
-  const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
+  const [, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
+  const [, setIsLoadingTaskHistory] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isEmployeeTaskDetailModalOpen, setIsEmployeeTaskDetailModalOpen] = useState(false);
   const [employeeTaskDetail, setEmployeeTaskDetail] = useState<TaskSummary | null>(null);
@@ -566,11 +566,6 @@ export function ProjectBoard() {
       tasksByEmployee,
     };
   }, [tasks]);
-
-  const selectedTask = useMemo(
-    () => tasks.find((task) => task.id === selectedTaskId) ?? null,
-    [selectedTaskId, tasks],
-  );
 
   const employeeTaskDetailCurrentStatus = useMemo(
     () => (employeeTaskDetail ? getStatusKeyFromTask(employeeTaskDetail) : null),

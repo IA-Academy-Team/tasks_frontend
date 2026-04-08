@@ -216,7 +216,7 @@ export function Projects() {
     }
   }, [areaFilter, statusFilter]);
 
-  const loadAreas = async () => {
+  const loadAreas = useCallback(async () => {
     if (!isAdmin) {
       setAreas([]);
       return;
@@ -228,7 +228,7 @@ export function Projects() {
     } catch {
       setAreas([]);
     }
-  };
+  }, [isAdmin]);
 
   useEffect(() => {
     void loadProjects();
@@ -236,7 +236,7 @@ export function Projects() {
 
   useEffect(() => {
     void loadAreas();
-  }, [isAdmin]);
+  }, [loadAreas]);
 
   useEffect(() => {
     setCurrentPage(1);

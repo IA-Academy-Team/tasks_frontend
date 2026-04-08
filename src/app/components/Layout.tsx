@@ -2,7 +2,6 @@ import { Outlet, useNavigate, useLocation } from "react-router";
 import {
   ChevronLeft,
   ChevronRight,
-  ChevronsUpDown,
   FolderKanban,
   ClipboardList,
   Users,

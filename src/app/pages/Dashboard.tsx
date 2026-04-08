@@ -70,17 +70,6 @@ const formatDate = (value: string) =>
 
 const isDoneStatus = (status: string) => status.trim().toLowerCase() === "terminada";
 
-const EMPTY_AGGREGATE = {
-  totalTasks: 0,
-  assignedTasks: 0,
-  inProgressTasks: 0,
-  doneTasks: 0,
-  completionRate: 0,
-  totalEstimatedMinutes: 0,
-  totalActualMinutes: 0,
-  totalDeviationMinutes: 0,
-};
-
 type EmployeeUrgencyTone = "critical" | "warning" | "normal";
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
@@ -834,11 +823,17 @@ export function Dashboard() {
                   <article
                     role="button"
                     tabIndex={0}
-                    onClick={() => openEmployeeTaskDetail(employeeInsights.inProgressTask)}
+                    onClick={() => {
+                      if (employeeInsights.inProgressTask) {
+                        openEmployeeTaskDetail(employeeInsights.inProgressTask);
+                      }
+                    }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        openEmployeeTaskDetail(employeeInsights.inProgressTask);
+                        if (employeeInsights.inProgressTask) {
+                          openEmployeeTaskDetail(employeeInsights.inProgressTask);
+                        }
                       }
                     }}
                     className="relative overflow-hidden rounded-2xl border-2 border-primary/45 bg-primary/14 p-5 cursor-pointer transition-colors hover:bg-primary/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
