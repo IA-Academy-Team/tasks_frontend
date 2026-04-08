@@ -1,16 +1,38 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft, ArrowRight, Mail, Shield } from 'lucide-react';
+import { toast } from "react-toastify";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
+import { requestPasswordReset } from "../../modules/auth/api/auth.api";
+import { ApiError } from "../../shared/api/api";
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email.trim()) setSent(true);
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const redirectTo = `${window.location.origin}/restablecer-contraseña`;
+      await requestPasswordReset(normalizedEmail, redirectTo);
+      setSent(true);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        toast.error(error.message || "No fue posible enviar el enlace.");
+      } else {
+        toast.error("No fue posible enviar el enlace.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -63,9 +85,10 @@ export function ForgotPassword() {
 
               <Button
                 type="submit"
+                disabled={isSubmitting}
                 className="h-12 w-full rounded-md"
               >
-                Enviar enlace
+                {isSubmitting ? "Enviando..." : "Enviar enlace"}
                 <ArrowRight className="ml-2 size-4" />
               </Button>
             </form>
