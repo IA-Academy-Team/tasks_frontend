@@ -67,7 +67,7 @@ export function Employees() {
   const loadEmployees = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await listEmployees("all");
+      const response = await listEmployees();
       setEmployees(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -153,14 +153,15 @@ export function Employees() {
         toast.error("La contrasena debe tener minimo 8 caracteres.");
         return;
       }
-    } else if (trimmedPassword && trimmedPassword.length < 8) {
-      toast.error("La nueva contrasena debe tener minimo 8 caracteres.");
-      return;
-    }
-
-    if (trimmedPassword && trimmedPassword.length > 72) {
-      toast.error("La contrasena no puede superar 72 caracteres.");
-      return;
+    } else {
+      if (!trimmedEmail) {
+        toast.error("El correo es obligatorio.");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        toast.error("El correo electronico no tiene un formato valido.");
+        return;
+      }
     }
 
     if (trimmedPhoneNumber && trimmedPhoneNumber.length > 30) {
@@ -178,7 +179,7 @@ export function Employees() {
       if (editingEmployeeId) {
         await updateEmployee(editingEmployeeId, {
           name: trimmedName,
-          ...(trimmedPassword ? { password: trimmedPassword } : {}),
+          email: trimmedEmail,
           phoneNumber: trimmedPhoneNumber || null,
           image: trimmedImage || null,
         });
@@ -196,9 +197,17 @@ export function Employees() {
       setIsEmployeeModalOpen(false);
       await loadEmployees();
     } catch (incomingError) {
-      if (!(incomingError instanceof ApiError)) {
-        toast.error("No fue posible guardar el empleado.");
+      if (incomingError instanceof ApiError) {
+        if (incomingError.code === "EMAIL_ALREADY_EXISTS") {
+          toast.error("Ya existe un empleado con ese correo electronico.");
+          return;
+        }
+
+        toast.error(incomingError.message || "No fue posible guardar el empleado.");
+        return;
       }
+
+      toast.error("No fue posible guardar el empleado.");
     } finally {
       setIsSubmitting(false);
     }
@@ -312,17 +321,17 @@ export function Employees() {
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Cargando empleados...</div>
           ) : (
-            <div className="overflow-hidden rounded-2xl border border-border/80 bg-card/95 shadow-[0_14px_34px_rgba(16,36,58,0.12)] backdrop-blur-sm">
+            <div className="app-panel overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full table-fixed text-sm">
-                  <thead className="bg-secondary/55">
+                  <thead className="bg-secondary/72">
                     <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
                       <th className="w-[42%] text-left">Empleado</th>
                       <th className="w-[44%] text-left">Areas</th>
                       <th className="w-[14%] text-right">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border/70 bg-card">
+                  <tbody className="divide-y divide-border/80 bg-card">
                     {paginatedEmployees.length === 0 ? (
                       <tr>
                         <td colSpan={3} className="px-4 py-12 text-center text-sm text-muted-foreground">
@@ -379,7 +388,7 @@ export function Employees() {
                                 <DropdownMenuTrigger asChild>
                                   <button
                                     type="button"
-                                    className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                                    className="app-btn-secondary size-8 p-0"
                                     aria-label={`Acciones de ${employee.name}`}
                                   >
                                     <MoreVertical className="size-4" />
@@ -479,24 +488,23 @@ export function Employees() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                disabled={Boolean(editingEmployeeId)}
-                className="app-control disabled:bg-muted"
+                className="app-control"
                 placeholder="empleado@taskapp.local"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">
-                {editingEmployeeId ? "Nueva contraseña (opcional)" : "Contraseña"}
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="app-control"
-                placeholder={editingEmployeeId ? "Dejar vacio para no cambiar" : "Minimo 8 caracteres"}
-              />
-            </div>
+            {!editingEmployeeId && (
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Contraseña</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="app-control"
+                  placeholder="Minimo 8 caracteres"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">Telefono</label>
@@ -510,7 +518,7 @@ export function Employees() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen de perfil (URL)</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen de perfil opcional (URL)</label>
               <input
                 type="url"
                 value={image}
@@ -554,7 +562,7 @@ export function Employees() {
         title="Eliminar empleado"
         description={
           pendingDeleteEmployee
-            ? `Se eliminará a ${pendingDeleteEmployee.name}.`
+            ? `Se eliminará a ${pendingDeleteEmployee.name}. Esta acción no se puede deshacer.`
             : ""
         }
         confirmLabel="Eliminar"

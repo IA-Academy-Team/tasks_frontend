@@ -6,6 +6,7 @@ import { RoleGuard } from "../guards/RoleGuard";
 import { ResourceGuard } from "../guards/ResourceGuard";
 import { LoginPage } from "../../modules/auth/pages/LoginPage";
 import { ForgotPasswordPage } from "../../modules/auth/pages/ForgotPasswordPage";
+import { ResetPasswordPage } from "../../modules/auth/pages/ResetPasswordPage";
 import { AuthHomeRedirect } from "../../modules/auth/components/AuthHomeRedirect";
 import { AreasPage } from "../../modules/areas/pages/AreasPage";
 import { DashboardPage } from "../../modules/dashboard/pages/DashboardPage";
@@ -21,6 +22,7 @@ export function AppRouter() {
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/recuperar-contraseña" element={<ForgotPasswordPage />} />
+          <Route path="/restablecer-contraseña" element={<ResetPasswordPage />} />
         </Route>
 
         <Route

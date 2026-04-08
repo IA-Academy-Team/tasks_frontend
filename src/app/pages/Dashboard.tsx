@@ -339,7 +339,7 @@ export function Dashboard() {
     const orderedUpcoming = [...employeeDashboard.upcomingTasks].sort(
       (a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime(),
     );
-    const nextToExpire = orderedUpcoming.slice(0, 6).map((task) => ({
+    const nextToExpire = orderedUpcoming.slice(0, 4).map((task) => ({
       ...task,
       urgency: getUrgencyTone(task.dueDate),
     }));
@@ -352,6 +352,8 @@ export function Dashboard() {
 
     const now = new Date();
     const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weeklyEndDay = new Date(currentDay);
+    weeklyEndDay.setDate(currentDay.getDate() + 6);
     const weeklyDistribution = Array.from({ length: 7 }, (_, offset) => {
       const day = new Date(currentDay);
       day.setDate(currentDay.getDate() + offset);
@@ -363,6 +365,11 @@ export function Dashboard() {
         value,
       };
     });
+    const weeklyTotal = weeklyDistribution.reduce((sum, item) => sum + item.value, 0);
+    const overdueOrOutOfRangeCount = orderedUpcoming.filter((task) => {
+      const due = parseDateForUi(task.dueDate);
+      return due < currentDay || due > weeklyEndDay;
+    }).length;
     const maxWeeklyValue = Math.max(...weeklyDistribution.map((item) => item.value), 1);
 
     const criticalTasks = nextToExpire.filter((task) => task.urgency === "critical").length;
@@ -374,6 +381,8 @@ export function Dashboard() {
       pausedTasks,
       criticalTasks,
       warningTasks,
+      hasWeeklyActivity: weeklyTotal > 0,
+      overdueOrOutOfRangeCount,
       weeklyDistribution: weeklyDistribution.map((item) => ({
         ...item,
         height: Math.max(8, Math.round((item.value / maxWeeklyValue) * 100)),
@@ -399,26 +408,8 @@ export function Dashboard() {
       return null;
     }
 
-    const teamSummary = adminDashboard.teamSummary ?? EMPTY_AGGREGATE;
-    const complianceSummary = taskComplianceReport.summary ?? {
-      totalTasks: 0,
-      onTimeTasks: 0,
-      estimateDelayedTasks: 0,
-      dateOverdueTasks: 0,
-    };
     const complianceRows = Array.isArray(taskComplianceReport.rows) ? taskComplianceReport.rows : [];
     const projectProductivity = Array.isArray(adminDashboard.projectProductivity) ? adminDashboard.projectProductivity : [];
-
-    const statusDistribution = [
-      { status: "Asignada", value: teamSummary.assignedTasks, fill: "var(--pie-status-assigned)" },
-      { status: "En proceso", value: teamSummary.inProgressTasks, fill: "var(--pie-status-in-progress)" },
-      { status: "Terminada", value: teamSummary.doneTasks, fill: "var(--pie-status-done)" },
-      {
-        status: "Retrasada/Vencida",
-        value: complianceSummary.estimateDelayedTasks + complianceSummary.dateOverdueTasks,
-        fill: "var(--pie-status-overdue)",
-      },
-    ];
 
     const projectPerformance = projectProductivity
       .map((project) => ({
@@ -443,7 +434,7 @@ export function Dashboard() {
       .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
 
     const overdueTasks = complianceRows
-      .filter((row) => row.isDateOverdue || row.isEstimateDelayed === true)
+      .filter((row) => !isDoneStatus(row.status) && (row.isDateOverdue || row.isEstimateDelayed === true))
       .map((row) => ({
         taskId: row.taskId,
         title: row.title,
@@ -453,6 +444,37 @@ export function Dashboard() {
         reason: row.isDateOverdue ? "Vencida por fecha" : "Retrasada por estimado",
       }))
       .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
+
+    const statusDistribution = [
+      {
+        status: "Asignada",
+        value: complianceRows.filter((row) => (
+          row.status.trim().toLowerCase() === "asignada"
+          && !row.isDateOverdue
+          && row.isEstimateDelayed !== true
+        )).length,
+        fill: "var(--pie-status-assigned)",
+      },
+      {
+        status: "En proceso",
+        value: complianceRows.filter((row) => (
+          row.status.trim().toLowerCase() === "en proceso"
+          && !row.isDateOverdue
+          && row.isEstimateDelayed !== true
+        )).length,
+        fill: "var(--pie-status-in-progress)",
+      },
+      {
+        status: "Terminada",
+        value: complianceRows.filter((row) => isDoneStatus(row.status)).length,
+        fill: "var(--pie-status-done)",
+      },
+      {
+        status: "Retrasada/Vencida",
+        value: overdueTasks.length,
+        fill: "var(--pie-status-overdue)",
+      },
+    ];
 
     return {
       statusDistribution,
@@ -569,7 +591,7 @@ export function Dashboard() {
       try {
         const [projectsResponse, employeesResponse] = await Promise.all([
           listProjects({ status: "all" }),
-          listEmployees("active"),
+          listEmployees(),
         ]);
         setProjects(projectsResponse?.data ?? []);
         setEmployees((employeesResponse?.data ?? []).filter((employee) => employee.role === "employee"));
@@ -680,7 +702,7 @@ export function Dashboard() {
         )}
       >
         {error && (
-          <section className="rounded-xl border border-destructive/45 bg-destructive/12 px-4 py-3 text-sm text-destructive">
+          <section className="app-panel px-4 py-3 text-sm text-destructive">
             {error}
           </section>
         )}
@@ -695,7 +717,7 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => navigate("/tasks/standalone?create=1")}
-                className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-primary-foreground shadow-[0_10px_28px_rgba(16,36,58,0.22)] transition-colors hover:bg-primary-hover"
+                className="app-btn-primary h-11 px-5 font-bold"
               >
                 <Plus className="size-4" />
                 Tarea
@@ -703,7 +725,7 @@ export function Dashboard() {
             </section>
 
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="app-panel p-5">
                 <div className="mb-4 flex items-start justify-between">
                   <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/14 text-primary">
                     <FolderKanban className="size-5" />
@@ -716,7 +738,7 @@ export function Dashboard() {
                 </p>
               </article>
 
-              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="app-panel p-5">
                 <div className="mb-4 flex items-start justify-between">
                   <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/14 text-primary">
                     <CheckCircle2 className="size-5" />
@@ -727,7 +749,7 @@ export function Dashboard() {
                 <p className="mt-1 text-3xl font-black text-foreground">{employeeDashboard.summary.doneTasks}</p>
               </article>
 
-              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="app-panel p-5">
                 <div className="mb-4 flex items-start justify-between">
                   <span className="inline-flex size-11 items-center justify-center rounded-xl bg-destructive/14 text-destructive">
                     <CalendarClock className="size-5" />
@@ -738,7 +760,7 @@ export function Dashboard() {
                 <p className="mt-1 text-3xl font-black text-foreground">{employeeDashboard.summary.upcomingTasks}</p>
               </article>
 
-              <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+              <article className="app-panel p-5">
                 <div className="mb-4 flex items-start justify-between">
                   <span className="inline-flex size-11 items-center justify-center rounded-xl bg-primary/14 text-primary">
                     <Timer className="size-5" />
@@ -765,7 +787,7 @@ export function Dashboard() {
                     Ver tareas
                   </button>
                 </div>
-                <div className="overflow-hidden rounded-2xl border border-border/85 bg-card/95 shadow-[0_10px_24px_rgba(16,36,58,0.1)] divide-y divide-border/85">
+                <div className="app-panel overflow-hidden divide-y divide-border/85">
                   {employeeInsights.nextToExpire.length === 0 ? (
                     <p className="px-5 py-8 text-sm text-muted-foreground">No hay tareas próximas a vencer.</p>
                   ) : (
@@ -809,7 +831,18 @@ export function Dashboard() {
                   Sesión activa
                 </h3>
                 {employeeInsights.inProgressTask ? (
-                  <article className="relative overflow-hidden rounded-2xl border-2 border-primary/45 bg-primary/14 p-5">
+                  <article
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openEmployeeTaskDetail(employeeInsights.inProgressTask)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openEmployeeTaskDetail(employeeInsights.inProgressTask);
+                      }
+                    }}
+                    className="relative overflow-hidden rounded-2xl border-2 border-primary/45 bg-primary/14 p-5 cursor-pointer transition-colors hover:bg-primary/18 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                  >
                     <span className="mb-3 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-primary">
                       <span className="size-2 rounded-full bg-primary animate-pulse" />
                       En progreso
@@ -831,56 +864,43 @@ export function Dashboard() {
                     <p className="mt-1 text-xs text-muted-foreground">Inicia una tarea para empezar seguimiento.</p>
                   </article>
                 )}
-
-                <article className="rounded-2xl border border-border/85 bg-card/95 p-5 shadow-[0_10px_24px_rgba(16,36,58,0.08)]">
-                  <h4 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">En pausa</h4>
-                  <div className="space-y-3">
-                    {employeeInsights.pausedTasks.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Sin tareas pausadas.</p>
-                    ) : (
-                      employeeInsights.pausedTasks.map((task) => (
-                        <div key={task.id} className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-foreground">{task.title}</p>
-                            <p className="truncate text-[11px] text-muted-foreground">{task.projectName}</p>
-                          </div>
-                          <span className="text-[11px] font-semibold text-muted-foreground">{formatDate(task.dueDate)}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </article>
               </div>
             </section>
 
-            <section className="rounded-2xl border border-border/85 bg-card/95 p-6 shadow-[0_10px_24px_rgba(16,36,58,0.1)]">
+            <section className="app-panel p-6">
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-xl font-bold text-foreground">Activity Overview</h3>
-                  <p className="text-sm text-muted-foreground">Picos de actividad proyectada en los próximos 7 días.</p>
-                </div>
-                <div className="inline-flex gap-2">
-                  <span className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-muted-foreground">Días</span>
-                  <span className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">Semana</span>
+                  <h3 className="text-xl font-bold text-foreground">Resumen de actividad</h3>
+                  <p className="text-sm text-muted-foreground">Tareas a realizar en los próximos 7 días.</p>
                 </div>
               </div>
 
               <div className="flex h-56 items-end justify-between gap-3 px-2">
-                {employeeInsights.weeklyDistribution.map((item) => (
-                  <div key={item.key} className="group relative flex flex-1 items-end">
-                    <div
-                      className={cn(
-                        "w-full rounded-t-lg transition-all",
-                        item.value > 0 ? "bg-primary hover:bg-primary-hover" : "bg-primary/20",
-                      )}
-                      style={{ height: `${Math.max(14, item.height)}%` }}
-                      title={`${item.value} tareas`}
-                    />
-                    <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-foreground px-2 py-1 text-[10px] font-semibold text-background opacity-0 transition-opacity group-hover:opacity-100">
-                      {item.value} tareas
+                {employeeInsights.hasWeeklyActivity ? (
+                  employeeInsights.weeklyDistribution.map((item) => (
+                    <div key={item.key} className="group relative flex h-full flex-1 items-end">
+                      <div
+                        className={cn(
+                          "w-full rounded-t-lg transition-all",
+                          item.value > 0 ? "bg-primary hover:bg-primary-hover" : "bg-primary/20",
+                        )}
+                        style={{ height: `${Math.max(14, item.height)}%` }}
+                        title={`${item.value} tareas`}
+                      />
+                      <div className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-foreground px-2 py-1 text-[10px] font-semibold text-background opacity-0 transition-opacity group-hover:opacity-100">
+                        {item.value} tareas
+                      </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center rounded-xl border border-dashed border-border/70 bg-secondary/25 px-4 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      {employeeInsights.overdueOrOutOfRangeCount > 0
+                        ? `Sin tareas con fecha límite en los próximos 7 días. Hay ${employeeInsights.overdueOrOutOfRangeCount} tarea(s) activa(s) vencidas o fuera de rango semanal.`
+                        : "Sin actividad semanal registrada para este usuario en los próximos 7 días."}
+                    </p>
                   </div>
-                ))}
+                )}
               </div>
 
               <div className="mt-3 flex justify-between px-2">
@@ -953,11 +973,10 @@ export function Dashboard() {
 
             <section className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden xl:grid-cols-[0.8fr_0.9fr_1.65fr]">
               <div className="flex min-h-0 flex-col gap-3">
-                <article className="app-panel app-panel-pad border-border/85 bg-card/95 min-h-0 flex-1 overflow-hidden">
+                <article className="app-panel app-panel-pad min-h-0 flex-1 overflow-hidden">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Rendimiento por proyecto</h2>
-                      <p className="text-sm text-muted-foreground">Top de iniciativas con mayor avance real.</p>
                     </div>
                     <span className="inline-flex size-9 items-center justify-center rounded-lg bg-primary/14 text-primary">
                       <Activity className="size-4.5" />
@@ -988,11 +1007,10 @@ export function Dashboard() {
               </div>
 
               <div className="flex min-h-0 flex-col gap-3">
-                <article className="app-panel app-panel-pad border-border/85 bg-card/95 shrink-0">
+                <article className="app-panel app-panel-pad shrink-0">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Distribución por estado</h2>
-                      <p className="text-sm text-muted-foreground">Vista de salud operativa actual.</p>
                     </div>
                     <p className="text-xs text-muted-foreground">{adminDashboard.teamSummary.totalTasks} tareas</p>
                   </div>
@@ -1025,11 +1043,10 @@ export function Dashboard() {
                   </div>
                 </article>
 
-                <article className="app-panel app-panel-pad border-border/85 bg-card/95 min-h-0 flex-1">
+                <article className="app-panel app-panel-pad min-h-0 flex-1">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">Tendencia de cumplimiento</h2>
-                      <p className="text-sm text-muted-foreground mb-2">Alineación operativa de los últimos 7 días</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xl font-bold text-success">{latestComplianceValue}%</p>
@@ -1092,8 +1109,8 @@ export function Dashboard() {
               </div>
 
               <div className="flex min-h-0 flex-1 flex-col gap-3">
-                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/85 bg-card/95">
-                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/55 px-3 py-2.5">
+                <section className="app-panel min-h-0 flex flex-1 flex-col overflow-hidden">
+                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/62 px-3 py-2.5">
                     <h2 className="text-base font-semibold text-warning">Tareas pendientes</h2>
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {adminInsights.pendingTasks.length}
@@ -1103,7 +1120,7 @@ export function Dashboard() {
                     <table className="app-table">
                       <thead className="app-table-head">
                         <tr>
-                          <th className="app-th">Tarea pendiente</th>
+                          <th className="app-th">Tarea</th>
                           <th className="app-th">Proyecto</th>
                           <th className="app-th">Empleado</th>
                           <th className="app-th">Estado</th>
@@ -1160,8 +1177,8 @@ export function Dashboard() {
                   )}
                 </section>
 
-                <section className="min-h-0 flex flex-1 flex-col overflow-hidden rounded-xl border border-border/85 bg-card/95">
-                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/55 px-3 py-2.5">
+                <section className="app-panel min-h-0 flex flex-1 flex-col overflow-hidden">
+                  <header className="flex items-center justify-between border-b border-border/85 bg-secondary/62 px-3 py-2.5">
                     <h2 className="text-base font-semibold text-destructive">Tareas retrasadas/vencidas</h2>
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {adminInsights.overdueTasks.length}
@@ -1171,7 +1188,7 @@ export function Dashboard() {
                     <table className="app-table">
                       <thead className="app-table-head">
                         <tr>
-                          <th className="app-th">Tarea retrasada/vencida</th>
+                          <th className="app-th">Tarea</th>
                           <th className="app-th">Proyecto</th>
                           <th className="app-th">Empleado</th>
                           <th className="app-th">Motivo</th>
@@ -1233,7 +1250,7 @@ export function Dashboard() {
         )}
 
         {isAdmin && !error && (!adminDashboard || !taskComplianceReport || !adminInsights) && (
-          <section className="rounded-xl border border-border/85 bg-card/95 px-4 py-5 text-sm text-muted-foreground">
+          <section className="app-panel px-4 py-5 text-sm text-muted-foreground">
             No fue posible procesar la informacion del dashboard con los datos actuales.
           </section>
         )}

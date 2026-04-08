@@ -3,6 +3,7 @@ import {
   BriefcaseBusiness,
   Building2,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   CircleSlash2,
@@ -31,6 +32,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
@@ -56,12 +59,10 @@ export function Areas() {
   const filterOptions: Array<{
     value: AreaStatusFilter;
     label: string;
-    icon: typeof ListFilter;
-    activeClassName: string;
   }> = [
-    { value: "all", label: "Todas", icon: ListFilter, activeClassName: "border-accent/45 bg-accent/14 text-accent" },
-    { value: "active", label: "Activas", icon: CheckCircle2, activeClassName: "border-success/45 bg-success/14 text-success" },
-    { value: "inactive", label: "Inactivas", icon: CircleSlash2, activeClassName: "border-warning/45 bg-warning/14 text-warning" },
+    { value: "all", label: "Todas" },
+    { value: "active", label: "Activas" },
+    { value: "inactive", label: "Inactivas" },
   ];
 
   const [areas, setAreas] = useState<AreaSummary[]>([]);
@@ -133,11 +134,12 @@ export function Areas() {
   const paginatedAreas = filteredAreas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const totalMembers = filteredAreas.reduce((accumulator, area) => accumulator + area.activeMemberCount, 0);
   const totalProjects = filteredAreas.reduce((accumulator, area) => accumulator + area.activeProjectCount, 0);
+  const shouldCompactFooterOnFirstPage = currentPage === 1 && totalPages === 1 && paginatedAreas.length < PAGE_SIZE;
 
   const loadEmployees = async () => {
     setIsLoadingEmployees(true);
     try {
-      const response = await listEmployees("all");
+      const response = await listEmployees();
       return response?.data ?? [];
     } catch {
       return [] as EmployeeSummary[];
@@ -241,9 +243,17 @@ export function Areas() {
       setIsAreaModalOpen(false);
       await loadAreas();
     } catch (incomingError) {
-      if (!(incomingError instanceof ApiError)) {
-        toast.error("No fue posible guardar el area.");
+      if (incomingError instanceof ApiError) {
+        if (incomingError.code === "AREA_NAME_ALREADY_EXISTS") {
+          toast.error("Ya existe un area con ese nombre. Usa un nombre diferente.");
+          return;
+        }
+
+        toast.error(incomingError.message || "No fue posible guardar el area.");
+        return;
       }
+
+      toast.error("No fue posible guardar el area.");
     } finally {
       setIsSubmitting(false);
     }
@@ -286,23 +296,43 @@ export function Areas() {
         className="min-h-0 py-3"
       />
 
-      <div className="app-content flex-1 min-h-0 overflow-hidden gap-3 py-3 md:gap-3 md:py-4">
-        <section className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
-          <div className="space-y-1">
-            <div className="flex flex-wrap items-center gap-2 mt-4">
+      <div className="app-content flex-1 min-h-0 overflow-hidden gap-3 p-8 md:gap-3 md:py-8">
+        <section className="space-y-4">
+          <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="space-y-1">
               <h3 className="text-2xl font-bold tracking-tight text-foreground">Estructura organizacional</h3>
             </div>
-          </div>
 
-          <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end">
-            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
-              <div className="relative w-full sm:min-w-72">
+            <div className="flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 xl:w-auto xl:overflow-visible">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="app-btn-secondary h-9 shrink-0 px-3.5"
+                  >
+                    <ListFilter className="size-4 text-muted-foreground" />
+                    Estado: {filterOptions.find((option) => option.value === statusFilter)?.label ?? "Todas"}
+                    <ChevronDown className="size-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as AreaStatusFilter)}>
+                    {filterOptions.map((option) => (
+                      <DropdownMenuRadioItem key={option.value} value={option.value}>
+                        {option.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="relative w-[280px] shrink-0">
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  className="app-control h-10 pl-9"
+                  className="app-control h-9 pl-9"
                   placeholder="Buscar area..."
                 />
               </div>
@@ -311,45 +341,19 @@ export function Areas() {
                 onClick={() => {
                   void openCreateAreaModal();
                 }}
-                className="app-btn-primary h-10 px-4"
+                className="app-btn-primary size-10 shrink-0 p-0"
               >
                 <Plus className="size-4" />
               </button>
             </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-2 my-2">
-              {filterOptions.map((option) => {
-                const Icon = option.icon;
-                const isSelected = statusFilter === option.value;
-
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setStatusFilter(option.value)}
-                    className={cn(
-                      "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
-                      isSelected
-                        ? option.activeClassName
-                        : "border-border/80 bg-card text-muted-foreground hover:border-border/90 hover:bg-secondary/80 hover:text-foreground",
-                    )}
-                    aria-pressed={isSelected}
-                    title={`Ver areas ${option.label.toLowerCase()}`}
-                  >
-                    <Icon className="size-4" />
-                    <span>{option.label}</span>
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </section>
 
-        <section className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <section className={cn("min-h-0 overflow-y-auto pr-1", !shouldCompactFooterOnFirstPage && "flex-1")}>
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Cargando areas...</div>
           ) : filteredAreas.length === 0 ? (
-            <div className="rounded-xl border border-border/85 bg-card/90 px-4 py-5 text-sm text-muted-foreground">
+            <div className="app-panel app-panel-pad text-sm text-muted-foreground">
               {areas.length === 0
                 ? "No hay areas para este filtro."
                 : "No encontramos areas que coincidan con tu busqueda."}
@@ -359,7 +363,7 @@ export function Areas() {
               {paginatedAreas.map((area) => (
                 <article
                   key={area.id}
-                  className="group rounded-xl border border-border/85 bg-card/96 p-4 shadow-[0_10px_24px_rgba(18,38,59,0.08)] transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(18,38,59,0.1)]"
+                  className="app-panel group p-4 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)]"
                 >
                   <div className="mb-3 flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -372,7 +376,7 @@ export function Areas() {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                          className="app-btn-secondary size-8 p-0"
                           aria-label={`Acciones de ${area.name}`}
                         >
                           <MoreVertical className="size-4" />
@@ -450,7 +454,12 @@ export function Areas() {
           )}
         </section>
 
-        <section className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 mt-auto mb-20">
+        <section
+          className={cn(
+            "app-panel app-band mb-20 px-4 py-3",
+            shouldCompactFooterOnFirstPage ? "mt-4" : "mt-auto",
+          )}
+        >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="grid grid-cols-3 gap-3 sm:gap-6">
               <div className="text-center">
@@ -693,13 +702,12 @@ export function Areas() {
         title="Eliminar area"
         description={
           pendingDeleteArea
-            ? `Vas a eliminar "${pendingDeleteArea.name}". Si tiene historial o dependencias activas, el backend puede archivarla en lugar de eliminarla definitivamente.`
+            ? `Vas a eliminar "${pendingDeleteArea.name}". Si tiene empleaos, proyectos o tareas relacionados, no se van a borrar.`
             : ""
         }
         confirmLabel="Eliminar"
         variant="destructive"
         isProcessing={isSubmitting}
-        confirmDelaySeconds={5}
         onConfirm={() => {
           if (!pendingDeleteArea) {
             return;

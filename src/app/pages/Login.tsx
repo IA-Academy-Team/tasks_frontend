@@ -5,6 +5,8 @@ import { ArrowRight, Eye, EyeOff, Lock, Mail, Shield } from 'lucide-react';
 import { ApiError } from '../../shared/api/api';
 import { getDefaultRouteForRole } from '../../modules/auth/lib/auth-routing';
 import { toast } from "react-toastify";
+import { Input } from "../components/ui/input";
+import { Button } from "../components/ui/button";
 
 export function Login() {
   const navigate = useNavigate();
@@ -122,7 +124,7 @@ export function Login() {
       </div>
 
       <div className="relative z-10 w-full max-w-[450px]">
-        <div className="rounded-2xl border border-border/85 bg-card/95 p-8 shadow-2xl backdrop-blur-xl md:p-10">
+        <div className="rounded-2xl border border-border/90 bg-card/95 p-8 shadow-[var(--shadow-xl)] backdrop-blur-xl md:p-10">
           <div className="mb-8 flex flex-col items-center text-center">
             <div className="mb-4 rounded-xl bg-primary p-3 text-white shadow-[0_12px_24px_rgba(13,111,104,0.3)]">
               <Shield className="size-7" />
@@ -142,12 +144,12 @@ export function Login() {
                 <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
                   <Mail className="size-5" />
                 </span>
-                <input
+                <Input
                   id="login-user"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full rounded-lg border border-border bg-background py-3 pl-11 pr-4 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/35"
+                  className="h-12 rounded-md pl-11 pr-4"
                   placeholder="nombre@empresa.com"
                   autoComplete="email"
                 />
@@ -170,12 +172,12 @@ export function Login() {
                 <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-muted-foreground">
                   <Lock className="size-5" />
                 </span>
-                <input
+                <Input
                   id="login-password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full rounded-lg border border-border bg-background py-3 pl-11 pr-12 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/35"
+                  className="h-12 rounded-md pl-11 pr-12"
                   placeholder="••••••••"
                   autoComplete="current-password"
                 />
@@ -200,14 +202,14 @@ export function Login() {
               <span className="text-xs text-muted-foreground">Mantener sesión activa</span>
             </label>
 
-            <button
+            <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex w-full items-center justify-center rounded-lg bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-70"
+              className="h-12 w-full rounded-md"
             >
               {isSubmitting ? 'Ingresando...' : 'Iniciar sesión'}
               <ArrowRight className="ml-2 size-4" />
-            </button>
+            </Button>
           </form>
 
           <div className="mt-8 border-t border-border/85 pt-6">

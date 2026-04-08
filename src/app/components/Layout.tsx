@@ -205,11 +205,11 @@ export function Layout() {
   return (
     <div className="h-screen overflow-y-hidden overflow-x-visible flex bg-background">
       <aside
-        className={`hidden md:flex h-screen relative z-30 shrink-0 overflow-y-hidden overflow-x-visible border-r border-sidebar-border/85 bg-[linear-gradient(180deg,#e7f0fb_0%,#dce8f6_52%,#cfdeef_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground flex-col shadow-[14px_0_24px_rgba(15,36,56,0.14)] dark:shadow-[20px_0_36px_rgba(8,24,43,0.18)] transition-[width] duration-300 ease-in-out ${
+        className={`hidden md:flex h-screen relative z-30 shrink-0 overflow-y-hidden overflow-x-visible border-r border-sidebar-border/85 bg-sidebar text-sidebar-foreground flex-col shadow-[var(--shadow-sm)] transition-[width] duration-300 ease-in-out ${
           isSidebarCollapsed ? "w-20" : "w-64"
         }`}
       >
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,rgba(15,118,110,0.14),transparent_34%)] dark:bg-[radial-gradient(circle_at_18%_12%,rgba(34,211,238,0.14),transparent_36%)]" />
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_18%_12%,color-mix(in_srgb,var(--primary)_14%,transparent),transparent_34%)] dark:bg-[radial-gradient(circle_at_18%_12%,rgba(34,211,238,0.14),transparent_36%)]" />
         <div
           className={`relative border-b border-sidebar-border/80 ${
             isSidebarCollapsed ? "px-0 py-3 flex items-center justify-center" : "px-5 py-6"
@@ -240,7 +240,7 @@ export function Layout() {
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-50 bg-black/45" onClick={closeMobileMenu}>
           <aside
-            className="h-full w-72 border-r border-sidebar-border/85 bg-[linear-gradient(180deg,#e7f0fb_0%,#dce8f6_52%,#cfdeef_100%)] dark:bg-[linear-gradient(180deg,#081a2e_0%,#0b2238_56%,#11263e_100%)] text-sidebar-foreground shadow-2xl p-4"
+            className="h-full w-72 border-r border-sidebar-border/85 bg-sidebar text-sidebar-foreground shadow-[var(--shadow-lg)] p-4"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-sidebar-border/80">

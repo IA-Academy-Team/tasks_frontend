@@ -224,6 +224,9 @@ export function ProjectBoard() {
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [isLoadingTaskHistory, setIsLoadingTaskHistory] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isEmployeeTaskDetailModalOpen, setIsEmployeeTaskDetailModalOpen] = useState(false);
+  const [employeeTaskDetail, setEmployeeTaskDetail] = useState<TaskSummary | null>(null);
+  const [employeeTaskNextStatus, setEmployeeTaskNextStatus] = useState<TaskWorkflowStatus>("assigned");
   const [isProjectDetailModalOpen, setIsProjectDetailModalOpen] = useState(false);
   const [isTaskReassignModalOpen, setIsTaskReassignModalOpen] = useState(false);
   const [sourceEmployeeId, setSourceEmployeeId] = useState("");
@@ -303,7 +306,7 @@ export function ProjectBoard() {
     }
 
     try {
-      const response = await listEmployees("active");
+      const response = await listEmployees();
       setEmployees(response?.data ?? []);
     } catch {
       setEmployees([]);
@@ -569,6 +572,30 @@ export function ProjectBoard() {
     [selectedTaskId, tasks],
   );
 
+  const employeeTaskDetailCurrentStatus = useMemo(
+    () => (employeeTaskDetail ? getStatusKeyFromTask(employeeTaskDetail) : null),
+    [employeeTaskDetail],
+  );
+
+  const employeeTaskDetailStatusOptions = useMemo(() => {
+    if (!employeeTaskDetailCurrentStatus) {
+      return [] as TaskWorkflowStatus[];
+    }
+
+    return [
+      employeeTaskDetailCurrentStatus,
+      ...WORKFLOW_TRANSITIONS[employeeTaskDetailCurrentStatus],
+    ];
+  }, [employeeTaskDetailCurrentStatus]);
+
+  const canEmployeeManageSelectedTask = useMemo(() => {
+    if (!employeeTaskDetail || !user?.email) {
+      return false;
+    }
+
+    return (employeeTaskDetail.assigneeEmail ?? "").toLowerCase() === user.email.toLowerCase();
+  }, [employeeTaskDetail, user?.email]);
+
   const loadTaskHistory = useCallback(async (taskId: number) => {
     setIsLoadingTaskHistory(true);
     try {
@@ -590,6 +617,13 @@ export function ProjectBoard() {
     setError("");
     setSelectedTaskId(taskId);
     void loadTaskHistory(taskId);
+  };
+
+  const openEmployeeTaskDetailModal = (task: TaskSummary) => {
+    const currentStatus = getStatusKeyFromTask(task) ?? "assigned";
+    setEmployeeTaskDetail(task);
+    setEmployeeTaskNextStatus(currentStatus);
+    setIsEmployeeTaskDetailModalOpen(true);
   };
 
   useEffect(() => {
@@ -977,6 +1011,38 @@ export function ProjectBoard() {
     await executeTaskTransition(pendingCompletionTask.id, "done", payload);
   };
 
+  const handleEmployeeTaskStatusSave = async () => {
+    if (!employeeTaskDetail || !employeeTaskDetailCurrentStatus) {
+      return;
+    }
+
+    if (!canEmployeeManageSelectedTask) {
+      setError("Solo puedes cambiar el estado de tareas asignadas a tu usuario.");
+      return;
+    }
+
+    if (employeeTaskNextStatus === employeeTaskDetailCurrentStatus) {
+      setIsEmployeeTaskDetailModalOpen(false);
+      return;
+    }
+
+    const allowedTargets = WORKFLOW_TRANSITIONS[employeeTaskDetailCurrentStatus];
+    if (!allowedTargets.includes(employeeTaskNextStatus)) {
+      setError(getTransitionValidationMessage(employeeTaskDetailCurrentStatus, employeeTaskNextStatus));
+      return;
+    }
+
+    if (employeeTaskNextStatus === "done") {
+      setPendingCompletionTask(employeeTaskDetail);
+      setIsEmployeeTaskDetailModalOpen(false);
+      setIsCompletionModalOpen(true);
+      return;
+    }
+
+    await executeTaskTransition(employeeTaskDetail.id, employeeTaskNextStatus);
+    setIsEmployeeTaskDetailModalOpen(false);
+  };
+
   const handleColumnDrop = (event: DragEvent<HTMLDivElement>, toStatus: TaskWorkflowStatus) => {
     event.preventDefault();
     const rawTaskId = event.dataTransfer.getData("application/task-id");
@@ -1102,71 +1168,6 @@ export function ProjectBoard() {
             <div className="p-6 text-sm text-muted-foreground">No hay tareas para este filtro.</div>
           ) : (
             <>
-              {taskViewMode === "kanban" && (
-                <div className="app-band p-5 border-b border-border">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {KANBAN_COLUMNS.map((column) => (
-                      <div
-                        key={column.key}
-                        onDragOver={(event) => event.preventDefault()}
-                        onDrop={(event) => handleColumnDrop(event, column.key)}
-                        className="rounded-xl border border-border bg-background/80 min-h-[220px] flex flex-col"
-                      >
-                        <div className="px-3 py-2 border-b border-border bg-primary/5 flex items-center justify-between">
-                          <p className="text-sm font-semibold text-foreground">{column.title}</p>
-                          <span className="text-xs text-muted-foreground">
-                            {kanbanTasks[column.key].length}
-                          </span>
-                        </div>
-                        <div className="p-3 space-y-2 flex-1">
-                          {kanbanTasks[column.key].length === 0 ? (
-                            <p className="text-xs text-muted-foreground">Sin tareas</p>
-                          ) : (
-                            kanbanTasks[column.key].map((task) => (
-                              <article
-                                key={task.id}
-                                draggable={movingTaskId === null}
-                                onClick={() => handleSelectTask(task.id)}
-                                onDragStart={(event) => {
-                                  event.dataTransfer.setData("application/task-id", String(task.id));
-                                  event.dataTransfer.effectAllowed = "move";
-                                }}
-                                className={`rounded-lg border bg-card p-3 shadow-sm transition-opacity ${
-                                  selectedTaskId === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
-                                } ${
-                                  movingTaskId === task.id ? "opacity-50" : ""
-                                }`}
-                              >
-                                <p className="text-sm font-medium text-foreground">{task.title}</p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  {task.assigneeName
-                                    ? `${task.assigneeName} · ${task.priority}`
-                                    : `Sin asignar · ${task.priority}`}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Limite: {task.dueDate}
-                                </p>
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  Real: {formatMinutes(task.actualMinutes)}
-                                </p>
-                                {task.completionEvidence ? (
-                                  <p className="text-xs text-primary mt-1 line-clamp-1">
-                                    Evidencia: {task.completionEvidence}
-                                  </p>
-                                ) : null}
-                                <p className={`text-xs mt-1 ${getComplianceBadge(task).className}`}>
-                                  {getComplianceBadge(task).label}
-                                </p>
-                              </article>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {taskViewMode === "grid" && (
                 <div className="overflow-x-auto">
                   <table className="app-table">
@@ -1190,7 +1191,12 @@ export function ProjectBoard() {
                           className={`app-row cursor-pointer ${
                             selectedTaskId === task.id ? "bg-primary/5" : ""
                           }`}
-                          onClick={() => handleSelectTask(task.id)}
+                          onClick={() => {
+                            handleSelectTask(task.id);
+                            if (!isAdmin) {
+                              openEmployeeTaskDetailModal(task);
+                            }
+                          }}
                         >
                           <td className="app-td">
                             <p className="font-medium">{task.title}</p>
@@ -1230,7 +1236,7 @@ export function ProjectBoard() {
                                 <button
                                   type="button"
                                   onClick={() => startTaskEdit(task)}
-                                  className="inline-flex size-8 items-center justify-center rounded-md border border-border bg-background text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground"
+                                  className="app-btn-secondary size-8 p-0 text-foreground/80 hover:text-foreground"
                                   aria-label="Editar tarea"
                                   title="Editar"
                                 >
@@ -1258,7 +1264,7 @@ export function ProjectBoard() {
               {taskViewMode === "analytics" && (
                 <div className="p-5 space-y-4">
                   <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                    <article className="app-panel px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.completedLast7} finalizadas</p>
@@ -1270,7 +1276,7 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                    <article className="app-panel px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.updatedLast7} actualizadas</p>
@@ -1282,7 +1288,7 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                    <article className="app-panel px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.createdLast7} creadas</p>
@@ -1294,7 +1300,7 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background/95 px-4 py-3">
+                    <article className="app-panel px-4 py-3">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-semibold text-foreground">{projectTaskAnalytics.dueSoonNext7} vencen pronto</p>
@@ -1308,7 +1314,7 @@ export function ProjectBoard() {
                   </section>
 
                   <section className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                    <article className="rounded-xl border border-border bg-background p-4">
+                    <article className="app-panel p-4">
                       <h4 className="text-base font-semibold text-foreground">Resumen de estado</h4>
                       <p className="text-sm text-muted-foreground">Instantánea del estado actual de las tareas.</p>
                       <div className="mt-3 grid grid-cols-1 items-center gap-3 md:grid-cols-[1fr_210px]">
@@ -1339,7 +1345,7 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background p-4">
+                    <article className="app-panel p-4">
                       <h4 className="text-base font-semibold text-foreground">Actividad reciente</h4>
                       <p className="text-sm text-muted-foreground">Últimos cambios registrados dentro del proyecto.</p>
                       <div className="mt-3 space-y-2">
@@ -1349,7 +1355,7 @@ export function ProjectBoard() {
                           projectTaskAnalytics.recentActivity.map((activity) => (
                             <article
                               key={activity.id}
-                              className="flex items-start gap-3 rounded-lg border border-border/80 bg-card/65 px-3 py-2.5"
+                              className="flex items-start gap-3 rounded-lg border border-border/80 bg-secondary/45 px-3 py-2.5"
                             >
                               <span className="inline-flex size-7 items-center justify-center rounded-full bg-primary/14 text-xs font-bold text-primary">
                                 {activity.assigneeName.slice(0, 1).toUpperCase()}
@@ -1370,10 +1376,10 @@ export function ProjectBoard() {
                       </div>
                     </article>
 
-                    <article className="rounded-xl border border-border bg-background p-4">
+                    <article className="app-panel p-4">
                       <h4 className="text-base font-semibold text-foreground">Desglose de prioridad</h4>
                       <p className="text-sm text-muted-foreground">Distribución actual por nivel de prioridad.</p>
-                      <ChartContainer config={barChartConfig} className="h-[260px] w-full">
+                      <ChartContainer config={barChartConfig} className="h-[260px] w-full mt-4">
                         <BarChart data={taskPriorityDistribution}>
                           <CartesianGrid vertical={false} />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} />
@@ -1414,6 +1420,87 @@ export function ProjectBoard() {
             </>
           )}
         </section>
+
+        {taskViewMode === "kanban" && tasks.length > 0 && (
+          <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {KANBAN_COLUMNS.map((column) => (
+              <div
+                key={column.key}
+                onDragOver={(event) => event.preventDefault()}
+                onDrop={(event) => handleColumnDrop(event, column.key)}
+                className="overflow-hidden rounded-xl border border-border bg-card"
+              >
+                <div className="flex items-center justify-between border-b border-border bg-secondary/45 px-3 py-2">
+                  <p className="text-sm font-semibold text-foreground">{column.title}</p>
+                  <span className="text-xs text-muted-foreground">{kanbanTasks[column.key].length}</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full table-fixed text-sm">
+                    <thead className="bg-secondary/35">
+                      <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.09em] [&>th]:text-muted-foreground">
+                        <th className="w-[64%]">Tarea</th>
+                        <th className="w-[18%]">Limite</th>
+                        <th className="w-[18%]">Real</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/80">
+                      {kanbanTasks[column.key].length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                            Sin tareas
+                          </td>
+                        </tr>
+                      ) : (
+                        kanbanTasks[column.key].map((task) => (
+                          <tr key={task.id}>
+                            <td className="px-3 py-2 align-top">
+                              <article
+                                draggable={movingTaskId === null}
+                                onClick={() => {
+                                  handleSelectTask(task.id);
+                                  if (!isAdmin) {
+                                    openEmployeeTaskDetailModal(task);
+                                  }
+                                }}
+                                onDragStart={(event) => {
+                                  event.dataTransfer.setData("application/task-id", String(task.id));
+                                  event.dataTransfer.effectAllowed = "move";
+                                }}
+                                className={`cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-opacity ${
+                                  selectedTaskId === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
+                                } ${
+                                  movingTaskId === task.id ? "opacity-50" : ""
+                                }`}
+                              >
+                                <p className="text-sm font-medium text-foreground">{task.title}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {task.assigneeName
+                                    ? `${task.assigneeName} · ${task.priority}`
+                                    : `Sin asignar · ${task.priority}`}
+                                </p>
+                                {task.completionEvidence ? (
+                                  <p className="mt-1 line-clamp-1 text-xs text-primary">
+                                    Evidencia: {task.completionEvidence}
+                                  </p>
+                                ) : null}
+                                <p className={`mt-1 text-xs ${getComplianceBadge(task).className}`}>
+                                  {getComplianceBadge(task).label}
+                                </p>
+                              </article>
+                            </td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{task.dueDate}</td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatMinutes(task.actualMinutes)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </section>
+        )}
 
       </div>
 
@@ -1511,12 +1598,12 @@ export function ProjectBoard() {
               <label className="block text-sm font-medium mb-1">Estimacion de horas</label>
               <input
                 type="number"
-                min={1}
-                step="0.5"
+                min={0}
+                step="0.25"
                 value={taskEstimatedHours}
                 onChange={(event) => setTaskEstimatedHours(event.target.value)}
                 className="app-control"
-                placeholder="Ejemplo: 4"
+                placeholder="Ejemplo: 0.5"
               />
             </div>
             <div>
@@ -1693,6 +1780,91 @@ export function ProjectBoard() {
               </button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isEmployeeTaskDetailModalOpen}
+        onOpenChange={(open) => {
+          setIsEmployeeTaskDetailModalOpen(open);
+          if (!open) {
+            setEmployeeTaskDetail(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Detalle de tarea</DialogTitle>
+          </DialogHeader>
+
+          {employeeTaskDetail ? (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-base font-semibold text-foreground">{employeeTaskDetail.title}</p>
+                <p className="text-sm text-muted-foreground">{employeeTaskDetail.description ?? "Sin descripcion"}</p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Inicio</p>
+                  <p className="text-sm text-foreground">{employeeTaskDetail.plannedStartDate}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Limite</p>
+                  <p className="text-sm text-foreground">{employeeTaskDetail.dueDate}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Estimado</p>
+                  <p className="text-sm text-foreground">{employeeTaskDetail.estimatedMinutes ? `${employeeTaskDetail.estimatedMinutes} min` : "Sin estimado"}</p>
+                </div>
+                <div className="rounded-lg border border-border bg-background px-3 py-2">
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Responsable</p>
+                  <p className="text-sm text-foreground">{employeeTaskDetail.assigneeName ?? "Sin asignar"}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-foreground">Estado</label>
+                <select
+                  value={employeeTaskNextStatus}
+                  onChange={(event) => setEmployeeTaskNextStatus(event.target.value as TaskWorkflowStatus)}
+                  className="app-control"
+                  disabled={!canEmployeeManageSelectedTask || movingTaskId === employeeTaskDetail.id}
+                >
+                  {employeeTaskDetailStatusOptions.map((statusKey) => (
+                    <option key={statusKey} value={statusKey}>
+                      {WORKFLOW_LABELS[statusKey]}
+                    </option>
+                  ))}
+                </select>
+                {!canEmployeeManageSelectedTask && (
+                  <p className="mt-2 text-xs text-warning">
+                    Solo puedes actualizar tareas asignadas a tu usuario.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="app-btn-secondary"
+                  onClick={() => setIsEmployeeTaskDetailModalOpen(false)}
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  className="app-btn-primary"
+                  onClick={() => {
+                    void handleEmployeeTaskStatusSave();
+                  }}
+                  disabled={!canEmployeeManageSelectedTask || movingTaskId === employeeTaskDetail.id}
+                >
+                  {employeeTaskNextStatus === "done" ? "Finalizar tarea" : "Guardar estado"}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 

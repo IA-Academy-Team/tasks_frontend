@@ -51,7 +51,7 @@ export const createArea = (payload: CreateAreaPayload) =>
   api.post<AreaResponse>(`${API_PREFIX}/areas`, payload, {
     toast: {
       successMessage: "Area creada correctamente.",
-      errorMessage: "No fue posible crear el area.",
+      showError: false,
     },
   });
 
@@ -59,7 +59,7 @@ export const updateArea = (areaId: number, payload: UpdateAreaPayload) =>
   api.patch<AreaResponse>(`${API_PREFIX}/areas/${areaId}`, payload, {
     toast: {
       successMessage: "Area actualizada correctamente.",
-      errorMessage: "No fue posible actualizar el area.",
+      showError: false,
     },
   });
 

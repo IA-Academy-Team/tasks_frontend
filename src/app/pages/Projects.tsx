@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   FolderKanban,
@@ -34,6 +35,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
@@ -151,12 +154,10 @@ export function Projects() {
   const statusFilterOptions: Array<{
     value: ProjectStatusFilter;
     label: string;
-    icon: typeof ListFilter;
-    activeClassName: string;
   }> = [
-    { value: "all", label: "Todos", icon: ListFilter, activeClassName: "border-accent/45 bg-accent/14 text-accent" },
-    { value: "active", label: "Activos", icon: CheckCircle2, activeClassName: "border-success/45 bg-success/14 text-success" },
-    { value: "closed", label: "Desactivados", icon: Archive, activeClassName: "border-warning/45 bg-warning/14 text-warning" },
+    { value: "all", label: "Todos" },
+    { value: "active", label: "Activos" },
+    { value: "closed", label: "Desactivados" },
   ];
 
   const navigate = useNavigate();
@@ -321,9 +322,17 @@ export function Projects() {
       setIsProjectModalOpen(false);
       await loadProjects();
     } catch (incomingError) {
-      if (!(incomingError instanceof ApiError)) {
-        toast.error("No fue posible guardar el proyecto.");
+      if (incomingError instanceof ApiError) {
+        if (incomingError.code === "PROJECT_NAME_ALREADY_EXISTS_IN_AREA") {
+          toast.error("Ya existe un proyecto con ese nombre en el area seleccionada.");
+          return;
+        }
+
+        toast.error(incomingError.message || "No fue posible guardar el proyecto.");
+        return;
       }
+
+      toast.error("No fue posible guardar el proyecto.");
     } finally {
       setIsSubmitting(false);
     }
@@ -367,18 +376,14 @@ export function Projects() {
 
       <div className="app-content">
         <section className="space-y-4">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="space-y-1">
               <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de proyectos</h3>
-              <p className="text-sm text-muted-foreground">
-                Supervisa el estado de cada iniciativa sin perder visibilidad operativa.
-              </p>
             </div>
 
-            <div className="flex w-full flex-col gap-2 xl:w-auto xl:items-end">
-              <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center xl:w-auto">
+            <div className="flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 xl:w-auto xl:overflow-visible">
                 {isAdmin && (
-                  <div className="relative w-full sm:min-w-[220px]">
+                  <div className="relative w-[220px] shrink-0">
                     <Building2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                     <select
                       value={areaFilter}
@@ -396,7 +401,32 @@ export function Projects() {
                   </div>
                 )}
 
-                <div className="relative w-full sm:min-w-72">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="app-btn-secondary h-9 shrink-0 px-3.5"
+                    >
+                      <ListFilter className="size-4 text-muted-foreground" />
+                      Estado: {statusFilterOptions.find((option) => option.value === statusFilter)?.label ?? "Todos"}
+                      <ChevronDown className="size-4 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuRadioGroup
+                      value={statusFilter}
+                      onValueChange={(value) => setStatusFilter(value as ProjectStatusFilter)}
+                    >
+                      {statusFilterOptions.map((option) => (
+                        <DropdownMenuRadioItem key={option.value} value={option.value}>
+                          {option.label}
+                        </DropdownMenuRadioItem>
+                      ))}
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <div className="relative w-[280px] shrink-0">
                   <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="text"
@@ -414,47 +444,20 @@ export function Projects() {
                       resetForm();
                       setIsProjectModalOpen(true);
                     }}
-                    className="app-btn-primary h-10 px-4"
+                    className="app-btn-primary size-10 shrink-0 p-0"
                     aria-label="Crear proyecto"
                     title="Crear proyecto"
                   >
                     <Plus className="size-4" />
                   </button>
                 )}
-              </div>
-
-              <div className="flex w-full flex-wrap justify-end gap-2">
-                {statusFilterOptions.map((option) => {
-                  const Icon = option.icon;
-                  const isSelected = statusFilter === option.value;
-
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setStatusFilter(option.value)}
-                      className={cn(
-                        "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition-all",
-                        isSelected
-                          ? option.activeClassName
-                          : "border-border/80 bg-card text-muted-foreground hover:border-border/90 hover:bg-secondary/80 hover:text-foreground",
-                      )}
-                      aria-pressed={isSelected}
-                      title={`Ver proyectos ${option.label.toLowerCase()}`}
-                    >
-                      <Icon className="size-4" />
-                      <span>{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
           </div>
 
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Cargando proyectos...</div>
           ) : paginatedProjects.length === 0 ? (
-            <div className="rounded-2xl border border-border/85 bg-card/95 px-4 py-10 text-center text-sm text-muted-foreground">
+            <div className="app-panel app-panel-pad py-10 text-center text-sm text-muted-foreground">
               {searchTerm.trim().length > 0
                 ? "No se encontraron proyectos para esta busqueda."
                 : "No hay proyectos para este filtro."}
@@ -473,7 +476,7 @@ export function Projects() {
                       key={project.id}
                       onClick={() => navigate(`/projects/${project.id}`)}
                       className={cn(
-                        "group cursor-pointer rounded-2xl border border-border/80 bg-card/95 p-4 shadow-[0_12px_32px_rgba(16,36,58,0.11)] transition-all hover:-translate-y-0.5 hover:border-primary/45",
+                        "app-panel group cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:border-primary/45",
                         normalizedStatus === "closed" && "opacity-95",
                       )}
                     >
@@ -490,71 +493,69 @@ export function Projects() {
                           )}
                         </div>
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
+                        {isAdmin && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={(event) => event.stopPropagation()}
+                                className="app-btn-secondary size-8 p-0"
+                                aria-label={`Acciones de ${project.name}`}
+                              >
+                                <MoreVertical className="size-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-44"
                               onClick={(event) => event.stopPropagation()}
-                              className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-background text-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                              aria-label={`Acciones de ${project.name}`}
                             >
-                              <MoreVertical className="size-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="w-44"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            {isAdmin && (
-                              <>
+                              <DropdownMenuItem
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  startEdit(project);
+                                }}
+                              >
+                                <Pencil className="size-4" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              {normalizedStatus === "active" && (
                                 <DropdownMenuItem
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    startEdit(project);
+                                    setPendingStatusUpdate({ project, status: "closed" });
                                   }}
                                 >
-                                  <Pencil className="size-4" />
-                                  Editar
+                                  <Archive className="size-4" />
+                                  Desactivar
                                 </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {normalizedStatus === "active" && (
-                                  <DropdownMenuItem
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setPendingStatusUpdate({ project, status: "closed" });
-                                    }}
-                                  >
-                                    <Archive className="size-4" />
-                                    Desactivar
-                                  </DropdownMenuItem>
-                                )}
-                                {normalizedStatus !== "active" && (
-                                  <DropdownMenuItem
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      setPendingStatusUpdate({ project, status: "active" });
-                                    }}
-                                  >
-                                    <CheckCircle2 className="size-4" />
-                                    Activar
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
+                              )}
+                              {normalizedStatus !== "active" && (
                                 <DropdownMenuItem
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    setPendingDeleteProject(project);
+                                    setPendingStatusUpdate({ project, status: "active" });
                                   }}
-                                  className="text-destructive focus:text-destructive"
                                 >
-                                  <Trash2 className="size-4" />
-                                  Eliminar
+                                  <CheckCircle2 className="size-4" />
+                                  Activar
                                 </DropdownMenuItem>
-                              </>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setPendingDeleteProject(project);
+                                }}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="size-4" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
 
                       <div className="mt-3 min-w-0">
@@ -599,7 +600,7 @@ export function Projects() {
                 })}
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/85 bg-secondary/55 px-4 py-3">
+              <div className="app-panel app-band flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <p className="text-xs text-muted-foreground">
                   Mostrando {visibleStart} a {visibleEnd} de {filteredProjects.length} proyectos
                 </p>
@@ -769,7 +770,7 @@ export function Projects() {
         title="Eliminar proyecto"
         description={
           pendingDeleteProject
-            ? `Se eliminara permanentemente "${pendingDeleteProject.name}" junto con sus tareas y membresias del proyecto. Esta accion no se puede deshacer.`
+            ? `Se eliminara permanentemente "${pendingDeleteProject.name}" junto con las tareas del proyecto. Esta accion no se puede deshacer.`
             : ""
         }
         confirmLabel="Eliminar"

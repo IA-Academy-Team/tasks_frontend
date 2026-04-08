@@ -40,6 +40,15 @@ interface SignInEmailResponse {
   user: Record<string, unknown>;
 }
 
+interface RequestPasswordResetResponse {
+  status: boolean;
+  message: string;
+}
+
+interface ResetPasswordResponse {
+  status: boolean;
+}
+
 export const signInWithEmail = (email: string, password: string) =>
   api.post<SignInEmailResponse>(`${AUTH_HANDLER_BASE_PATH}/sign-in/email`, {
     email,
@@ -62,3 +71,25 @@ export const signOutCurrentSession = () =>
 
 export const getCurrentSession = () =>
   api.get<CurrentSessionResponse>(`${AUTH_BASE_PATH}/session`);
+
+export const requestPasswordReset = (email: string, redirectTo: string) =>
+  api.post<RequestPasswordResetResponse>(`${AUTH_HANDLER_BASE_PATH}/request-password-reset`, {
+    email,
+    redirectTo,
+  }, {
+    toast: {
+      showSuccess: false,
+      showError: false,
+    },
+  });
+
+export const resetPassword = (token: string, newPassword: string) =>
+  api.post<ResetPasswordResponse>(`${AUTH_HANDLER_BASE_PATH}/reset-password`, {
+    token,
+    newPassword,
+  }, {
+    toast: {
+      showSuccess: false,
+      showError: false,
+    },
+  });

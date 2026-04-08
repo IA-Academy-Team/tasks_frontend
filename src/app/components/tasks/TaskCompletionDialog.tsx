@@ -90,7 +90,17 @@ export function TaskCompletionDialog({
                 min={1}
                 step={1}
                 value={actualMinutesInput}
-                onChange={(event) => setActualMinutesInput(event.target.value)}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                onKeyDown={(event) => {
+                  if (["e", "E", "+", "-", "."].includes(event.key)) {
+                    event.preventDefault();
+                  }
+                }}
+                onChange={(event) => {
+                  const digitsOnly = event.target.value.replace(/\D/g, "");
+                  setActualMinutesInput(digitsOnly);
+                }}
                 className="app-control pl-9"
                 placeholder="Ej: 95"
               />

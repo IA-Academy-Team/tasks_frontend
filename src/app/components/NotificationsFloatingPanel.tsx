@@ -239,7 +239,7 @@ export function NotificationsFloatingPanel() {
       <motion.button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="fixed bottom-20 right-8 z-[1250] inline-flex size-11 items-center justify-center rounded-2xl border border-border bg-card text-foreground shadow-[0_10px_24px_rgba(16,36,58,0.18)] transition-all hover:bg-secondary hover:scale-[1.02] mb-2"
+        className="fixed bottom-20 right-8 z-[1250] inline-flex size-11 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-[var(--shadow-md)] transition-all hover:bg-secondary hover:scale-[1.02] mb-2"
         aria-label="Abrir panel de notificaciones"
         title="Notificaciones"
         initial={{ opacity: 0, y: 10, scale: 0.94 }}
@@ -269,7 +269,7 @@ export function NotificationsFloatingPanel() {
       <AnimatePresence>
         {isOpen && (
           <motion.section
-            className="fixed bottom-[5.25rem] right-8 z-[1250] w-[22rem] rounded-2xl border border-border bg-card shadow-[0_18px_40px_rgba(16,36,58,0.24)]"
+            className="fixed bottom-[5.25rem] right-8 z-[1250] w-[22rem] rounded-2xl border border-border bg-card shadow-[var(--shadow-xl)]"
             initial={{ opacity: 0, y: 14, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.985 }}
