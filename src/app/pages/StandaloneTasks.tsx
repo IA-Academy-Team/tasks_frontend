@@ -857,16 +857,9 @@ export function StandaloneTasks() {
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Asignar a</label>
-              {isEmployee ? (
-                <input
-                  type="text"
-                  value={user?.name ?? "Mi usuario"}
-                  className="app-control bg-muted"
-                  disabled
-                />
-              ) : (
+            {isAdmin && (
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Asignar a</label>
                 <select
                   value={assigneeEmployeeId}
                   onChange={(event) => setAssigneeEmployeeId(event.target.value)}
@@ -879,8 +872,8 @@ export function StandaloneTasks() {
                     </option>
                   ))}
                 </select>
-              )}
-            </div>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">Prioridad</label>

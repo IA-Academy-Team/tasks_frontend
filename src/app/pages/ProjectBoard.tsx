@@ -1379,7 +1379,7 @@ export function ProjectBoard() {
                     <article className="app-panel p-4">
                       <h4 className="text-base font-semibold text-foreground">Desglose de prioridad</h4>
                       <p className="text-sm text-muted-foreground">Distribución actual por nivel de prioridad.</p>
-                      <ChartContainer config={barChartConfig} className="h-[260px] w-full">
+                      <ChartContainer config={barChartConfig} className="h-[260px] w-full mt-4">
                         <BarChart data={taskPriorityDistribution}>
                           <CartesianGrid vertical={false} />
                           <XAxis dataKey="name" axisLine={false} tickLine={false} />
