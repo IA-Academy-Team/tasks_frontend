@@ -562,7 +562,7 @@ export function Employees() {
         title="Eliminar empleado"
         description={
           pendingDeleteEmployee
-            ? `Se eliminará a ${pendingDeleteEmployee.name}.`
+            ? `Se eliminará a ${pendingDeleteEmployee.name}. Esta acción no se puede deshacer.`
             : ""
         }
         confirmLabel="Eliminar"
