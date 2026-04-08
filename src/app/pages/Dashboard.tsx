@@ -864,25 +864,6 @@ export function Dashboard() {
                     <p className="mt-1 text-xs text-muted-foreground">Inicia una tarea para empezar seguimiento.</p>
                   </article>
                 )}
-
-                <article className="app-panel p-5">
-                  <h4 className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">En pausa</h4>
-                  <div className="space-y-3">
-                    {employeeInsights.pausedTasks.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">Sin tareas pausadas.</p>
-                    ) : (
-                      employeeInsights.pausedTasks.map((task) => (
-                        <div key={task.id} className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-foreground">{task.title}</p>
-                            <p className="truncate text-[11px] text-muted-foreground">{task.projectName}</p>
-                          </div>
-                          <span className="text-[11px] font-semibold text-muted-foreground">{formatDate(task.dueDate)}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </article>
               </div>
             </section>
 
