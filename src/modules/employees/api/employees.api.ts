@@ -112,6 +112,7 @@ export const createEmployee = (payload: CreateEmployeePayload) =>
   api.post<EmployeeResponse>(`${API_PREFIX}/employees`, payload, {
     toast: {
       successMessage: "Empleado creado correctamente.",
+      showError: false,
     },
   });
 
@@ -119,7 +120,7 @@ export const updateEmployee = (employeeId: number, payload: UpdateEmployeePayloa
   api.patch<EmployeeResponse>(`${API_PREFIX}/employees/${employeeId}`, payload, {
     toast: {
       successMessage: "Empleado actualizado correctamente.",
-      errorMessage: "No fue posible actualizar el empleado.",
+      showError: false,
     },
   });
 

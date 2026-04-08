@@ -196,9 +196,17 @@ export function Employees() {
       setIsEmployeeModalOpen(false);
       await loadEmployees();
     } catch (incomingError) {
-      if (!(incomingError instanceof ApiError)) {
-        toast.error("No fue posible guardar el empleado.");
+      if (incomingError instanceof ApiError) {
+        if (incomingError.code === "EMAIL_ALREADY_EXISTS") {
+          toast.error("Ya existe un empleado con ese correo electronico.");
+          return;
+        }
+
+        toast.error(incomingError.message || "No fue posible guardar el empleado.");
+        return;
       }
+
+      toast.error("No fue posible guardar el empleado.");
     } finally {
       setIsSubmitting(false);
     }

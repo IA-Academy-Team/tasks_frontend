@@ -242,9 +242,17 @@ export function Areas() {
       setIsAreaModalOpen(false);
       await loadAreas();
     } catch (incomingError) {
-      if (!(incomingError instanceof ApiError)) {
-        toast.error("No fue posible guardar el area.");
+      if (incomingError instanceof ApiError) {
+        if (incomingError.code === "AREA_NAME_ALREADY_EXISTS") {
+          toast.error("Ya existe un area con ese nombre. Usa un nombre diferente.");
+          return;
+        }
+
+        toast.error(incomingError.message || "No fue posible guardar el area.");
+        return;
       }
+
+      toast.error("No fue posible guardar el area.");
     } finally {
       setIsSubmitting(false);
     }

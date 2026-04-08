@@ -322,9 +322,17 @@ export function Projects() {
       setIsProjectModalOpen(false);
       await loadProjects();
     } catch (incomingError) {
-      if (!(incomingError instanceof ApiError)) {
-        toast.error("No fue posible guardar el proyecto.");
+      if (incomingError instanceof ApiError) {
+        if (incomingError.code === "PROJECT_NAME_ALREADY_EXISTS_IN_AREA") {
+          toast.error("Ya existe un proyecto con ese nombre en el area seleccionada.");
+          return;
+        }
+
+        toast.error(incomingError.message || "No fue posible guardar el proyecto.");
+        return;
       }
+
+      toast.error("No fue posible guardar el proyecto.");
     } finally {
       setIsSubmitting(false);
     }

@@ -152,7 +152,7 @@ export const createProject = (payload: CreateProjectPayload) =>
   }, {
     toast: {
       successMessage: "Proyecto creado correctamente.",
-      errorMessage: "No fue posible crear el proyecto.",
+      showError: false,
     },
   });
 
@@ -166,7 +166,7 @@ export const updateProject = (projectId: number, payload: UpdateProjectPayload) 
   }, {
     toast: {
       successMessage: "Proyecto actualizado correctamente.",
-      errorMessage: "No fue posible actualizar el proyecto.",
+      showError: false,
     },
   });
 
