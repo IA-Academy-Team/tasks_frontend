@@ -134,6 +134,7 @@ export function Areas() {
   const paginatedAreas = filteredAreas.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const totalMembers = filteredAreas.reduce((accumulator, area) => accumulator + area.activeMemberCount, 0);
   const totalProjects = filteredAreas.reduce((accumulator, area) => accumulator + area.activeProjectCount, 0);
+  const shouldCompactFooterOnFirstPage = currentPage === 1 && totalPages === 1 && paginatedAreas.length < PAGE_SIZE;
 
   const loadEmployees = async () => {
     setIsLoadingEmployees(true);
@@ -348,7 +349,7 @@ export function Areas() {
           </div>
         </section>
 
-        <section className="min-h-0 flex-1 overflow-y-auto pr-1">
+        <section className={cn("min-h-0 overflow-y-auto pr-1", !shouldCompactFooterOnFirstPage && "flex-1")}>
           {isLoading ? (
             <div className="text-sm text-muted-foreground">Cargando areas...</div>
           ) : filteredAreas.length === 0 ? (
@@ -453,7 +454,12 @@ export function Areas() {
           )}
         </section>
 
-        <section className="app-panel app-band mt-auto mb-20 px-4 py-3">
+        <section
+          className={cn(
+            "app-panel app-band mb-20 px-4 py-3",
+            shouldCompactFooterOnFirstPage ? "mt-4" : "mt-auto",
+          )}
+        >
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="grid grid-cols-3 gap-3 sm:gap-6">
               <div className="text-center">
@@ -696,13 +702,12 @@ export function Areas() {
         title="Eliminar area"
         description={
           pendingDeleteArea
-            ? `Vas a eliminar "${pendingDeleteArea.name}". Si tiene historial o dependencias activas, el backend puede archivarla en lugar de eliminarla definitivamente.`
+            ? `Vas a eliminar "${pendingDeleteArea.name}". Si tiene empleaos, proyectos o tareas relacionados, no se van a borrar.`
             : ""
         }
         confirmLabel="Eliminar"
         variant="destructive"
         isProcessing={isSubmitting}
-        confirmDelaySeconds={5}
         onConfirm={() => {
           if (!pendingDeleteArea) {
             return;
