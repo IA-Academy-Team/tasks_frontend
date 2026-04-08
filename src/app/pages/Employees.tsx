@@ -518,7 +518,7 @@ export function Employees() {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen de perfil (URL)</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen de perfil opcional (URL)</label>
               <input
                 type="url"
                 value={image}
