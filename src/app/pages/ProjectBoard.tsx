@@ -1587,12 +1587,12 @@ export function ProjectBoard() {
               <label className="block text-sm font-medium mb-1">Estimacion de horas</label>
               <input
                 type="number"
-                min={1}
-                step="0.5"
+                min={0.05}
+                step="0.25"
                 value={taskEstimatedHours}
                 onChange={(event) => setTaskEstimatedHours(event.target.value)}
                 className="app-control"
-                placeholder="Ejemplo: 4"
+                placeholder="Ejemplo: 0.5"
               />
             </div>
             <div>
