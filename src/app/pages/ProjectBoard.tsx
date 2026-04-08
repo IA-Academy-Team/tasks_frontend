@@ -306,7 +306,7 @@ export function ProjectBoard() {
     }
 
     try {
-      const response = await listEmployees("active");
+      const response = await listEmployees();
       setEmployees(response?.data ?? []);
     } catch {
       setEmployees([]);

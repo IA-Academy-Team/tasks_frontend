@@ -218,7 +218,7 @@ export function StandaloneTasks() {
 
     const loadAssignableEmployees = async () => {
       try {
-        const response = await listEmployees("active");
+        const response = await listEmployees();
         setEmployees((response?.data ?? []).filter((employee) => employee.role === "employee"));
       } catch {
         setEmployees([]);

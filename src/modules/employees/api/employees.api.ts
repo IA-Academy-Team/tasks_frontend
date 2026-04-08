@@ -1,6 +1,6 @@
 import { api, API_PREFIX } from "../../../shared/api/api";
 
-export type EmployeeStatusFilter = "all" | "active" | "inactive";
+export type EmployeeAssignmentsStatusFilter = "all" | "active" | "inactive";
 
 export interface EmployeeSummary {
   id: number;
@@ -91,7 +91,7 @@ export interface CreateEmployeePayload {
 
 export interface UpdateEmployeePayload {
   name?: string;
-  password?: string;
+  email?: string;
   phoneNumber?: string | null;
   image?: string | null;
   emailVerified?: boolean;
@@ -105,8 +105,8 @@ export interface UnassignEmployeeAreaPayload {
   areaId?: number;
 }
 
-export const listEmployees = (status: EmployeeStatusFilter = "all") =>
-  api.get<EmployeesResponse>(`${API_PREFIX}/employees?status=${status}`);
+export const listEmployees = () =>
+  api.get<EmployeesResponse>(`${API_PREFIX}/employees`);
 
 export const createEmployee = (payload: CreateEmployeePayload) =>
   api.post<EmployeeResponse>(`${API_PREFIX}/employees`, payload, {
@@ -126,7 +126,7 @@ export const updateEmployee = (employeeId: number, payload: UpdateEmployeePayloa
 
 export const listEmployeeAreaAssignments = (
   employeeId: number,
-  status: EmployeeStatusFilter = "all",
+  status: EmployeeAssignmentsStatusFilter = "all",
 ) => api.get<EmployeeAreaAssignmentsResponse>(
   `${API_PREFIX}/employees/${employeeId}/area-assignments?status=${status}`,
 );
@@ -161,7 +161,7 @@ export const unassignEmployeeArea = (
 
 export const listEmployeeProjectMemberships = (
   employeeId: number,
-  status: EmployeeStatusFilter = "all",
+  status: EmployeeAssignmentsStatusFilter = "all",
 ) => api.get<EmployeeProjectMembershipsResponse>(
   `${API_PREFIX}/employees/${employeeId}/project-memberships?status=${status}`,
 );

@@ -591,7 +591,7 @@ export function Dashboard() {
       try {
         const [projectsResponse, employeesResponse] = await Promise.all([
           listProjects({ status: "all" }),
-          listEmployees("active"),
+          listEmployees(),
         ]);
         setProjects(projectsResponse?.data ?? []);
         setEmployees((employeesResponse?.data ?? []).filter((employee) => employee.role === "employee"));

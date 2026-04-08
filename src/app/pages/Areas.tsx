@@ -139,7 +139,7 @@ export function Areas() {
   const loadEmployees = async () => {
     setIsLoadingEmployees(true);
     try {
-      const response = await listEmployees("all");
+      const response = await listEmployees();
       return response?.data ?? [];
     } catch {
       return [] as EmployeeSummary[];

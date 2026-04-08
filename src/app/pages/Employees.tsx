@@ -67,7 +67,7 @@ export function Employees() {
   const loadEmployees = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await listEmployees("all");
+      const response = await listEmployees();
       setEmployees(response?.data ?? []);
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -153,14 +153,15 @@ export function Employees() {
         toast.error("La contrasena debe tener minimo 8 caracteres.");
         return;
       }
-    } else if (trimmedPassword && trimmedPassword.length < 8) {
-      toast.error("La nueva contrasena debe tener minimo 8 caracteres.");
-      return;
-    }
-
-    if (trimmedPassword && trimmedPassword.length > 72) {
-      toast.error("La contrasena no puede superar 72 caracteres.");
-      return;
+    } else {
+      if (!trimmedEmail) {
+        toast.error("El correo es obligatorio.");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+        toast.error("El correo electronico no tiene un formato valido.");
+        return;
+      }
     }
 
     if (trimmedPhoneNumber && trimmedPhoneNumber.length > 30) {
@@ -178,7 +179,7 @@ export function Employees() {
       if (editingEmployeeId) {
         await updateEmployee(editingEmployeeId, {
           name: trimmedName,
-          ...(trimmedPassword ? { password: trimmedPassword } : {}),
+          email: trimmedEmail,
           phoneNumber: trimmedPhoneNumber || null,
           image: trimmedImage || null,
         });
@@ -487,24 +488,23 @@ export function Employees() {
                 type="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                disabled={Boolean(editingEmployeeId)}
-                className="app-control disabled:bg-muted"
+                className="app-control"
                 placeholder="empleado@taskapp.local"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">
-                {editingEmployeeId ? "Nueva contraseña (opcional)" : "Contraseña"}
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="app-control"
-                placeholder={editingEmployeeId ? "Dejar vacio para no cambiar" : "Minimo 8 caracteres"}
-              />
-            </div>
+            {!editingEmployeeId && (
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Contraseña</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="app-control"
+                  placeholder="Minimo 8 caracteres"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">Telefono</label>
