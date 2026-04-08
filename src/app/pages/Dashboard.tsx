@@ -871,18 +871,14 @@ export function Dashboard() {
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-xl font-bold text-foreground">Resumen de actividad</h3>
-                  <p className="text-sm text-muted-foreground">Picos de actividad proyectada en los próximos 7 días.</p>
-                </div>
-                <div className="inline-flex gap-2">
-                  <span className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-bold text-muted-foreground">Días</span>
-                  <span className="rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">Semana</span>
+                  <p className="text-sm text-muted-foreground">Tareas a realizar en los próximos 7 días.</p>
                 </div>
               </div>
 
               <div className="flex h-56 items-end justify-between gap-3 px-2">
                 {employeeInsights.hasWeeklyActivity ? (
                   employeeInsights.weeklyDistribution.map((item) => (
-                    <div key={item.key} className="group relative flex flex-1 items-end">
+                    <div key={item.key} className="group relative flex h-full flex-1 items-end">
                       <div
                         className={cn(
                           "w-full rounded-t-lg transition-all",
