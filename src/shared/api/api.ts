@@ -7,19 +7,30 @@ const getRuntimeEnv = (): RuntimeEnv => {
     return candidate;
 };
 
+const normalizeBaseUrl = (value: unknown): string | undefined => {
+    if (typeof value !== "string") return undefined;
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    return trimmed.replace(/\/+$/, "");
+};
+
 const runtimeEnv = getRuntimeEnv();
 const isProd = Boolean(runtimeEnv.PROD);
+const browserOrigin = typeof window !== "undefined" ? window.location.origin : undefined;
+const localApiFallback = "http://localhost:3004";
 
 export const API_PREFIX = "/api";
 export const AUTH_BASE_PATH = `${API_PREFIX}/auth`;
 export const AUTH_HANDLER_BASE_PATH = `${AUTH_BASE_PATH}/handler`;
 
-export const API_URL =
-    (isProd
-        ? runtimeEnv.VITE_API_URL_PROD
-        : runtimeEnv.VITE_API_URL_DEV) ||
-    runtimeEnv.VITE_API_URL ||
-    'http://localhost:3004';
+const explicitProdApiUrl = normalizeBaseUrl(runtimeEnv.VITE_API_URL_PROD);
+const explicitDevApiUrl = normalizeBaseUrl(runtimeEnv.VITE_API_URL_DEV);
+const genericApiUrl = normalizeBaseUrl(runtimeEnv.VITE_API_URL);
+const inferredProdApiUrl = normalizeBaseUrl(browserOrigin);
+
+export const API_URL = isProd
+    ? explicitProdApiUrl || inferredProdApiUrl || genericApiUrl || localApiFallback
+    : explicitDevApiUrl || genericApiUrl || localApiFallback;
 
 interface RequestOptions extends RequestInit {
     data?: unknown;
