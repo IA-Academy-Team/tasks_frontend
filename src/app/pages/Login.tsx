@@ -21,7 +21,6 @@ export function Login() {
   }, [isReady, user, navigate]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
 
   const validateLoginInput = (rawEmail: string, rawPassword: string): string | null => {
     const trimmedEmail = rawEmail.trim();
@@ -125,14 +124,11 @@ export function Login() {
 
       <div className="relative z-10 w-full max-w-[450px]">
         <div className="rounded-2xl border border-border/90 bg-card/95 p-8 shadow-[var(--shadow-xl)] backdrop-blur-xl md:p-10">
-          <div className="mb-8 flex flex-col items-center text-center">
+          <div className="mb-4 flex flex-col items-center text-center">
             <div className="mb-4 rounded-xl bg-primary p-3 text-white shadow-[0_12px_24px_rgba(13,111,104,0.3)]">
               <Shield className="size-7" />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Tasks</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Plataforma profesional de gestión operativa
-            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -191,17 +187,6 @@ export function Login() {
                 </button>
               </div>
             </div>
-
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-border bg-card text-primary focus:ring-primary"
-                checked={rememberMe}
-                onChange={(event) => setRememberMe(event.target.checked)}
-              />
-              <span className="text-xs text-muted-foreground">Mantener sesión activa</span>
-            </label>
-
             <Button
               type="submit"
               disabled={isSubmitting}
@@ -211,13 +196,6 @@ export function Login() {
               <ArrowRight className="ml-2 size-4" />
             </Button>
           </form>
-
-          <div className="mt-8 border-t border-border/85 pt-6">
-            <p className="text-center text-sm text-muted-foreground">
-              ¿Necesitas acceso?{" "}
-              <span className="font-semibold text-primary">Contacta al administrador</span>
-            </p>
-          </div>
         </div>
       </div>
     </div>
