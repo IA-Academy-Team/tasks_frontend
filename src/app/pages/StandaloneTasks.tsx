@@ -882,9 +882,9 @@ export function StandaloneTasks() {
                 onChange={(event) => setPriorityId(event.target.value)}
                 className="app-control"
               >
-                <option value="1">Alta</option>
+                <option value="1">Baja</option>
                 <option value="2">Media</option>
-                <option value="3">Baja</option>
+                <option value="3">Alta</option>
               </select>
             </div>
 
@@ -1006,9 +1006,9 @@ export function StandaloneTasks() {
                   className="app-control"
                   disabled={!canEditTaskAttributes}
                 >
-                  <option value="1">Alta</option>
+                  <option value="1">Baja</option>
                   <option value="2">Media</option>
-                  <option value="3">Baja</option>
+                  <option value="3">Alta</option>
                 </select>
               </div>
 
