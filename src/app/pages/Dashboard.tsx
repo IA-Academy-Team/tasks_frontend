@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Area, AreaChart, CartesianGrid, Line, Pie, PieChart, XAxis, YAxis } from "recharts";
 import {
@@ -43,6 +43,7 @@ import {
   type EmployeeDashboardData,
   type TaskComplianceReportData,
 } from "../../modules/dashboard/api/dashboard.api";
+import { getNotificationsSocket } from "../../modules/notifications/realtime/notifications.socket";
 
 const formatMinutes = (minutes: number) => {
   if (minutes <= 0) return "0 min";
@@ -305,6 +306,7 @@ export function Dashboard() {
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
   const [pendingAlertsPage, setPendingAlertsPage] = useState(1);
   const [overdueAlertsPage, setOverdueAlertsPage] = useState(1);
+  const realtimeRefreshTimeoutRef = useRef<number | null>(null);
 
   const projectFilterOptions = useMemo<SearchableOption[]>(
     () => [
@@ -595,44 +597,97 @@ export function Dashboard() {
     void loadFilters();
   }, [isAdmin]);
 
+  const loadDashboard = useCallback(async (showLoading = true) => {
+    if (!user) return;
+
+    if (showLoading) {
+      setIsLoading(true);
+    }
+    setError("");
+
+    try {
+      if (isEmployee) {
+        const response = await getEmployeeDashboard();
+        setEmployeeDashboard(response?.data ?? null);
+        setAdminDashboard(null);
+        setTaskComplianceReport(null);
+      } else if (isAdmin) {
+        const [adminResponse, reportResponse] = await Promise.all([
+          getAdminDashboard(adminQuery),
+          getTaskComplianceReport(reportQuery),
+        ]);
+        setAdminDashboard(adminResponse?.data ?? null);
+        setTaskComplianceReport(reportResponse?.data ?? null);
+        setEmployeeDashboard(null);
+      } else {
+        setEmployeeDashboard(null);
+        setAdminDashboard(null);
+        setTaskComplianceReport(null);
+      }
+    } catch (incomingError) {
+      if (incomingError instanceof ApiError) {
+        setError(incomingError.message);
+      } else {
+        setError("No fue posible cargar el dashboard.");
+      }
+    } finally {
+      if (showLoading) {
+        setIsLoading(false);
+      }
+    }
+  }, [adminQuery, isAdmin, isEmployee, reportQuery, user]);
+
+  useEffect(() => {
+    void loadDashboard(true);
+  }, [loadDashboard]);
+
   useEffect(() => {
     if (!user) return;
 
-    const loadDashboard = async () => {
-      setIsLoading(true);
-      setError("");
-      try {
-        if (isEmployee) {
-          const response = await getEmployeeDashboard();
-          setEmployeeDashboard(response?.data ?? null);
-          setAdminDashboard(null);
-          setTaskComplianceReport(null);
-        } else if (isAdmin) {
-          const [adminResponse, reportResponse] = await Promise.all([
-            getAdminDashboard(adminQuery),
-            getTaskComplianceReport(reportQuery),
-          ]);
-          setAdminDashboard(adminResponse?.data ?? null);
-          setTaskComplianceReport(reportResponse?.data ?? null);
-          setEmployeeDashboard(null);
-        } else {
-          setEmployeeDashboard(null);
-          setAdminDashboard(null);
-          setTaskComplianceReport(null);
-        }
-      } catch (incomingError) {
-        if (incomingError instanceof ApiError) {
-          setError(incomingError.message);
-        } else {
-          setError("No fue posible cargar el dashboard.");
-        }
-      } finally {
-        setIsLoading(false);
+    const socket = getNotificationsSocket();
+
+    const scheduleRealtimeRefresh = () => {
+      if (realtimeRefreshTimeoutRef.current !== null) {
+        window.clearTimeout(realtimeRefreshTimeoutRef.current);
+      }
+
+      realtimeRefreshTimeoutRef.current = window.setTimeout(() => {
+        void loadDashboard(false);
+      }, 180);
+    };
+
+    const handleTaskCreated = () => {
+      scheduleRealtimeRefresh();
+    };
+    const handleTaskUpdated = () => {
+      scheduleRealtimeRefresh();
+    };
+    const handleTaskDeleted = () => {
+      scheduleRealtimeRefresh();
+    };
+    const handleAnalyticsUpdated = () => {
+      if (isAdmin) {
+        scheduleRealtimeRefresh();
       }
     };
 
-    void loadDashboard();
-  }, [adminQuery, isAdmin, isEmployee, reportQuery, user]);
+    socket.on("task:created", handleTaskCreated);
+    socket.on("task:updated", handleTaskUpdated);
+    socket.on("task:deleted", handleTaskDeleted);
+    socket.on("analytics:updated", handleAnalyticsUpdated);
+    socket.connect();
+
+    return () => {
+      socket.off("task:created", handleTaskCreated);
+      socket.off("task:updated", handleTaskUpdated);
+      socket.off("task:deleted", handleTaskDeleted);
+      socket.off("analytics:updated", handleAnalyticsUpdated);
+      if (realtimeRefreshTimeoutRef.current !== null) {
+        window.clearTimeout(realtimeRefreshTimeoutRef.current);
+        realtimeRefreshTimeoutRef.current = null;
+      }
+    };
+  }, [isAdmin, loadDashboard, user]);
 
   const resetFilters = () => {
     setDateFrom("");

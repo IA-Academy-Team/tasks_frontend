@@ -62,7 +62,6 @@ export const markNotificationAsRead = (notificationId: number) =>
 export const markAllNotificationsAsRead = () =>
   api.patch<MarkAllNotificationsReadResponse>(`${API_PREFIX}/notifications/read-all`, {}, {
     toast: {
-      successMessage: "Todas las notificaciones fueron marcadas como leidas.",
       errorMessage: "No fue posible marcar las notificaciones.",
     },
   });
