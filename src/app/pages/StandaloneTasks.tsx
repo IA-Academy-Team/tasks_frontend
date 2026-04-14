@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock3, KanbanSquare, LayoutGrid, ListFilter, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ClipboardList, Clock3, KanbanSquare, LayoutGrid, ListFilter, Plus, Search, Trash2, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
@@ -96,6 +96,17 @@ const getInitials = (value: string | null) => {
 type PriorityFilter = "all" | "high" | "medium" | "low";
 type TaskStatusLabel = "Asignada" | "En proceso" | "Terminada";
 type StandaloneTaskViewMode = "list" | "kanban";
+type StandaloneSortColumn =
+  | "title"
+  | "project"
+  | "assignee"
+  | "status"
+  | "priority"
+  | "startDate"
+  | "dueDate"
+  | "estimatedMinutes"
+  | "actualMinutes";
+type SortDirection = "asc" | "desc";
 
 const KANBAN_COLUMNS: { key: TaskWorkflowStatus; title: string }[] = [
   { key: "assigned", title: "Asignada" },
@@ -179,6 +190,8 @@ export function StandaloneTasks() {
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortColumn, setSortColumn] = useState<StandaloneSortColumn>("dueDate");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedTask, setSelectedTask] = useState<TaskSummary | null>(null);
 
   const [title, setTitle] = useState("");
@@ -530,9 +543,9 @@ export function StandaloneTasks() {
     }
   };
 
-  const sortedTasks = useMemo(() => {
+  const filteredTasks = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
-    const filtered = tasks.filter((task) => {
+    return tasks.filter((task) => {
       const priorityName = task.priority.trim().toLowerCase();
       const passesPriority = priorityFilter === "all"
         || (priorityFilter === "high" && priorityName === "alta")
@@ -547,9 +560,88 @@ export function StandaloneTasks() {
       const inAssignee = (task.assigneeName ?? "").toLowerCase().includes(normalizedSearch);
       return inTitle || inDescription || inProject || inAssignee;
     });
-
-    return [...filtered].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
   }, [isAdmin, priorityFilter, searchTerm, tasks]);
+
+  const sortedTasks = useMemo(() => {
+    const compareText = (left: string, right: string) => left.localeCompare(right, "es", { sensitivity: "base" });
+    const compareNumber = (left: number, right: number) => left - right;
+    const compareDate = (left: string, right: string) => new Date(left).getTime() - new Date(right).getTime();
+
+    const priorityRank = (value: string) => {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === "baja") return 1;
+      if (normalized === "media") return 2;
+      if (normalized === "alta") return 3;
+      return 99;
+    };
+
+    const statusRank = (value: string) => {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === "asignada") return 1;
+      if (normalized === "en proceso") return 2;
+      if (normalized === "terminada") return 3;
+      return 99;
+    };
+
+    return [...filteredTasks].sort((a, b) => {
+      let result = 0;
+      switch (sortColumn) {
+        case "title":
+          result = compareText(a.title, b.title);
+          break;
+        case "project":
+          result = compareText(a.projectName, b.projectName);
+          break;
+        case "assignee":
+          result = compareText(a.assigneeName ?? "", b.assigneeName ?? "");
+          break;
+        case "status":
+          result = compareNumber(statusRank(a.status), statusRank(b.status));
+          break;
+        case "priority":
+          result = compareNumber(priorityRank(a.priority), priorityRank(b.priority));
+          break;
+        case "startDate":
+          result = compareDate(a.plannedStartDate, b.plannedStartDate);
+          break;
+        case "dueDate":
+          result = compareDate(a.dueDate, b.dueDate);
+          break;
+        case "estimatedMinutes":
+          result = compareNumber(a.estimatedMinutes ?? 0, b.estimatedMinutes ?? 0);
+          break;
+        case "actualMinutes":
+          result = compareNumber(a.actualMinutes ?? 0, b.actualMinutes ?? 0);
+          break;
+        default:
+          result = compareDate(a.dueDate, b.dueDate);
+          break;
+      }
+
+      if (result === 0) {
+        return compareNumber(a.id, b.id);
+      }
+
+      return sortDirection === "asc" ? result : -result;
+    });
+  }, [filteredTasks, sortColumn, sortDirection]);
+
+  const getInitialSortDirection = (column: StandaloneSortColumn): SortDirection => {
+    if (column === "startDate" || column === "dueDate" || column === "estimatedMinutes" || column === "actualMinutes") {
+      return "desc";
+    }
+    return "asc";
+  };
+
+  const toggleSort = (column: StandaloneSortColumn) => {
+    if (sortColumn !== column) {
+      setSortColumn(column);
+      setSortDirection(getInitialSortDirection(column));
+      return;
+    }
+
+    setSortDirection((previous) => (previous === "asc" ? "desc" : "asc"));
+  };
 
   const pageSize = 9;
   const totalPages = Math.max(1, Math.ceil(sortedTasks.length / pageSize));
@@ -560,7 +652,7 @@ export function StandaloneTasks() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [priorityFilter, searchTerm, statusFilter]);
+  }, [priorityFilter, searchTerm, sortColumn, sortDirection, statusFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -617,6 +709,32 @@ export function StandaloneTasks() {
     nextParams.delete("create");
     setSearchParams(nextParams, { replace: true });
   }, [searchParams, setSearchParams]);
+
+  const SortableHeader = ({
+    label,
+    column,
+  }: {
+    label: string;
+    column: StandaloneSortColumn;
+  }) => {
+    const isActive = sortColumn === column;
+    const icon = isActive && sortDirection === "asc"
+      ? <ChevronUp className="size-3.5" />
+      : <ChevronDown className="size-3.5" />;
+
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(column)}
+        className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {label}
+        <span className={isActive ? "text-foreground" : "text-muted-foreground/70"}>
+          {icon}
+        </span>
+      </button>
+    );
+  };
 
   return (
     <div className="app-shell h-full min-h-0 overflow-hidden">
@@ -745,15 +863,15 @@ export function StandaloneTasks() {
               <table className="w-full min-w-[980px] text-left">
               <thead className="sticky top-0 z-10 border-b border-border/85 bg-secondary/80">
                 <tr>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Tarea</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Proyecto</th>
-                  {isAdmin && <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Responsable</th>}
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Estado</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Prioridad</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Inicio</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Fin</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Estimado</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Real</th>
+                  <th className="px-4 py-3"><SortableHeader label="Tarea" column="title" /></th>
+                  <th className="px-4 py-3"><SortableHeader label="Proyecto" column="project" /></th>
+                  {isAdmin && <th className="px-4 py-3"><SortableHeader label="Responsable" column="assignee" /></th>}
+                  <th className="px-4 py-3"><SortableHeader label="Estado" column="status" /></th>
+                  <th className="px-4 py-3"><SortableHeader label="Prioridad" column="priority" /></th>
+                  <th className="px-4 py-3"><SortableHeader label="Inicio" column="startDate" /></th>
+                  <th className="px-4 py-3"><SortableHeader label="Fin" column="dueDate" /></th>
+                  <th className="px-4 py-3"><SortableHeader label="Estimado" column="estimatedMinutes" /></th>
+                  <th className="px-4 py-3"><SortableHeader label="Real" column="actualMinutes" /></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">

@@ -4,6 +4,8 @@ import {
   Pencil,
   Plus,
   Search,
+  ChevronUp,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Trash2,
@@ -40,6 +42,8 @@ const isHttpUrl = (value: string) => /^https?:\/\//i.test(value);
 const isBase64ImageDataUrl = (value: string) =>
   /^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\r\n]+$/i.test(value);
 const isSupportedImageValue = (value: string) => isHttpUrl(value) || isBase64ImageDataUrl(value);
+type EmployeeSortColumn = "employee" | "areas";
+type SortDirection = "asc" | "desc";
 
 export function Employees() {
   const PAGE_SIZE = 8;
@@ -57,6 +61,8 @@ export function Employees() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [image, setImage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [sortColumn, setSortColumn] = useState<EmployeeSortColumn>("employee");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [pendingDeleteEmployee, setPendingDeleteEmployee] = useState<EmployeeSummary | null>(null);
 
   const resetForm = () => {
@@ -90,7 +96,7 @@ export function Employees() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, sortColumn, sortDirection]);
 
   const startEdit = (employee: EmployeeSummary) => {
     setEditingEmployeeId(employee.id);
@@ -231,39 +237,6 @@ export function Employees() {
     }
   };
 
-  const filteredEmployees = useMemo(() => {
-    const normalizedTerm = searchTerm.trim().toLowerCase();
-    if (!normalizedTerm) {
-      return employees;
-    }
-
-    return employees.filter((employee) => {
-      const areaNames = employee.assignedAreaNames.length > 0
-        ? employee.assignedAreaNames
-        : employee.areaNames.length > 0
-          ? employee.areaNames
-          : employee.currentAreaName
-            ? [employee.currentAreaName]
-            : [];
-
-      return employee.name.toLowerCase().includes(normalizedTerm)
-        || employee.email.toLowerCase().includes(normalizedTerm)
-        || areaNames.some((areaName) => areaName.toLowerCase().includes(normalizedTerm));
-    });
-  }, [employees, searchTerm]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / PAGE_SIZE));
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-
-  const paginatedEmployees = filteredEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const visibleStart = filteredEmployees.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const visibleEnd = Math.min(currentPage * PAGE_SIZE, filteredEmployees.length);
-
   const getEmployeeAreas = (employee: EmployeeSummary) => (
     employee.assignedAreaNames.length > 0
       ? employee.assignedAreaNames
@@ -274,12 +247,77 @@ export function Employees() {
           : []
   );
 
+  const filteredEmployees = useMemo(() => {
+    const normalizedTerm = searchTerm.trim().toLowerCase();
+    if (!normalizedTerm) {
+      return employees;
+    }
+
+    return employees.filter((employee) => {
+      const areaNames = getEmployeeAreas(employee);
+
+      return employee.name.toLowerCase().includes(normalizedTerm)
+        || employee.email.toLowerCase().includes(normalizedTerm)
+        || areaNames.some((areaName) => areaName.toLowerCase().includes(normalizedTerm));
+    });
+  }, [employees, searchTerm]);
+
+  const sortedEmployees = useMemo(() => {
+    const compareText = (left: string, right: string) => left.localeCompare(right, "es", { sensitivity: "base" });
+
+    return [...filteredEmployees].sort((a, b) => {
+      let result = 0;
+      if (sortColumn === "employee") {
+        result = compareText(a.name, b.name);
+      } else {
+        const leftAreas = getEmployeeAreas(a).join(" | ");
+        const rightAreas = getEmployeeAreas(b).join(" | ");
+        result = compareText(leftAreas, rightAreas);
+      }
+
+      if (result === 0) {
+        result = a.id - b.id;
+      }
+
+      return sortDirection === "asc" ? result : -result;
+    });
+  }, [filteredEmployees, sortColumn, sortDirection]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedEmployees.length / PAGE_SIZE));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedEmployees = sortedEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const visibleStart = sortedEmployees.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const visibleEnd = Math.min(currentPage * PAGE_SIZE, sortedEmployees.length);
+
   const getEmployeeInitials = (employeeName: string) => employeeName
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
     .join("");
+
+  const toggleSort = (column: EmployeeSortColumn) => {
+    if (sortColumn !== column) {
+      setSortColumn(column);
+      setSortDirection("asc");
+      return;
+    }
+    setSortDirection((previous) => (previous === "asc" ? "desc" : "asc"));
+  };
+
+  const renderSortIcon = (column: EmployeeSortColumn) => {
+    const isActive = sortColumn === column;
+    if (isActive && sortDirection === "asc") {
+      return <ChevronUp className="size-3.5" />;
+    }
+    return <ChevronDown className="size-3.5" />;
+  };
 
   return (
     <div className="app-shell">
@@ -330,8 +368,30 @@ export function Employees() {
                 <table className="min-w-full table-fixed text-sm">
                   <thead className="bg-secondary/72">
                     <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
-                      <th className="w-[42%] text-left">Empleado</th>
-                      <th className="w-[44%] text-left">Areas</th>
+                      <th className="w-[42%] text-left">
+                        <button
+                          type="button"
+                          onClick={() => toggleSort("employee")}
+                          className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                        >
+                          Empleado
+                          <span className={sortColumn === "employee" ? "text-foreground" : "text-muted-foreground/70"}>
+                            {renderSortIcon("employee")}
+                          </span>
+                        </button>
+                      </th>
+                      <th className="w-[44%] text-left">
+                        <button
+                          type="button"
+                          onClick={() => toggleSort("areas")}
+                          className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                        >
+                          Areas
+                          <span className={sortColumn === "areas" ? "text-foreground" : "text-muted-foreground/70"}>
+                            {renderSortIcon("areas")}
+                          </span>
+                        </button>
+                      </th>
                       <th className="w-[14%] text-right">Acciones</th>
                     </tr>
                   </thead>
@@ -423,7 +483,7 @@ export function Employees() {
 
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/85 bg-secondary/55 px-4 py-3">
                 <p className="text-xs text-muted-foreground">
-                  Mostrando {visibleStart} a {visibleEnd} de {filteredEmployees.length} empleados
+                  Mostrando {visibleStart} a {visibleEnd} de {sortedEmployees.length} empleados
                 </p>
                 {totalPages > 1 && (
                   <div className="flex items-center gap-2">
