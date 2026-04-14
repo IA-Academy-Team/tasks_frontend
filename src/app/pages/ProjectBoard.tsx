@@ -1612,7 +1612,7 @@ export function ProjectBoard() {
               <textarea
                 value={taskDescription}
                 onChange={(event) => setTaskDescription(event.target.value)}
-                className="app-control min-h-24"
+                className="app-control min-h-24 pt-2"
                 rows={3}
                 placeholder="Describe brevemente la tarea"
               />

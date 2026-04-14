@@ -35,6 +35,7 @@ import {
   listEmployees,
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
+import { useResizableColumns } from "../../shared/hooks/useResizableColumns";
 
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString("es-ES", {
@@ -108,6 +109,18 @@ type StandaloneSortColumn =
   | "actualMinutes";
 type SortDirection = "asc" | "desc";
 
+const STANDALONE_LIST_INITIAL_WIDTHS: Record<StandaloneSortColumn, number> = {
+  title: 320,
+  project: 180,
+  assignee: 190,
+  status: 130,
+  priority: 130,
+  startDate: 140,
+  dueDate: 140,
+  estimatedMinutes: 120,
+  actualMinutes: 120,
+};
+
 const KANBAN_COLUMNS: { key: TaskWorkflowStatus; title: string }[] = [
   { key: "assigned", title: "Asignada" },
   { key: "in_progress", title: "En proceso" },
@@ -142,12 +155,7 @@ const WORKFLOW_TRANSITIONS: Record<TaskWorkflowStatus, TaskWorkflowStatus[]> = {
   done: [],
 };
 
-const getTransitionValidationMessage = (
-  fromStatus: TaskWorkflowStatus,
-  toStatus: TaskWorkflowStatus,
-) => {
-  return "La transición de estado no está permitida.";
-};
+const getTransitionValidationMessage = () => "La transición de estado no está permitida.";
 
 export function StandaloneTasks() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -193,6 +201,25 @@ export function StandaloneTasks() {
   const [sortColumn, setSortColumn] = useState<StandaloneSortColumn>("dueDate");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedTask, setSelectedTask] = useState<TaskSummary | null>(null);
+  const {
+    columnWidths: listColumnWidths,
+    startResize: startListColumnResize,
+  } = useResizableColumns<StandaloneSortColumn>({
+    initialWidths: STANDALONE_LIST_INITIAL_WIDTHS,
+    defaultMinWidth: 96,
+    minWidthsByColumn: {
+      title: 220,
+      project: 140,
+      assignee: 140,
+      status: 110,
+      priority: 110,
+      startDate: 120,
+      dueDate: 120,
+      estimatedMinutes: 110,
+      actualMinutes: 110,
+    },
+    storageKey: "tasks:standalone:list-column-widths",
+  });
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -515,7 +542,7 @@ export function StandaloneTasks() {
       if (statusChanged) {
         const allowedTargets = WORKFLOW_TRANSITIONS[currentStatus];
         if (!allowedTargets.includes(detailStatus)) {
-          toast.error(getTransitionValidationMessage(currentStatus, detailStatus));
+          toast.error(getTransitionValidationMessage());
           return;
         }
 
@@ -643,6 +670,18 @@ export function StandaloneTasks() {
     setSortDirection((previous) => (previous === "asc" ? "desc" : "asc"));
   };
 
+  const visibleListColumns = useMemo<StandaloneSortColumn[]>(
+    () => (isAdmin
+      ? ["title", "project", "assignee", "status", "priority", "startDate", "dueDate", "estimatedMinutes", "actualMinutes"]
+      : ["title", "project", "status", "priority", "startDate", "dueDate", "estimatedMinutes", "actualMinutes"]),
+    [isAdmin],
+  );
+
+  const standaloneListMinWidth = useMemo(
+    () => visibleListColumns.reduce((accumulator, column) => accumulator + listColumnWidths[column], 0),
+    [listColumnWidths, visibleListColumns],
+  );
+
   const pageSize = 9;
   const totalPages = Math.max(1, Math.ceil(sortedTasks.length / pageSize));
   const paginatedTasks = useMemo(() => {
@@ -735,6 +774,25 @@ export function StandaloneTasks() {
       </button>
     );
   };
+
+  const getColumnHeaderStyle = (column: StandaloneSortColumn) => ({
+    width: `${listColumnWidths[column]}px`,
+    minWidth: `${listColumnWidths[column]}px`,
+    maxWidth: `${listColumnWidths[column]}px`,
+  });
+
+  const renderColumnResizeHandle = (column: StandaloneSortColumn) => (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Redimensionar columna ${column}`}
+      className="absolute right-0 top-0 h-full w-3 cursor-col-resize touch-none select-none"
+      onMouseDown={(event) => startListColumnResize(column, event)}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <span className="pointer-events-none absolute right-0 top-1/2 h-5 -translate-y-1/2 border-r border-border/90" />
+    </span>
+  );
 
   return (
     <div className="app-shell h-full min-h-0 overflow-hidden">
@@ -860,18 +918,21 @@ export function StandaloneTasks() {
         ) : taskViewMode === "list" ? (
           <div className="app-panel overflow-hidden flex flex-col">
             <div className="overflow-auto">
-              <table className="w-full min-w-[980px] text-left">
+              <table
+                className="w-full table-fixed text-left"
+                style={{ minWidth: `${standaloneListMinWidth}px` }}
+              >
               <thead className="sticky top-0 z-10 border-b border-border/85 bg-secondary/80">
                 <tr>
-                  <th className="px-4 py-3"><SortableHeader label="Tarea" column="title" /></th>
-                  <th className="px-4 py-3"><SortableHeader label="Proyecto" column="project" /></th>
-                  {isAdmin && <th className="px-4 py-3"><SortableHeader label="Responsable" column="assignee" /></th>}
-                  <th className="px-4 py-3"><SortableHeader label="Estado" column="status" /></th>
-                  <th className="px-4 py-3"><SortableHeader label="Prioridad" column="priority" /></th>
-                  <th className="px-4 py-3"><SortableHeader label="Inicio" column="startDate" /></th>
-                  <th className="px-4 py-3"><SortableHeader label="Fin" column="dueDate" /></th>
-                  <th className="px-4 py-3"><SortableHeader label="Estimado" column="estimatedMinutes" /></th>
-                  <th className="px-4 py-3"><SortableHeader label="Real" column="actualMinutes" /></th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("title")}><SortableHeader label="Tarea" column="title" />{renderColumnResizeHandle("title")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("project")}><SortableHeader label="Proyecto" column="project" />{renderColumnResizeHandle("project")}</th>
+                  {isAdmin && <th className="relative px-4 py-3" style={getColumnHeaderStyle("assignee")}><SortableHeader label="Responsable" column="assignee" />{renderColumnResizeHandle("assignee")}</th>}
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("status")}><SortableHeader label="Estado" column="status" />{renderColumnResizeHandle("status")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("priority")}><SortableHeader label="Prioridad" column="priority" />{renderColumnResizeHandle("priority")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("startDate")}><SortableHeader label="Inicio" column="startDate" />{renderColumnResizeHandle("startDate")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("dueDate")}><SortableHeader label="Fin" column="dueDate" />{renderColumnResizeHandle("dueDate")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("estimatedMinutes")}><SortableHeader label="Estimado" column="estimatedMinutes" />{renderColumnResizeHandle("estimatedMinutes")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("actualMinutes")}><SortableHeader label="Real" column="actualMinutes" />{renderColumnResizeHandle("actualMinutes")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
