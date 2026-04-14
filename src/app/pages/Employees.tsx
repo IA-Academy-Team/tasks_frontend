@@ -362,7 +362,6 @@ export function Employees() {
                                 </Avatar>
                                 <div className="min-w-0">
                                   <p className="truncate font-semibold text-foreground">{employee.name}</p>
-                                  <p className="truncate text-sm text-muted-foreground">{employee.email}</p>
                                 </div>
                               </div>
                             </td>
