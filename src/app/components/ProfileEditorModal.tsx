@@ -189,11 +189,11 @@ export function ProfileEditorModal({
                 </label>
                 <input
                   id="profile-modal-image"
-                  type="url"
+                  type="text"
                   value={image}
                   onChange={(event) => setImage(event.target.value)}
                   className="app-control"
-                  placeholder="https://..."
+                  placeholder="https://... o data:image/png;base64,..."
                 />
               </div>
             </div>

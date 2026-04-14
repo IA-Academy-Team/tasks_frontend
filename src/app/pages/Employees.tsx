@@ -36,6 +36,11 @@ import {
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
 
+const isHttpUrl = (value: string) => /^https?:\/\//i.test(value);
+const isBase64ImageDataUrl = (value: string) =>
+  /^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\r\n]+$/i.test(value);
+const isSupportedImageValue = (value: string) => isHttpUrl(value) || isBase64ImageDataUrl(value);
+
 export function Employees() {
   const PAGE_SIZE = 8;
 
@@ -168,8 +173,8 @@ export function Employees() {
       return;
     }
 
-    if (trimmedImage && !/^https?:\/\//i.test(trimmedImage)) {
-      toast.error("La URL de imagen debe iniciar con http:// o https://");
+    if (trimmedImage && !isSupportedImageValue(trimmedImage)) {
+      toast.error("La imagen debe ser una URL http/https o un data:image/...;base64 válido.");
       return;
     }
 
@@ -519,11 +524,11 @@ export function Employees() {
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-foreground mb-1.5">Imagen de perfil opcional (URL)</label>
               <input
-                type="url"
+                type="text"
                 value={image}
                 onChange={(event) => setImage(event.target.value)}
                 className="app-control"
-                placeholder="https://..."
+                placeholder="https://... o data:image/png;base64,..."
               />
             </div>
             <div className="md:col-span-2 flex flex-wrap items-center justify-end gap-3">
