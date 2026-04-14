@@ -1201,7 +1201,17 @@ export function ProjectBoard() {
                             ) : null}
                             {task.completionEvidenceLink ? (
                               <p className="mt-1 text-xs text-primary line-clamp-1">
-                                Link: {task.completionEvidenceLink}
+                                Link:
+                                {" "}
+                                <a
+                                  href={task.completionEvidenceLink}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="underline decoration-primary/70 underline-offset-2 hover:text-primary-hover"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  Abrir evidencia
+                                </a>
                               </p>
                             ) : null}
                           </td>
@@ -1484,7 +1494,17 @@ export function ProjectBoard() {
                                 ) : null}
                                 {task.completionEvidenceLink ? (
                                   <p className="mt-1 line-clamp-1 text-xs text-primary">
-                                    Link: {task.completionEvidenceLink}
+                                    Link:
+                                    {" "}
+                                    <a
+                                      href={task.completionEvidenceLink}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className="underline decoration-primary/70 underline-offset-2 hover:text-primary-hover"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      Abrir evidencia
+                                    </a>
                                   </p>
                                 ) : null}
                                 <p className={`mt-1 text-xs ${getComplianceBadge(task).className}`}>
