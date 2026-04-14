@@ -297,6 +297,7 @@ export function StandaloneTasks() {
   const handleConfirmTaskCompletion = async (payload: {
     actualMinutes: number;
     completionEvidence: string | null;
+    completionEvidenceLink: string | null;
   }) => {
     if (!pendingCompletionTask) return;
 
@@ -306,6 +307,7 @@ export function StandaloneTasks() {
         toStatus: "done",
         actualMinutes: payload.actualMinutes,
         completionEvidence: payload.completionEvidence,
+        completionEvidenceLink: payload.completionEvidenceLink,
         notes: "Finalización confirmada desde modal de cierre.",
       });
 
@@ -771,6 +773,11 @@ export function StandaloneTasks() {
                           Evidencia: {task.completionEvidence}
                         </p>
                       ) : null}
+                      {task.completionEvidenceLink ? (
+                        <p className="mt-1 text-xs text-primary line-clamp-1">
+                          Link: {task.completionEvidenceLink}
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">
                       <span className={cn(
@@ -899,6 +906,11 @@ export function StandaloneTasks() {
                                 {task.completionEvidence ? (
                                   <p className="mt-1 line-clamp-1 text-xs text-primary">
                                     Evidencia: {task.completionEvidence}
+                                  </p>
+                                ) : null}
+                                {task.completionEvidenceLink ? (
+                                  <p className="mt-1 line-clamp-1 text-xs text-primary">
+                                    Link: {task.completionEvidenceLink}
                                   </p>
                                 ) : null}
                               </article>
@@ -1176,6 +1188,20 @@ export function StandaloneTasks() {
                   <div className="rounded-xl border border-border/80 bg-secondary/55 px-3 py-2 text-sm text-foreground whitespace-pre-wrap">
                     {selectedTask.completionEvidence}
                   </div>
+                </div>
+              ) : null}
+
+              {selectedTask.completionEvidenceLink ? (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Link de evidencia</label>
+                  <a
+                    href={selectedTask.completionEvidenceLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex max-w-full rounded-xl border border-border/80 bg-secondary/55 px-3 py-2 text-sm text-primary hover:underline break-all"
+                  >
+                    {selectedTask.completionEvidenceLink}
+                  </a>
                 </div>
               ) : null}
 

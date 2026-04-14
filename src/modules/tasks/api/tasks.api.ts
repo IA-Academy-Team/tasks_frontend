@@ -18,6 +18,7 @@ export interface TaskSummary {
   estimatedMinutes: number | null;
   reportedActualMinutes: number | null;
   completionEvidence: string | null;
+  completionEvidenceLink: string | null;
   actualMinutes: number;
   deviationMinutes: number | null;
   isEstimateDelayed: boolean | null;
@@ -79,6 +80,7 @@ export interface TransitionTaskStatusPayload {
   toStatus: TaskWorkflowStatus;
   actualMinutes?: number | null;
   completionEvidence?: string | null;
+  completionEvidenceLink?: string | null;
   notes?: string | null;
 }
 
@@ -265,6 +267,7 @@ export const transitionTaskStatus = (
   toStatus: payload.toStatus,
   actualMinutes: withNullableInt(payload.actualMinutes),
   completionEvidence: withNullableString(payload.completionEvidence),
+  completionEvidenceLink: withNullableString(payload.completionEvidenceLink),
   notes: payload.notes ?? null,
 }, {
   toast: {

@@ -873,7 +873,7 @@ export function ProjectBoard() {
   const executeTaskTransition = async (
     taskId: number,
     toStatus: TaskWorkflowStatus,
-    completionPayload?: { actualMinutes: number; completionEvidence: string | null },
+    completionPayload?: { actualMinutes: number; completionEvidence: string | null; completionEvidenceLink: string | null },
   ) => {
     const taskToMove = tasks.find((task) => task.id === taskId);
     if (!taskToMove) {
@@ -919,6 +919,7 @@ export function ProjectBoard() {
         notes: toStatus === "done" ? "Finalización confirmada desde modal de cierre." : null,
         actualMinutes: toStatus === "done" ? (completionPayload?.actualMinutes ?? null) : undefined,
         completionEvidence: toStatus === "done" ? (completionPayload?.completionEvidence ?? null) : undefined,
+        completionEvidenceLink: toStatus === "done" ? (completionPayload?.completionEvidenceLink ?? null) : undefined,
       });
       const updatedTask = response?.data?.task;
 
@@ -996,6 +997,7 @@ export function ProjectBoard() {
   const handleConfirmTaskCompletion = async (payload: {
     actualMinutes: number;
     completionEvidence: string | null;
+    completionEvidenceLink: string | null;
   }) => {
     if (!pendingCompletionTask) return;
     setIsCompletingTask(true);
@@ -1195,6 +1197,11 @@ export function ProjectBoard() {
                             {task.completionEvidence ? (
                               <p className="mt-1 text-xs text-primary line-clamp-1">
                                 Evidencia: {task.completionEvidence}
+                              </p>
+                            ) : null}
+                            {task.completionEvidenceLink ? (
+                              <p className="mt-1 text-xs text-primary line-clamp-1">
+                                Link: {task.completionEvidenceLink}
                               </p>
                             ) : null}
                           </td>
@@ -1473,6 +1480,11 @@ export function ProjectBoard() {
                                 {task.completionEvidence ? (
                                   <p className="mt-1 line-clamp-1 text-xs text-primary">
                                     Evidencia: {task.completionEvidence}
+                                  </p>
+                                ) : null}
+                                {task.completionEvidenceLink ? (
+                                  <p className="mt-1 line-clamp-1 text-xs text-primary">
+                                    Link: {task.completionEvidenceLink}
                                   </p>
                                 ) : null}
                                 <p className={`mt-1 text-xs ${getComplianceBadge(task).className}`}>

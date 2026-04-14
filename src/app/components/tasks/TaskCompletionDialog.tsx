@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Clock3, FileText, Save } from "lucide-react";
+import { Clock3, FileText, Link2, Save } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import {
 type CompletionPayload = {
   actualMinutes: number;
   completionEvidence: string | null;
+  completionEvidenceLink: string | null;
 };
 
 type TaskCompletionDialogProps = {
@@ -32,12 +33,14 @@ export function TaskCompletionDialog({
 }: TaskCompletionDialogProps) {
   const [actualMinutesInput, setActualMinutesInput] = useState("");
   const [completionEvidence, setCompletionEvidence] = useState("");
+  const [completionEvidenceLink, setCompletionEvidenceLink] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
     setActualMinutesInput(initialActualMinutes && initialActualMinutes > 0 ? String(initialActualMinutes) : "");
     setCompletionEvidence("");
+    setCompletionEvidenceLink("");
     setError("");
   }, [open, initialActualMinutes]);
 
@@ -60,10 +63,22 @@ export function TaskCompletionDialog({
       return;
     }
 
+    const normalizedEvidenceLink = completionEvidenceLink.trim();
+    if (normalizedEvidenceLink && !/^https?:\/\//i.test(normalizedEvidenceLink)) {
+      setError("El link de evidencia debe iniciar con http:// o https://");
+      return;
+    }
+
+    if (normalizedEvidenceLink.length > 2000) {
+      setError("El link de evidencia no puede superar 2000 caracteres.");
+      return;
+    }
+
     setError("");
     await onConfirm({
       actualMinutes: parsedActualMinutes,
       completionEvidence: completionEvidence.trim() ? completionEvidence.trim() : null,
+      completionEvidenceLink: normalizedEvidenceLink || null,
     });
   };
 
@@ -76,7 +91,7 @@ export function TaskCompletionDialog({
             Registra el tiempo real para cerrar la tarea
             {" "}
             <span className="font-medium text-foreground">"{taskTitle}"</span>.
-            Puedes adjuntar evidencia en texto de forma opcional.
+            Puedes adjuntar evidencia en texto y/o link de forma opcional.
           </DialogDescription>
         </DialogHeader>
 
@@ -114,8 +129,22 @@ export function TaskCompletionDialog({
               <textarea
                 value={completionEvidence}
                 onChange={(event) => setCompletionEvidence(event.target.value)}
-                className="app-control min-h-[110px] pl-9"
+                className="app-control min-h-[110px] pl-9 pt-2"
                 placeholder="Describe o pega enlace de evidencia (ej. acta, captura, URL, comentario final)."
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold text-foreground">Link de evidencia (opcional)</label>
+            <div className="relative">
+              <Link2 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={completionEvidenceLink}
+                onChange={(event) => setCompletionEvidenceLink(event.target.value)}
+                className="app-control pl-9"
+                placeholder="https://..."
               />
             </div>
           </div>
