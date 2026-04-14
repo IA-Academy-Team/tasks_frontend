@@ -229,8 +229,8 @@ export const createStandaloneTask = (payload: CreateStandaloneTaskPayload) =>
       : undefined,
   }, {
     toast: {
-      successMessage: "Tarea suelta creada correctamente.",
-      errorMessage: "No fue posible crear la tarea suelta.",
+      successMessage: "Tarea independiente creada correctamente.",
+      errorMessage: "No fue posible crear la tarea independiente.",
     },
   });
 

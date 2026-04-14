@@ -404,7 +404,7 @@ export function StandaloneTasks() {
 
       const createdCount = response?.data?.createdCount ?? 1;
       if (createdCount > 1) {
-        toast.info(`Se crearon ${createdCount} tareas sueltas.`);
+        toast.info(`Se crearon ${createdCount} tareas independientes.`);
       }
       resetForm();
       setIsCreateModalOpen(false);
@@ -430,7 +430,7 @@ export function StandaloneTasks() {
           }
         }
       } else {
-        toast.error("No fue posible crear la tarea suelta.");
+        toast.error("No fue posible crear la tarea independiente.");
       }
     } finally {
       setIsSubmitting(false);
@@ -725,8 +725,8 @@ export function StandaloneTasks() {
                 resetForm();
                 setIsCreateModalOpen(true);
               }}
-              title="Crear tarea suelta"
-              aria-label="Crear tarea suelta"
+              title="Crear tarea independiente"
+              aria-label="Crear tarea independiente"
             >
               <Plus className="size-4" />
             </button>
@@ -787,7 +787,7 @@ export function StandaloneTasks() {
                           : "border border-border bg-secondary/50 text-muted-foreground",
                       )}
                       >
-                        {task.projectId > 0 ? task.projectName : "Tarea suelta"}
+                        {task.projectId > 0 ? task.projectName : "Tarea independiente"}
                       </span>
                     </td>
                     {isAdmin && (
@@ -940,7 +940,7 @@ export function StandaloneTasks() {
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Crear tarea suelta</DialogTitle>
+            <DialogTitle>Crear tarea independiente</DialogTitle>
             <DialogDescription>
               Esta tarea no estará asociada a ningún proyecto operativo.
             </DialogDescription>
@@ -1166,7 +1166,7 @@ export function StandaloneTasks() {
                 <label className="block text-sm font-semibold text-foreground mb-1.5">Proyecto</label>
                 <input
                   type="text"
-                  value={selectedTask.projectId > 0 ? selectedTask.projectName : "Tarea suelta"}
+                  value={selectedTask.projectId > 0 ? selectedTask.projectName : "Tarea independiente"}
                   className="app-control bg-muted"
                   disabled
                 />
