@@ -87,12 +87,6 @@ export function TaskCompletionDialog({
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Confirmar finalización de tarea</DialogTitle>
-          <DialogDescription>
-            Registra el tiempo real para cerrar la tarea
-            {" "}
-            <span className="font-medium text-foreground">"{taskTitle}"</span>.
-            Puedes adjuntar evidencia en texto y/o link de forma opcional.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
