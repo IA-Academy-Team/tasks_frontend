@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock3, ListFilter, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock3, KanbanSquare, LayoutGrid, ListFilter, Plus, Search, Trash2, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
@@ -95,6 +95,22 @@ const getInitials = (value: string | null) => {
 
 type PriorityFilter = "all" | "high" | "medium" | "low";
 type TaskStatusLabel = "Asignada" | "En proceso" | "Terminada";
+type StandaloneTaskViewMode = "list" | "kanban";
+
+const KANBAN_COLUMNS: { key: TaskWorkflowStatus; title: string }[] = [
+  { key: "assigned", title: "Asignada" },
+  { key: "in_progress", title: "En proceso" },
+  { key: "done", title: "Terminada" },
+];
+
+const STATUS_NAME_TO_KEY: Record<string, TaskWorkflowStatus> = {
+  Asignada: "assigned",
+  "En proceso": "in_progress",
+  Terminada: "done",
+};
+
+const getStatusKeyFromTask = (task: TaskSummary): TaskWorkflowStatus | null =>
+  STATUS_NAME_TO_KEY[task.status] ?? null;
 
 const toWorkflowStatus = (status: string): TaskWorkflowStatus => {
   const normalized = status.trim().toLowerCase();
@@ -152,6 +168,7 @@ export function StandaloneTasks() {
   ];
 
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
+  const [taskViewMode, setTaskViewMode] = useState<StandaloneTaskViewMode>("list");
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -553,6 +570,23 @@ export function StandaloneTasks() {
     }
   }, [currentPage, totalPages]);
 
+  const kanbanTasks = useMemo(() => {
+    const grouped: Record<TaskWorkflowStatus, TaskSummary[]> = {
+      assigned: [],
+      in_progress: [],
+      done: [],
+    };
+
+    sortedTasks.forEach((task) => {
+      const statusKey = getStatusKeyFromTask(task);
+      if (statusKey) {
+        grouped[statusKey].push(task);
+      }
+    });
+
+    return grouped;
+  }, [sortedTasks]);
+
   useEffect(() => {
     const rawTaskId = searchParams.get("taskId");
     if (!rawTaskId || isLoading) return;
@@ -596,12 +630,39 @@ export function StandaloneTasks() {
         icon={<ClipboardList className="size-5" />}
       />
 
-      <div className="app-content min-h-0 overflow-hidden">
+      <div className={cn(
+        "app-content min-h-0",
+        isAdmin && taskViewMode === "kanban" ? "overflow-y-auto" : "overflow-hidden",
+      )}
+      >
         <div className="shrink-0 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de tareas</h3>
           </div>
           <div className="flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 xl:w-auto xl:overflow-visible">
+            <div className="inline-flex rounded-xl border border-border bg-background p-1">
+              <button
+                type="button"
+                onClick={() => setTaskViewMode("list")}
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                  taskViewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <LayoutGrid className="size-3.5" />
+                Lista
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskViewMode("kanban")}
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                  taskViewMode === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <KanbanSquare className="size-3.5" />
+                Kanban
+              </button>
+            </div>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -680,7 +741,7 @@ export function StandaloneTasks() {
           <div className="app-panel app-panel-pad shrink-0 border-dashed py-8 text-sm text-muted-foreground">
             {isAdmin ? "No hay tareas para este filtro." : "No hay tareas asignadas para este filtro."}
           </div>
-        ) : (
+        ) : taskViewMode === "list" ? (
           <div className="app-panel overflow-hidden flex flex-col">
             <div className="overflow-auto">
               <table className="w-full min-w-[980px] text-left">
@@ -795,6 +856,68 @@ export function StandaloneTasks() {
               </div>
             </div>
           </div>
+        ) : (
+          <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {KANBAN_COLUMNS.map((column) => (
+              <div
+                key={column.key}
+                className="overflow-hidden rounded-xl border border-border bg-card"
+              >
+                <div className="flex items-center justify-between border-b border-border bg-secondary/45 px-3 py-2">
+                  <p className="text-sm font-semibold text-foreground">{column.title}</p>
+                  <span className="text-xs text-muted-foreground">{kanbanTasks[column.key].length}</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full table-fixed text-sm">
+                    <thead className="bg-secondary/35">
+                      <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.09em] [&>th]:text-muted-foreground">
+                        <th className="w-[64%]">Tarea</th>
+                        <th className="w-[18%]">Límite</th>
+                        <th className="w-[18%]">Real</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/80">
+                      {kanbanTasks[column.key].length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                            Sin tareas
+                          </td>
+                        </tr>
+                      ) : (
+                        kanbanTasks[column.key].map((task) => (
+                          <tr key={task.id}>
+                            <td className="px-3 py-2 align-top">
+                              <article
+                                onClick={() => openTaskDetail(task)}
+                                className={`cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-colors hover:border-primary/50 ${
+                                  selectedTask?.id === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
+                                }`}
+                              >
+                                <p className="text-sm font-medium text-foreground">{task.title}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {isAdmin
+                                    ? (task.assigneeName ? `${task.assigneeName} · ${task.priority}` : `Sin asignar · ${task.priority}`)
+                                    : task.priority}
+                                </p>
+                                {task.completionEvidence ? (
+                                  <p className="mt-1 line-clamp-1 text-xs text-primary">
+                                    Evidencia: {task.completionEvidence}
+                                  </p>
+                                ) : null}
+                              </article>
+                            </td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatDate(task.dueDate)}</td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatMinutes(task.actualMinutes)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </section>
         )}
       </div>
 
@@ -832,7 +955,7 @@ export function StandaloneTasks() {
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                className="app-control min-h-[90px]"
+                className="app-control min-h-[90px] pt-1"
                 placeholder="Detalles de la tarea"
               />
             </div>
