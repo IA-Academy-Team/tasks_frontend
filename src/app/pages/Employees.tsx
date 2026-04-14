@@ -37,7 +37,6 @@ import {
   updateEmployee,
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
-import { useResizableColumns } from "../../shared/hooks/useResizableColumns";
 
 const isHttpUrl = (value: string) => /^https?:\/\//i.test(value);
 const isBase64ImageDataUrl = (value: string) =>
@@ -46,10 +45,6 @@ const isSupportedImageValue = (value: string) => isHttpUrl(value) || isBase64Ima
 type EmployeeSortColumn = "employee" | "areas";
 type SortDirection = "asc" | "desc";
 const EMPLOYEE_LIST_ACTIONS_COLUMN_WIDTH = 132;
-const EMPLOYEE_LIST_INITIAL_WIDTHS: Record<EmployeeSortColumn, number> = {
-  employee: 420,
-  areas: 420,
-};
 
 export function Employees() {
   const PAGE_SIZE = 8;
@@ -70,18 +65,6 @@ export function Employees() {
   const [sortColumn, setSortColumn] = useState<EmployeeSortColumn>("employee");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [pendingDeleteEmployee, setPendingDeleteEmployee] = useState<EmployeeSummary | null>(null);
-  const {
-    columnWidths: listColumnWidths,
-    startResize: startColumnResize,
-  } = useResizableColumns<EmployeeSortColumn>({
-    initialWidths: EMPLOYEE_LIST_INITIAL_WIDTHS,
-    defaultMinWidth: 180,
-    minWidthsByColumn: {
-      employee: 280,
-      areas: 280,
-    },
-    storageKey: "tasks:employees:list-column-widths",
-  });
 
   const resetForm = () => {
     setEditingEmployeeId(null);
@@ -312,7 +295,6 @@ export function Employees() {
   const paginatedEmployees = sortedEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const visibleStart = sortedEmployees.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
   const visibleEnd = Math.min(currentPage * PAGE_SIZE, sortedEmployees.length);
-  const employeeListMinWidth = listColumnWidths.employee + listColumnWidths.areas + EMPLOYEE_LIST_ACTIONS_COLUMN_WIDTH;
 
   const getEmployeeInitials = (employeeName: string) => employeeName
     .split(/\s+/)
@@ -337,25 +319,6 @@ export function Employees() {
     }
     return <ChevronDown className="size-3.5" />;
   };
-
-  const getResizableColumnStyle = (column: EmployeeSortColumn) => ({
-    width: `${listColumnWidths[column]}px`,
-    minWidth: `${listColumnWidths[column]}px`,
-    maxWidth: `${listColumnWidths[column]}px`,
-  });
-
-  const renderColumnResizeHandle = (column: EmployeeSortColumn) => (
-    <span
-      role="separator"
-      aria-orientation="vertical"
-      aria-label={`Redimensionar columna ${column}`}
-      className="absolute right-0 top-0 h-full w-3 cursor-col-resize touch-none select-none"
-      onMouseDown={(event) => startColumnResize(column, event)}
-      onClick={(event) => event.stopPropagation()}
-    >
-      <span className="pointer-events-none absolute right-0 top-1/2 h-5 -translate-y-1/2 border-r border-border/90" />
-    </span>
-  );
 
   return (
     <div className="app-shell">
@@ -404,12 +367,12 @@ export function Employees() {
             <div className="app-panel overflow-hidden">
               <div className="overflow-x-auto">
                 <table
-                  className="min-w-full table-fixed text-sm"
-                  style={{ minWidth: `${employeeListMinWidth}px` }}
+                  className="w-full table-fixed text-sm"
+                  style={{ minWidth: "760px" }}
                 >
                   <thead className="bg-secondary/72">
                     <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
-                      <th className="relative text-left" style={getResizableColumnStyle("employee")}>
+                      <th className="text-left">
                         <button
                           type="button"
                           onClick={() => toggleSort("employee")}
@@ -420,9 +383,8 @@ export function Employees() {
                             {renderSortIcon("employee")}
                           </span>
                         </button>
-                        {renderColumnResizeHandle("employee")}
                       </th>
-                      <th className="relative text-left" style={getResizableColumnStyle("areas")}>
+                      <th className="text-left">
                         <button
                           type="button"
                           onClick={() => toggleSort("areas")}
@@ -433,7 +395,6 @@ export function Employees() {
                             {renderSortIcon("areas")}
                           </span>
                         </button>
-                        {renderColumnResizeHandle("areas")}
                       </th>
                       <th className="text-right" style={{ width: `${EMPLOYEE_LIST_ACTIONS_COLUMN_WIDTH}px`, minWidth: `${EMPLOYEE_LIST_ACTIONS_COLUMN_WIDTH}px`, maxWidth: `${EMPLOYEE_LIST_ACTIONS_COLUMN_WIDTH}px` }}>
                         Acciones
@@ -457,7 +418,7 @@ export function Employees() {
 
                         return (
                           <tr key={employee.id} className="transition-colors hover:bg-secondary/35">
-                            <td className="px-4 py-3.5" style={getResizableColumnStyle("employee")}>
+                            <td className="px-4 py-3.5">
                               <div className="flex min-w-0 items-center gap-3">
                                 <Avatar className="size-10 border border-border/80 bg-secondary/60">
                                   {employee.image ? <AvatarImage src={employee.image} alt={employee.name} /> : null}
@@ -470,7 +431,7 @@ export function Employees() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3.5" style={getResizableColumnStyle("areas")}>
+                            <td className="px-4 py-3.5">
                               {areaNames.length > 0 ? (
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   {visibleAreaNames.map((areaName) => (
