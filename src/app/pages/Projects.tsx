@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
+import { listEmployees, type EmployeeSummary } from "../../modules/employees/api/employees.api";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
 import { PageHero } from "../components/PageHero";
@@ -166,8 +167,10 @@ export function Projects() {
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [areas, setAreas] = useState<AreaSummary[]>([]);
+  const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("all");
   const [areaFilter, setAreaFilter] = useState("all");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -203,6 +206,7 @@ export function Projects() {
       const response = await listProjects({
         status: statusFilter,
         areaId: areaFilter === "all" ? undefined : Number(areaFilter),
+        employeeId: employeeFilter === "all" ? undefined : Number(employeeFilter),
       });
       setProjects(response?.data ?? []);
     } catch (incomingError) {
@@ -214,7 +218,7 @@ export function Projects() {
     } finally {
       setIsLoading(false);
     }
-  }, [areaFilter, statusFilter]);
+  }, [areaFilter, employeeFilter, statusFilter]);
 
   const loadAreas = useCallback(async () => {
     if (!isAdmin) {
@@ -230,6 +234,20 @@ export function Projects() {
     }
   }, [isAdmin]);
 
+  const loadEmployees = useCallback(async () => {
+    if (!isAdmin) {
+      setEmployees([]);
+      return;
+    }
+
+    try {
+      const response = await listEmployees();
+      setEmployees((response?.data ?? []).filter((employee) => employee.role === "employee"));
+    } catch {
+      setEmployees([]);
+    }
+  }, [isAdmin]);
+
   useEffect(() => {
     void loadProjects();
   }, [loadProjects]);
@@ -239,8 +257,12 @@ export function Projects() {
   }, [loadAreas]);
 
   useEffect(() => {
+    void loadEmployees();
+  }, [loadEmployees]);
+
+  useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, areaFilter, searchTerm]);
+  }, [statusFilter, areaFilter, employeeFilter, searchTerm]);
 
   const filteredProjects = useMemo(() => {
     const normalizedTerm = searchTerm.trim().toLowerCase();
@@ -398,6 +420,28 @@ export function Projects() {
                       {areas.map((area) => (
                         <option key={area.id} value={area.id}>
                           {area.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {isAdmin && (
+                  <div className="relative w-[220px] shrink-0">
+                    <Users
+                      className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <select
+                      value={employeeFilter}
+                      onChange={(event) => setEmployeeFilter(event.target.value)}
+                      className="app-control h-9 appearance-none pl-10 [-webkit-appearance:none]"
+                      title="Filtrar por empleado en proyecto"
+                    >
+                      <option value="all">Todos los empleados</option>
+                      {employees.map((employee) => (
+                        <option key={employee.id} value={employee.id}>
+                          {employee.name}
                         </option>
                       ))}
                     </select>
