@@ -72,7 +72,7 @@ const WORKFLOW_LABELS: Record<TaskWorkflowStatus, string> = {
 };
 
 const WORKFLOW_TRANSITIONS: Record<TaskWorkflowStatus, TaskWorkflowStatus[]> = {
-  assigned: ["in_progress"],
+  assigned: ["in_progress", "done"],
   in_progress: ["done"],
   done: [],
 };
@@ -81,10 +81,6 @@ const getTransitionValidationMessage = (
   fromStatus: TaskWorkflowStatus,
   toStatus: TaskWorkflowStatus,
 ) => {
-  if (fromStatus === "assigned" && toStatus === "done") {
-    return "No puedes marcar una tarea como Terminada directamente desde Asignada. Primero pásala a En proceso.";
-  }
-
   return `Transición no permitida: ${WORKFLOW_LABELS[fromStatus]} → ${WORKFLOW_LABELS[toStatus]}.`;
 };
 
