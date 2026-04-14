@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   ArrowLeft,
@@ -259,6 +259,7 @@ export function ProjectBoard() {
   const [gridSortDirection, setGridSortDirection] = useState<SortDirection>("desc");
   const [isTaskAssigneeSelectOpen, setIsTaskAssigneeSelectOpen] = useState(false);
   const [taskAssigneeSearchTerm, setTaskAssigneeSearchTerm] = useState("");
+  const [taskAssigneeActiveIndex, setTaskAssigneeActiveIndex] = useState<number>(-1);
   const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
   const [isCompletingTask, setIsCompletingTask] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
@@ -275,6 +276,8 @@ export function ProjectBoard() {
   const [sourceEmployeeId, setSourceEmployeeId] = useState("");
   const [targetEmployeeId, setTargetEmployeeId] = useState("");
   const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
+  const taskAssigneeInputRef = useRef<HTMLInputElement | null>(null);
+  const taskAssigneeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const {
     columnWidths: gridColumnWidths,
     startResize: startGridColumnResize,
@@ -306,6 +309,7 @@ export function ProjectBoard() {
     setTaskAssigneeEmployeeId("");
     setTaskAssigneeSearchTerm("");
     setIsTaskAssigneeSelectOpen(false);
+    setTaskAssigneeActiveIndex(-1);
     setTaskRecurrenceMode("none");
     setTaskRecurrenceEvery("1");
     setTaskRecurrenceUntilDate("");
@@ -509,6 +513,54 @@ export function ProjectBoard() {
   );
 
   const taskAssigneeInputValue = taskAssigneeSearchTerm || selectedTaskAssigneeOption?.label || "";
+
+  const selectTaskAssigneeOption = useCallback((option: { value: string; label: string }) => {
+    setTaskAssigneeEmployeeId(option.value);
+    setTaskAssigneeSearchTerm(option.label);
+    setIsTaskAssigneeSelectOpen(false);
+    setTaskAssigneeActiveIndex(-1);
+  }, []);
+
+  useEffect(() => {
+    if (!isTaskAssigneeSelectOpen) {
+      setTaskAssigneeActiveIndex(-1);
+      return;
+    }
+
+    if (visibleTaskAssigneeOptions.length === 0) {
+      setTaskAssigneeActiveIndex(-1);
+      return;
+    }
+
+    setTaskAssigneeActiveIndex((previous) => {
+      if (previous >= 0 && previous < visibleTaskAssigneeOptions.length) {
+        return previous;
+      }
+      return 0;
+    });
+  }, [isTaskAssigneeSelectOpen, visibleTaskAssigneeOptions]);
+
+  useEffect(() => {
+    if (!isTaskAssigneeSelectOpen || taskAssigneeActiveIndex < 0) {
+      return;
+    }
+
+    taskAssigneeOptionRefs.current[taskAssigneeActiveIndex]?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [isTaskAssigneeSelectOpen, taskAssigneeActiveIndex]);
+
+  useEffect(() => {
+    if (!isTaskAssigneeSelectOpen) {
+      return;
+    }
+
+    const rafId = window.requestAnimationFrame(() => {
+      taskAssigneeInputRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [isTaskAssigneeSelectOpen]);
 
   const sortedGridTasks = useMemo(() => {
     const compareText = (left: string, right: string) => left.localeCompare(right, "es", { sensitivity: "base" });
@@ -921,6 +973,7 @@ export function ProjectBoard() {
     setTaskAssigneeEmployeeId(task.assigneeEmployeeId ? String(task.assigneeEmployeeId) : "");
     setTaskAssigneeSearchTerm("");
     setIsTaskAssigneeSelectOpen(false);
+    setTaskAssigneeActiveIndex(-1);
     setError("");
     setSuccess("");
     setIsTaskModalOpen(true);
@@ -1927,6 +1980,7 @@ export function ProjectBoard() {
                   setTaskAssigneeEmployeeId("");
                   setTaskAssigneeSearchTerm("");
                   setIsTaskAssigneeSelectOpen(false);
+                  setTaskAssigneeActiveIndex(-1);
                 }}
                 className="app-control"
               >
@@ -2014,21 +2068,71 @@ export function ProjectBoard() {
                   <div className="relative">
                     <Search className={cn("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2", isTaskAssigneeSelectOpen ? "text-primary" : "text-muted-foreground")} />
                     <input
+                      ref={taskAssigneeInputRef}
                       type="text"
                       value={taskAssigneeInputValue}
                       onFocus={() => {
                         if (taskAssigneeSearchOptions.length > 0) {
                           setIsTaskAssigneeSelectOpen(true);
+                          setTaskAssigneeActiveIndex(0);
                         }
                       }}
                       onClick={() => {
                         if (taskAssigneeSearchOptions.length > 0) {
                           setIsTaskAssigneeSelectOpen(true);
+                          setTaskAssigneeActiveIndex(0);
                         }
                       }}
                       onKeyDown={(event) => {
+                        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                          if (visibleTaskAssigneeOptions.length === 0) {
+                            return;
+                          }
+
+                          event.preventDefault();
+                          if (!isTaskAssigneeSelectOpen) {
+                            setIsTaskAssigneeSelectOpen(true);
+                            setTaskAssigneeActiveIndex(event.key === "ArrowDown" ? 0 : visibleTaskAssigneeOptions.length - 1);
+                            return;
+                          }
+
+                          const direction = event.key === "ArrowDown" ? 1 : -1;
+                          setTaskAssigneeActiveIndex((previous) => {
+                            if (previous < 0) {
+                              return direction > 0 ? 0 : visibleTaskAssigneeOptions.length - 1;
+                            }
+
+                            const next = previous + direction;
+                            if (next < 0) {
+                              return visibleTaskAssigneeOptions.length - 1;
+                            }
+                            if (next >= visibleTaskAssigneeOptions.length) {
+                              return 0;
+                            }
+                            return next;
+                          });
+                          return;
+                        }
+
+                        if (event.key === "Enter" && isTaskAssigneeSelectOpen) {
+                          if (visibleTaskAssigneeOptions.length === 0) {
+                            return;
+                          }
+
+                          event.preventDefault();
+                          const selectedIndex = taskAssigneeActiveIndex >= 0
+                            ? taskAssigneeActiveIndex
+                            : 0;
+                          const selectedOption = visibleTaskAssigneeOptions[selectedIndex];
+                          if (selectedOption) {
+                            selectTaskAssigneeOption(selectedOption);
+                          }
+                          return;
+                        }
+
                         if (event.key === "Escape") {
                           setIsTaskAssigneeSelectOpen(false);
+                          setTaskAssigneeActiveIndex(-1);
                         }
                       }}
                       onChange={(event) => {
@@ -2037,6 +2141,7 @@ export function ProjectBoard() {
                         if (!isTaskAssigneeSelectOpen && taskAssigneeSearchOptions.length > 0) {
                           setIsTaskAssigneeSelectOpen(true);
                         }
+                        setTaskAssigneeActiveIndex(0);
                       }}
                       disabled={taskAssigneeSearchOptions.length === 0}
                       className="app-control h-10 w-full bg-card/95 pl-9 pr-10"
@@ -2047,7 +2152,13 @@ export function ProjectBoard() {
                       aria-label="Mostrar empleados"
                       className="absolute right-2 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={taskAssigneeSearchOptions.length === 0}
-                      onClick={() => setIsTaskAssigneeSelectOpen((previous) => !previous)}
+                      onClick={() => {
+                        setIsTaskAssigneeSelectOpen((previous) => {
+                          const next = !previous;
+                          setTaskAssigneeActiveIndex(next ? 0 : -1);
+                          return next;
+                        });
+                      }}
                     >
                       <ChevronDown className={cn("size-4 transition-transform", isTaskAssigneeSelectOpen && "rotate-180")} />
                     </button>
@@ -2058,22 +2169,26 @@ export function ProjectBoard() {
                   align="start"
                   avoidCollisions={false}
                   sideOffset={6}
+                  onOpenAutoFocus={(event) => event.preventDefault()}
                   className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/90 bg-card/98 p-0"
                 >
                   <div className="max-h-64 overflow-y-auto p-1">
                     {visibleTaskAssigneeOptions.length === 0 ? (
                       <p className="px-3 py-2 text-sm text-muted-foreground">Sin empleados disponibles.</p>
                     ) : (
-                      visibleTaskAssigneeOptions.map((option) => (
+                      visibleTaskAssigneeOptions.map((option, index) => (
                         <button
                           key={option.value}
                           type="button"
-                          onClick={() => {
-                            setTaskAssigneeEmployeeId(option.value);
-                            setTaskAssigneeSearchTerm(option.label);
-                            setIsTaskAssigneeSelectOpen(false);
+                          ref={(element) => {
+                            taskAssigneeOptionRefs.current[index] = element;
                           }}
-                          className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/70"
+                          onMouseEnter={() => setTaskAssigneeActiveIndex(index)}
+                          onClick={() => selectTaskAssigneeOption(option)}
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/70",
+                            taskAssigneeActiveIndex === index && "bg-secondary/70",
+                          )}
                         >
                           <Check
                             className={cn(
