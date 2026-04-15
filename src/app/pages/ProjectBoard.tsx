@@ -233,8 +233,6 @@ const TASK_RECURRENCE_WEEKDAY_OPTIONS: Array<{ label: string; value: number }> =
   { label: "X", value: 3 },
   { label: "J", value: 4 },
   { label: "V", value: 5 },
-  { label: "S", value: 6 },
-  { label: "D", value: 0 },
 ];
 
 export function ProjectBoard() {
@@ -537,10 +535,16 @@ export function ProjectBoard() {
     : "Definir fecha límite";
 
   const toggleTaskRecurrenceWeekDay = (weekDay: number) => {
+    if (weekDay < 1 || weekDay > 5) {
+      return;
+    }
+
     setTaskRecurrenceWeekDays((previous) => (
       previous.includes(weekDay)
         ? previous.filter((value) => value !== weekDay)
-        : [...previous, weekDay].sort((left, right) => left - right)
+        : [...previous, weekDay]
+          .filter((value) => value >= 1 && value <= 5)
+          .sort((left, right) => left - right)
     ));
   };
 
@@ -606,7 +610,8 @@ export function ProjectBoard() {
     if (isWeekdaySelectorVisible && taskRecurrenceWeekDays.length === 0) {
       const sourceDate = taskRecurrenceStartDate || taskPlannedStartDate || toInputDate(new Date());
       const weekDay = new Date(sourceDate).getUTCDay();
-      setTaskRecurrenceWeekDays([weekDay]);
+      const normalizedWeekDay = weekDay === 0 || weekDay === 6 ? 1 : weekDay;
+      setTaskRecurrenceWeekDays([normalizedWeekDay]);
     }
   }, [
     isWeekdaySelectorVisible,
