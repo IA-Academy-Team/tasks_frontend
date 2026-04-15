@@ -2091,126 +2091,122 @@ export function ProjectBoard() {
               />
             </div>
             {!editingTaskId && (
-              <div className="md:col-span-2 rounded-xl border border-border bg-background/70 p-3">
-                <div className="grid grid-cols-1 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Repetición (opcional)</label>
-                    <select
-                      value={taskRecurrenceMode}
-                      onChange={(event) => {
-                        const nextMode = event.target.value as TaskRecurrenceMode;
-                        setTaskRecurrenceMode(nextMode);
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Repetición (opcional)</label>
+                  <select
+                    value={taskRecurrenceMode}
+                    onChange={(event) => {
+                      const nextMode = event.target.value as TaskRecurrenceMode;
+                      setTaskRecurrenceMode(nextMode);
 
-                        if (nextMode === "none") {
-                          setTaskRecurrenceStartDate("");
-                          setTaskRecurrenceUntilDate("");
-                          setTaskRecurrenceWeekDays([]);
-                          return;
-                        }
+                      if (nextMode === "none") {
+                        setTaskRecurrenceStartDate("");
+                        setTaskRecurrenceUntilDate("");
+                        setTaskRecurrenceWeekDays([]);
+                        return;
+                      }
 
-                        if (nextMode === "daily") {
-                          setTaskRecurrenceWeekDays([]);
-                        }
+                      if (nextMode === "daily") {
+                        setTaskRecurrenceWeekDays([]);
+                      }
 
-                        if (!taskRecurrenceStartDate) {
-                          setTaskRecurrenceStartDate(taskPlannedStartDate);
-                        }
-                      }}
-                      className="app-control"
-                    >
-                      <option value="none">No repetir</option>
-                      <option value="daily">Cada día</option>
-                      <option value="weekly">Cada semana</option>
-                      <option value="range_interval">Personalizado</option>
-                    </select>
-                  </div>
-
-                  {taskRecurrenceMode !== "none" && (
-                    isDailyRecurrence ? (
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-foreground">Fecha límite</label>
-                        <button
-                          type="button"
-                          onClick={openRecurrenceUntilPicker}
-                          className="app-btn-secondary h-10 w-full justify-start px-3 text-sm"
-                        >
-                          <CalendarClock className="size-4 text-primary" />
-                          {recurrenceUntilLabel}
-                        </button>
-                        <input
-                          ref={recurrenceUntilInputRef}
-                          type="date"
-                          value={taskRecurrenceUntilDate}
-                          onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
-                          className="sr-only"
-                          tabIndex={-1}
-                          aria-hidden="true"
-                        />
-                      </div>
-                    ) : (
-                      <div className={cn(
-                        "grid grid-cols-1 gap-3",
-                        isWeekdaySelectorVisible && "md:grid-cols-2",
-                      )}
-                      >
-                        <div className="rounded-xl border border-border bg-card/55 p-3">
-                          <p className="text-sm font-semibold text-foreground">Rango de fechas</p>
-                          <p className="mt-1 text-xs text-muted-foreground">Define desde y hasta cuándo se repetirá la tarea.</p>
-                          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Desde</label>
-                              <input
-                                type="date"
-                                value={taskRecurrenceStartDate}
-                                onChange={(event) => setTaskRecurrenceStartDate(event.target.value)}
-                                className="app-control"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-muted-foreground mb-1">Hasta</label>
-                              <input
-                                type="date"
-                                value={taskRecurrenceUntilDate}
-                                onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
-                                className="app-control"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {isWeekdaySelectorVisible && (
-                          <div className="rounded-xl border border-border bg-card/55 p-3">
-                            <p className="text-sm font-semibold text-foreground">Días de la semana</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Selecciona en qué días se deben crear las tareas.</p>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {TASK_RECURRENCE_WEEKDAY_OPTIONS.map((weekDayOption) => {
-                                const isSelected = taskRecurrenceWeekDays.includes(weekDayOption.value);
-                                return (
-                                  <button
-                                    key={weekDayOption.value}
-                                    type="button"
-                                    onClick={() => toggleTaskRecurrenceWeekDay(weekDayOption.value)}
-                                    className={cn(
-                                      "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-semibold transition-colors",
-                                      isSelected
-                                        ? "border-primary/70 bg-primary/18 text-primary"
-                                        : "border-border bg-background/50 text-muted-foreground hover:text-foreground",
-                                    )}
-                                    aria-pressed={isSelected}
-                                    aria-label={`Repetir los ${weekDayOption.label}`}
-                                  >
-                                    {weekDayOption.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  )}
+                      if (!taskRecurrenceStartDate) {
+                        setTaskRecurrenceStartDate(taskPlannedStartDate);
+                      }
+                    }}
+                    className="app-control"
+                  >
+                    <option value="none">No repetir</option>
+                    <option value="daily">Cada día</option>
+                    <option value="weekly">Cada semana</option>
+                    <option value="range_interval">Personalizado</option>
+                  </select>
                 </div>
-              </div>
+
+                {taskRecurrenceMode !== "none" && isDailyRecurrence && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-foreground">Fecha límite</label>
+                    <button
+                      type="button"
+                      onClick={openRecurrenceUntilPicker}
+                      className="app-btn-secondary h-10 w-full justify-start px-3 text-sm"
+                    >
+                      <CalendarClock className="size-4 text-primary" />
+                      {recurrenceUntilLabel}
+                    </button>
+                    <input
+                      ref={recurrenceUntilInputRef}
+                      type="date"
+                      value={taskRecurrenceUntilDate}
+                      onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    />
+                  </div>
+                )}
+
+                {taskRecurrenceMode !== "none" && !isDailyRecurrence && (
+                  <div className={cn(
+                    "md:col-span-2 grid grid-cols-1 gap-3",
+                    isWeekdaySelectorVisible && "md:grid-cols-2",
+                  )}
+                  >
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Rango de fechas</label>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Desde</label>
+                          <input
+                            type="date"
+                            value={taskRecurrenceStartDate}
+                            onChange={(event) => setTaskRecurrenceStartDate(event.target.value)}
+                            className="app-control"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Hasta</label>
+                          <input
+                            type="date"
+                            value={taskRecurrenceUntilDate}
+                            onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
+                            className="app-control"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {isWeekdaySelectorVisible && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Días de la semana</label>
+                        <div className="flex flex-wrap gap-2">
+                          {TASK_RECURRENCE_WEEKDAY_OPTIONS.map((weekDayOption) => {
+                            const isSelected = taskRecurrenceWeekDays.includes(weekDayOption.value);
+                            return (
+                              <button
+                                key={weekDayOption.value}
+                                type="button"
+                                onClick={() => toggleTaskRecurrenceWeekDay(weekDayOption.value)}
+                                className={cn(
+                                  "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-semibold transition-colors",
+                                  isSelected
+                                    ? "border-primary/70 bg-primary/18 text-primary"
+                                    : "border-border bg-background/50 text-muted-foreground hover:text-foreground",
+                                )}
+                                aria-pressed={isSelected}
+                                aria-label={`Repetir los ${weekDayOption.label}`}
+                              >
+                                {weekDayOption.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Empleado</label>
