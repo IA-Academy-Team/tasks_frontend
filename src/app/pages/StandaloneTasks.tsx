@@ -1254,7 +1254,7 @@ export function StandaloneTasks() {
       </Dialog>
 
       <Dialog
-        open={isDetailModalOpen}
+        open={isDetailModalOpen && !isCompletionModalOpen}
         onOpenChange={(open) => {
           setIsDetailModalOpen(open);
           if (!open && !isDetailSaving) {
@@ -1265,9 +1265,6 @@ export function StandaloneTasks() {
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Detalle de tarea</DialogTitle>
-            <DialogDescription>
-              Visualiza y edita la información principal de la tarea seleccionada.
-            </DialogDescription>
           </DialogHeader>
 
           {selectedTask ? (
@@ -1354,12 +1351,6 @@ export function StandaloneTasks() {
                   disabled={!canEditTaskAttributes}
                 />
               </div>
-
-              {!canEditTaskAttributes ? (
-                <div className="md:col-span-2 rounded-xl border border-border/70 bg-secondary/45 px-3 py-2 text-xs text-muted-foreground">
-                  Esta tarea fue creada por otro usuario. Solo puedes actualizar su estado.
-                </div>
-              ) : null}
 
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-1.5">Proyecto</label>

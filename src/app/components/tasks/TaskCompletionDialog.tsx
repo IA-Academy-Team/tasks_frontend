@@ -87,6 +87,9 @@ export function TaskCompletionDialog({
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Confirmar finalización de tarea</DialogTitle>
+          <DialogDescription className="line-clamp-2">
+            Completa el cierre de: {taskTitle}
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
