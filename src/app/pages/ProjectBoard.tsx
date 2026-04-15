@@ -193,7 +193,7 @@ const getComplianceBadge = (task: TaskSummary): { label: string; className: stri
 };
 
 type ProjectTaskViewMode = "grid" | "kanban" | "analytics";
-type TaskRecurrenceMode = "none" | "daily" | "weekly" | "monthly" | "range_interval";
+type TaskRecurrenceMode = "none" | "daily" | "weekly" | "range_interval";
 type ProjectGridSortColumn =
   | "title"
   | "status"
@@ -227,6 +227,16 @@ const barChartConfig = {
   tareas: { label: "Tareas", color: "var(--chart-1)" },
 } satisfies ChartConfig;
 
+const TASK_RECURRENCE_WEEKDAY_OPTIONS: Array<{ label: string; value: number }> = [
+  { label: "L", value: 1 },
+  { label: "M", value: 2 },
+  { label: "X", value: 3 },
+  { label: "J", value: 4 },
+  { label: "V", value: 5 },
+  { label: "S", value: 6 },
+  { label: "D", value: 0 },
+];
+
 export function ProjectBoard() {
   const { projectId } = useParams<{ projectId: string }>();
   const [searchParams] = useSearchParams();
@@ -253,8 +263,9 @@ export function ProjectBoard() {
   const [taskAreaId, setTaskAreaId] = useState("");
   const [taskAssigneeEmployeeId, setTaskAssigneeEmployeeId] = useState("");
   const [taskRecurrenceMode, setTaskRecurrenceMode] = useState<TaskRecurrenceMode>("none");
-  const [taskRecurrenceEvery, setTaskRecurrenceEvery] = useState("1");
+  const [taskRecurrenceStartDate, setTaskRecurrenceStartDate] = useState("");
   const [taskRecurrenceUntilDate, setTaskRecurrenceUntilDate] = useState("");
+  const [taskRecurrenceWeekDays, setTaskRecurrenceWeekDays] = useState<number[]>([]);
   const [gridSortColumn, setGridSortColumn] = useState<ProjectGridSortColumn>("dates");
   const [gridSortDirection, setGridSortDirection] = useState<SortDirection>("desc");
   const [isTaskAssigneeSelectOpen, setIsTaskAssigneeSelectOpen] = useState(false);
@@ -311,8 +322,9 @@ export function ProjectBoard() {
     setIsTaskAssigneeSelectOpen(false);
     setTaskAssigneeActiveIndex(-1);
     setTaskRecurrenceMode("none");
-    setTaskRecurrenceEvery("1");
+    setTaskRecurrenceStartDate("");
     setTaskRecurrenceUntilDate("");
+    setTaskRecurrenceWeekDays([]);
   };
 
   const loadProject = useCallback(async () => {
@@ -513,6 +525,15 @@ export function ProjectBoard() {
   );
 
   const taskAssigneeInputValue = taskAssigneeSearchTerm || selectedTaskAssigneeOption?.label || "";
+  const isWeekdaySelectorVisible = taskRecurrenceMode === "weekly" || taskRecurrenceMode === "range_interval";
+
+  const toggleTaskRecurrenceWeekDay = (weekDay: number) => {
+    setTaskRecurrenceWeekDays((previous) => (
+      previous.includes(weekDay)
+        ? previous.filter((value) => value !== weekDay)
+        : [...previous, weekDay].sort((left, right) => left - right)
+    ));
+  };
 
   const selectTaskAssigneeOption = useCallback((option: { value: string; label: string }) => {
     setTaskAssigneeEmployeeId(option.value);
@@ -549,6 +570,29 @@ export function ProjectBoard() {
       block: "nearest",
     });
   }, [isTaskAssigneeSelectOpen, taskAssigneeActiveIndex]);
+
+  useEffect(() => {
+    if (taskRecurrenceMode === "none") {
+      setTaskRecurrenceWeekDays([]);
+      return;
+    }
+
+    if (!taskRecurrenceStartDate && taskPlannedStartDate) {
+      setTaskRecurrenceStartDate(taskPlannedStartDate);
+    }
+
+    if (isWeekdaySelectorVisible && taskRecurrenceWeekDays.length === 0) {
+      const sourceDate = taskRecurrenceStartDate || taskPlannedStartDate || toInputDate(new Date());
+      const weekDay = new Date(sourceDate).getUTCDay();
+      setTaskRecurrenceWeekDays([weekDay]);
+    }
+  }, [
+    isWeekdaySelectorVisible,
+    taskPlannedStartDate,
+    taskRecurrenceMode,
+    taskRecurrenceStartDate,
+    taskRecurrenceWeekDays.length,
+  ]);
 
   useEffect(() => {
     if (!isTaskAssigneeSelectOpen) {
@@ -1005,9 +1049,6 @@ export function ProjectBoard() {
     const selectedEmployeeId = taskAssigneeEmployeeId
       ? Number(taskAssigneeEmployeeId)
       : null;
-    const recurrenceEveryValue = taskRecurrenceEvery.trim()
-      ? Number(taskRecurrenceEvery)
-      : 1;
     const hasRecurrence = !editingTaskId && taskRecurrenceMode !== "none";
     const estimatedMinutes = estimatedHours === null ? null : Math.round(estimatedHours * 60);
 
@@ -1041,18 +1082,20 @@ export function ProjectBoard() {
     }
 
     if (hasRecurrence) {
-      if (!Number.isInteger(recurrenceEveryValue) || recurrenceEveryValue <= 0) {
-        toast.error("La recurrencia debe tener un intervalo entero mayor a 0.");
-        return;
-      }
+      const recurrenceStartDate = taskRecurrenceStartDate || resolvedTaskPlannedStartDate;
 
       if (!taskRecurrenceUntilDate) {
         toast.error("Define una fecha final para la recurrencia.");
         return;
       }
 
-      if (taskRecurrenceUntilDate < resolvedTaskDueDate) {
-        toast.error("La fecha final de recurrencia debe ser mayor o igual a la fecha de fin.");
+      if (taskRecurrenceUntilDate < recurrenceStartDate) {
+        toast.error("La fecha final de recurrencia debe ser mayor o igual a la fecha de inicio del rango.");
+        return;
+      }
+
+      if (isWeekdaySelectorVisible && taskRecurrenceWeekDays.length === 0) {
+        toast.error("Selecciona al menos un día de la semana para la recurrencia.");
         return;
       }
     }
@@ -1098,8 +1141,9 @@ export function ProjectBoard() {
           recurrence: hasRecurrence
             ? {
                 frequency: taskRecurrenceMode,
-                every: recurrenceEveryValue,
+                startDate: taskRecurrenceStartDate || resolvedTaskPlannedStartDate,
                 untilDate: taskRecurrenceUntilDate,
+                weekDays: isWeekdaySelectorVisible ? taskRecurrenceWeekDays : undefined,
               }
             : undefined,
         });
@@ -1997,7 +2041,13 @@ export function ProjectBoard() {
               <input
                 type="date"
                 value={taskPlannedStartDate}
-                onChange={(event) => setTaskPlannedStartDate(event.target.value)}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setTaskPlannedStartDate(nextValue);
+                  if (taskRecurrenceMode !== "none" && !taskRecurrenceStartDate) {
+                    setTaskRecurrenceStartDate(nextValue);
+                  }
+                }}
                 className="app-control"
               />
             </div>
@@ -2012,51 +2062,95 @@ export function ProjectBoard() {
             </div>
             {!editingTaskId && (
               <div className="md:col-span-2 rounded-xl border border-border bg-background/70 p-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3">
                   <div>
                     <label className="block text-sm font-medium mb-1">Repetición (opcional)</label>
                     <select
                       value={taskRecurrenceMode}
-                      onChange={(event) => setTaskRecurrenceMode(event.target.value as TaskRecurrenceMode)}
+                      onChange={(event) => {
+                        const nextMode = event.target.value as TaskRecurrenceMode;
+                        setTaskRecurrenceMode(nextMode);
+
+                        if (nextMode === "none") {
+                          setTaskRecurrenceStartDate("");
+                          setTaskRecurrenceUntilDate("");
+                          setTaskRecurrenceWeekDays([]);
+                          return;
+                        }
+
+                        if (!taskRecurrenceStartDate) {
+                          setTaskRecurrenceStartDate(taskPlannedStartDate);
+                        }
+                      }}
                       className="app-control"
                     >
                       <option value="none">No repetir</option>
                       <option value="daily">Cada día</option>
                       <option value="weekly">Cada semana</option>
-                      <option value="monthly">Cada mes</option>
-                      <option value="range_interval">Rango cada cierto tiempo</option>
+                      <option value="range_interval">Personalizado</option>
                     </select>
                   </div>
 
                   {taskRecurrenceMode !== "none" && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">
-                          Cada cuántos {taskRecurrenceMode === "weekly"
-                            ? "semanas"
-                            : taskRecurrenceMode === "monthly"
-                              ? "meses"
-                              : "días"}
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          step={1}
-                          value={taskRecurrenceEvery}
-                          onChange={(event) => setTaskRecurrenceEvery(event.target.value)}
-                          className="app-control"
-                        />
+                    <div className={cn(
+                      "grid grid-cols-1 gap-3",
+                      isWeekdaySelectorVisible && "md:grid-cols-2",
+                    )}
+                    >
+                      <div className="rounded-xl border border-border bg-card/55 p-3">
+                        <p className="text-sm font-semibold text-foreground">Rango de fechas</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Define desde y hasta cuándo se repetirá la tarea.</p>
+                        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Desde</label>
+                            <input
+                              type="date"
+                              value={taskRecurrenceStartDate}
+                              onChange={(event) => setTaskRecurrenceStartDate(event.target.value)}
+                              className="app-control"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">Hasta</label>
+                            <input
+                              type="date"
+                              value={taskRecurrenceUntilDate}
+                              onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
+                              className="app-control"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Repetir hasta</label>
-                        <input
-                          type="date"
-                          value={taskRecurrenceUntilDate}
-                          onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
-                          className="app-control"
-                        />
-                      </div>
-                    </>
+
+                      {isWeekdaySelectorVisible && (
+                        <div className="rounded-xl border border-border bg-card/55 p-3">
+                          <p className="text-sm font-semibold text-foreground">Días de la semana</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Selecciona en qué días se deben crear las tareas.</p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {TASK_RECURRENCE_WEEKDAY_OPTIONS.map((weekDayOption) => {
+                              const isSelected = taskRecurrenceWeekDays.includes(weekDayOption.value);
+                              return (
+                                <button
+                                  key={weekDayOption.value}
+                                  type="button"
+                                  onClick={() => toggleTaskRecurrenceWeekDay(weekDayOption.value)}
+                                  className={cn(
+                                    "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-semibold transition-colors",
+                                    isSelected
+                                      ? "border-primary/70 bg-primary/18 text-primary"
+                                      : "border-border bg-background/50 text-muted-foreground hover:text-foreground",
+                                  )}
+                                  aria-pressed={isSelected}
+                                  aria-label={`Repetir los ${weekDayOption.label}`}
+                                >
+                                  {weekDayOption.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -2234,7 +2328,7 @@ export function ProjectBoard() {
       </Dialog>
 
       <Dialog
-        open={isEmployeeTaskDetailModalOpen}
+        open={isEmployeeTaskDetailModalOpen && !isCompletionModalOpen}
         onOpenChange={(open) => {
           setIsEmployeeTaskDetailModalOpen(open);
           if (!open) {
