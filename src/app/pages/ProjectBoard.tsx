@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type DragEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   ArrowLeft,
@@ -7,9 +7,11 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronUp,
   FilePlus2,
   KanbanSquare,
   LayoutGrid,
+  MoreVertical,
   Pencil,
   Plus,
   RefreshCcw,
@@ -28,8 +30,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+import { Popover, PopoverAnchor, PopoverContent } from "../components/ui/popover";
 import { cn } from "../components/ui/utils";
 import {
   ChartContainer,
@@ -58,6 +67,7 @@ import {
   type TaskStatusFilter,
   type TaskSummary,
 } from "../../modules/tasks/api/tasks.api";
+import { useResizableColumns } from "../../shared/hooks/useResizableColumns";
 
 const KANBAN_COLUMNS: { key: TaskWorkflowStatus; title: string }[] = [
   { key: "assigned", title: "Asignada" },
@@ -72,7 +82,7 @@ const WORKFLOW_LABELS: Record<TaskWorkflowStatus, string> = {
 };
 
 const WORKFLOW_TRANSITIONS: Record<TaskWorkflowStatus, TaskWorkflowStatus[]> = {
-  assigned: ["in_progress"],
+  assigned: ["in_progress", "done"],
   in_progress: ["done"],
   done: [],
 };
@@ -81,10 +91,6 @@ const getTransitionValidationMessage = (
   fromStatus: TaskWorkflowStatus,
   toStatus: TaskWorkflowStatus,
 ) => {
-  if (fromStatus === "assigned" && toStatus === "done") {
-    return "No puedes marcar una tarea como Terminada directamente desde Asignada. Primero pásala a En proceso.";
-  }
-
   return `Transición no permitida: ${WORKFLOW_LABELS[fromStatus]} → ${WORKFLOW_LABELS[toStatus]}.`;
 };
 
@@ -145,6 +151,19 @@ const formatRelativeTime = (value: string) => {
   return `Hace ${diffDays} d`;
 };
 
+const getInitials = (value: string | null | undefined) => {
+  if (!value) {
+    return "SA";
+  }
+
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
+};
+
 const toInputDate = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -174,7 +193,29 @@ const getComplianceBadge = (task: TaskSummary): { label: string; className: stri
 };
 
 type ProjectTaskViewMode = "grid" | "kanban" | "analytics";
-type TaskRecurrenceMode = "none" | "daily" | "weekly" | "monthly" | "range_interval";
+type TaskRecurrenceMode = "none" | "daily" | "weekly" | "range_interval";
+type ProjectGridSortColumn =
+  | "title"
+  | "status"
+  | "priority"
+  | "assignee"
+  | "dates"
+  | "estimatedMinutes"
+  | "actualMinutes"
+  | "compliance";
+type SortDirection = "asc" | "desc";
+
+const PROJECT_GRID_INITIAL_WIDTHS: Record<ProjectGridSortColumn, number> = {
+  title: 320,
+  status: 120,
+  priority: 120,
+  assignee: 210,
+  dates: 170,
+  estimatedMinutes: 120,
+  actualMinutes: 110,
+  compliance: 170,
+};
+const PROJECT_GRID_ACTIONS_WIDTH = 120;
 
 const statusChartConfig = {
   Asignada: { label: "Asignada", color: "var(--chart-1)" },
@@ -185,6 +226,14 @@ const statusChartConfig = {
 const barChartConfig = {
   tareas: { label: "Tareas", color: "var(--chart-1)" },
 } satisfies ChartConfig;
+
+const TASK_RECURRENCE_WEEKDAY_OPTIONS: Array<{ label: string; value: number }> = [
+  { label: "L", value: 1 },
+  { label: "M", value: 2 },
+  { label: "X", value: 3 },
+  { label: "J", value: 4 },
+  { label: "V", value: 5 },
+];
 
 export function ProjectBoard() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -212,10 +261,14 @@ export function ProjectBoard() {
   const [taskAreaId, setTaskAreaId] = useState("");
   const [taskAssigneeEmployeeId, setTaskAssigneeEmployeeId] = useState("");
   const [taskRecurrenceMode, setTaskRecurrenceMode] = useState<TaskRecurrenceMode>("none");
-  const [taskRecurrenceEvery, setTaskRecurrenceEvery] = useState("1");
+  const [taskRecurrenceStartDate, setTaskRecurrenceStartDate] = useState("");
   const [taskRecurrenceUntilDate, setTaskRecurrenceUntilDate] = useState("");
+  const [taskRecurrenceWeekDays, setTaskRecurrenceWeekDays] = useState<number[]>([]);
+  const [gridSortColumn, setGridSortColumn] = useState<ProjectGridSortColumn>("dates");
+  const [gridSortDirection, setGridSortDirection] = useState<SortDirection>("desc");
   const [isTaskAssigneeSelectOpen, setIsTaskAssigneeSelectOpen] = useState(false);
   const [taskAssigneeSearchTerm, setTaskAssigneeSearchTerm] = useState("");
+  const [taskAssigneeActiveIndex, setTaskAssigneeActiveIndex] = useState<number>(-1);
   const [movingTaskId, setMovingTaskId] = useState<number | null>(null);
   const [isCompletingTask, setIsCompletingTask] = useState(false);
   const [isCompletionModalOpen, setIsCompletionModalOpen] = useState(false);
@@ -232,6 +285,27 @@ export function ProjectBoard() {
   const [sourceEmployeeId, setSourceEmployeeId] = useState("");
   const [targetEmployeeId, setTargetEmployeeId] = useState("");
   const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
+  const recurrenceUntilInputRef = useRef<HTMLInputElement | null>(null);
+  const taskAssigneeInputRef = useRef<HTMLInputElement | null>(null);
+  const taskAssigneeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const {
+    columnWidths: gridColumnWidths,
+    startResize: startGridColumnResize,
+  } = useResizableColumns<ProjectGridSortColumn>({
+    initialWidths: PROJECT_GRID_INITIAL_WIDTHS,
+    defaultMinWidth: 96,
+    minWidthsByColumn: {
+      title: 220,
+      status: 100,
+      priority: 100,
+      assignee: 150,
+      dates: 140,
+      estimatedMinutes: 110,
+      actualMinutes: 100,
+      compliance: 130,
+    },
+    storageKey: "tasks:project-board:grid-column-widths",
+  });
 
   const numericProjectId = Number(projectId);
 
@@ -243,9 +317,13 @@ export function ProjectBoard() {
     setTaskEstimatedHours("");
     setTaskAreaId(project?.areaId ? String(project.areaId) : "");
     setTaskAssigneeEmployeeId("");
+    setTaskAssigneeSearchTerm("");
+    setIsTaskAssigneeSelectOpen(false);
+    setTaskAssigneeActiveIndex(-1);
     setTaskRecurrenceMode("none");
-    setTaskRecurrenceEvery("1");
+    setTaskRecurrenceStartDate("");
     setTaskRecurrenceUntilDate("");
+    setTaskRecurrenceWeekDays([]);
   };
 
   const loadProject = useCallback(async () => {
@@ -421,7 +499,7 @@ export function ProjectBoard() {
   const taskAssigneeSearchOptions = useMemo(
     () => taskAssigneeEmployeeOptions.map((employee) => ({
       value: String(employee.id),
-      label: `${employee.name} (${employee.email})`,
+      label: employee.name,
     })),
     [taskAssigneeEmployeeOptions],
   );
@@ -440,6 +518,266 @@ export function ProjectBoard() {
     () => taskAssigneeSearchOptions.find((option) => option.value === taskAssigneeEmployeeId),
     [taskAssigneeEmployeeId, taskAssigneeSearchOptions],
   );
+  const employeesById = useMemo(
+    () => new Map(employees.map((employee) => [employee.id, employee])),
+    [employees],
+  );
+
+  const taskAssigneeInputValue = taskAssigneeSearchTerm || selectedTaskAssigneeOption?.label || "";
+  const isDailyRecurrence = taskRecurrenceMode === "daily";
+  const isWeekdaySelectorVisible = taskRecurrenceMode === "weekly" || taskRecurrenceMode === "range_interval";
+  const recurrenceUntilLabel = taskRecurrenceUntilDate
+    ? new Date(`${taskRecurrenceUntilDate}T12:00:00`).toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    })
+    : "Definir fecha límite";
+
+  const toggleTaskRecurrenceWeekDay = (weekDay: number) => {
+    if (weekDay < 1 || weekDay > 5) {
+      return;
+    }
+
+    setTaskRecurrenceWeekDays((previous) => (
+      previous.includes(weekDay)
+        ? previous.filter((value) => value !== weekDay)
+        : [...previous, weekDay]
+          .filter((value) => value >= 1 && value <= 5)
+          .sort((left, right) => left - right)
+    ));
+  };
+
+  const openRecurrenceUntilPicker = () => {
+    const input = recurrenceUntilInputRef.current as (HTMLInputElement & { showPicker?: () => void }) | null;
+    if (!input) return;
+
+    if (typeof input.showPicker === "function") {
+      input.showPicker();
+      return;
+    }
+
+    input.focus();
+    input.click();
+  };
+
+  const selectTaskAssigneeOption = useCallback((option: { value: string; label: string }) => {
+    setTaskAssigneeEmployeeId(option.value);
+    setTaskAssigneeSearchTerm(option.label);
+    setIsTaskAssigneeSelectOpen(false);
+    setTaskAssigneeActiveIndex(-1);
+  }, []);
+
+  useEffect(() => {
+    if (!isTaskAssigneeSelectOpen) {
+      setTaskAssigneeActiveIndex(-1);
+      return;
+    }
+
+    if (visibleTaskAssigneeOptions.length === 0) {
+      setTaskAssigneeActiveIndex(-1);
+      return;
+    }
+
+    setTaskAssigneeActiveIndex((previous) => {
+      if (previous >= 0 && previous < visibleTaskAssigneeOptions.length) {
+        return previous;
+      }
+      return 0;
+    });
+  }, [isTaskAssigneeSelectOpen, visibleTaskAssigneeOptions]);
+
+  useEffect(() => {
+    if (!isTaskAssigneeSelectOpen || taskAssigneeActiveIndex < 0) {
+      return;
+    }
+
+    taskAssigneeOptionRefs.current[taskAssigneeActiveIndex]?.scrollIntoView({
+      block: "nearest",
+    });
+  }, [isTaskAssigneeSelectOpen, taskAssigneeActiveIndex]);
+
+  useEffect(() => {
+    if (taskRecurrenceMode === "none") {
+      setTaskRecurrenceWeekDays([]);
+      return;
+    }
+
+    if (!taskRecurrenceStartDate && taskPlannedStartDate) {
+      setTaskRecurrenceStartDate(taskPlannedStartDate);
+    }
+
+    if (isWeekdaySelectorVisible && taskRecurrenceWeekDays.length === 0) {
+      const sourceDate = taskRecurrenceStartDate || taskPlannedStartDate || toInputDate(new Date());
+      const weekDay = new Date(sourceDate).getUTCDay();
+      const normalizedWeekDay = weekDay === 0 || weekDay === 6 ? 1 : weekDay;
+      setTaskRecurrenceWeekDays([normalizedWeekDay]);
+    }
+  }, [
+    isWeekdaySelectorVisible,
+    taskPlannedStartDate,
+    taskRecurrenceMode,
+    taskRecurrenceStartDate,
+    taskRecurrenceWeekDays.length,
+  ]);
+
+  useEffect(() => {
+    if (!isTaskAssigneeSelectOpen) {
+      return;
+    }
+
+    const rafId = window.requestAnimationFrame(() => {
+      taskAssigneeInputRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(rafId);
+  }, [isTaskAssigneeSelectOpen]);
+
+  const sortedGridTasks = useMemo(() => {
+    const compareText = (left: string, right: string) => left.localeCompare(right, "es", { sensitivity: "base" });
+    const compareNumber = (left: number, right: number) => left - right;
+    const compareDate = (left: string, right: string) => new Date(left).getTime() - new Date(right).getTime();
+
+    const statusRank = (value: string) => {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === "asignada") return 1;
+      if (normalized === "en proceso") return 2;
+      if (normalized === "terminada") return 3;
+      return 99;
+    };
+
+    const priorityRank = (value: string) => {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === "baja") return 1;
+      if (normalized === "media") return 2;
+      if (normalized === "alta") return 3;
+      return 99;
+    };
+
+    const complianceRank = (task: TaskSummary) => {
+      if (task.isDateOverdue) return 3;
+      if (task.isEstimateDelayed === true) return 2;
+      return 1;
+    };
+
+    return [...tasks].sort((a, b) => {
+      let result = 0;
+
+      switch (gridSortColumn) {
+        case "title":
+          result = compareText(a.title, b.title);
+          break;
+        case "status":
+          result = compareNumber(statusRank(a.status), statusRank(b.status));
+          break;
+        case "priority":
+          result = compareNumber(priorityRank(a.priority), priorityRank(b.priority));
+          break;
+        case "assignee":
+          result = compareText(a.assigneeName ?? "", b.assigneeName ?? "");
+          break;
+        case "dates":
+          result = compareDate(a.dueDate, b.dueDate);
+          if (result === 0) {
+            result = compareDate(a.plannedStartDate, b.plannedStartDate);
+          }
+          break;
+        case "estimatedMinutes":
+          result = compareNumber(a.estimatedMinutes ?? 0, b.estimatedMinutes ?? 0);
+          break;
+        case "actualMinutes":
+          result = compareNumber(a.actualMinutes ?? 0, b.actualMinutes ?? 0);
+          break;
+        case "compliance":
+          result = compareNumber(complianceRank(a), complianceRank(b));
+          break;
+        default:
+          result = compareDate(a.dueDate, b.dueDate);
+          break;
+      }
+
+      if (result === 0) {
+        return compareNumber(a.id, b.id);
+      }
+
+      return gridSortDirection === "asc" ? result : -result;
+    });
+  }, [gridSortColumn, gridSortDirection, tasks]);
+
+  const getInitialGridSortDirection = (column: ProjectGridSortColumn): SortDirection => {
+    if (column === "dates" || column === "estimatedMinutes" || column === "actualMinutes") {
+      return "desc";
+    }
+    return "asc";
+  };
+
+  const toggleGridSort = (column: ProjectGridSortColumn) => {
+    if (gridSortColumn !== column) {
+      setGridSortColumn(column);
+      setGridSortDirection(getInitialGridSortDirection(column));
+      return;
+    }
+
+    setGridSortDirection((previous) => (previous === "asc" ? "desc" : "asc"));
+  };
+
+  const getGridColumnStyle = (column: ProjectGridSortColumn) => ({
+    width: `${gridColumnWidths[column]}px`,
+    minWidth: `${gridColumnWidths[column]}px`,
+    maxWidth: `${gridColumnWidths[column]}px`,
+  });
+
+  const renderGridResizeHandle = (column: ProjectGridSortColumn) => (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Redimensionar columna ${column}`}
+      className="absolute right-0 top-0 h-full w-3 cursor-col-resize touch-none select-none"
+      onMouseDown={(event) => startGridColumnResize(column, event)}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <span className="pointer-events-none absolute right-0 top-1/2 h-5 -translate-y-1/2 border-r border-border/90" />
+    </span>
+  );
+
+  const GridSortableHeader = ({
+    label,
+    column,
+  }: {
+    label: string;
+    column: ProjectGridSortColumn;
+  }) => {
+    const isActive = gridSortColumn === column;
+    const icon = isActive && gridSortDirection === "asc"
+      ? <ChevronUp className="size-3.5" />
+      : <ChevronDown className="size-3.5" />;
+
+    return (
+      <button
+        type="button"
+        onClick={() => toggleGridSort(column)}
+        className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {label}
+        <span className={isActive ? "text-foreground" : "text-muted-foreground/70"}>
+          {icon}
+        </span>
+      </button>
+    );
+  };
+
+  const projectGridTableMinWidth = useMemo(() => {
+    const base = gridColumnWidths.title
+      + gridColumnWidths.status
+      + gridColumnWidths.priority
+      + gridColumnWidths.assignee
+      + gridColumnWidths.dates
+      + gridColumnWidths.estimatedMinutes
+      + gridColumnWidths.actualMinutes
+      + gridColumnWidths.compliance;
+
+    return isAdmin ? base + PROJECT_GRID_ACTIONS_WIDTH : base;
+  }, [gridColumnWidths, isAdmin]);
 
   const kanbanTasks = useMemo(() => {
     const grouped: Record<TaskWorkflowStatus, TaskSummary[]> = {
@@ -704,6 +1042,9 @@ export function ProjectBoard() {
           : "",
     );
     setTaskAssigneeEmployeeId(task.assigneeEmployeeId ? String(task.assigneeEmployeeId) : "");
+    setTaskAssigneeSearchTerm("");
+    setIsTaskAssigneeSelectOpen(false);
+    setTaskAssigneeActiveIndex(-1);
     setError("");
     setSuccess("");
     setIsTaskModalOpen(true);
@@ -735,9 +1076,6 @@ export function ProjectBoard() {
     const selectedEmployeeId = taskAssigneeEmployeeId
       ? Number(taskAssigneeEmployeeId)
       : null;
-    const recurrenceEveryValue = taskRecurrenceEvery.trim()
-      ? Number(taskRecurrenceEvery)
-      : 1;
     const hasRecurrence = !editingTaskId && taskRecurrenceMode !== "none";
     const estimatedMinutes = estimatedHours === null ? null : Math.round(estimatedHours * 60);
 
@@ -771,18 +1109,26 @@ export function ProjectBoard() {
     }
 
     if (hasRecurrence) {
-      if (!Number.isInteger(recurrenceEveryValue) || recurrenceEveryValue <= 0) {
-        toast.error("La recurrencia debe tener un intervalo entero mayor a 0.");
-        return;
-      }
+      const recurrenceStartDate = isDailyRecurrence
+        ? resolvedTaskPlannedStartDate
+        : (taskRecurrenceStartDate || resolvedTaskPlannedStartDate);
 
       if (!taskRecurrenceUntilDate) {
         toast.error("Define una fecha final para la recurrencia.");
         return;
       }
 
-      if (taskRecurrenceUntilDate < resolvedTaskDueDate) {
-        toast.error("La fecha final de recurrencia debe ser mayor o igual a la fecha de fin.");
+      if (taskRecurrenceUntilDate < recurrenceStartDate) {
+        toast.error(
+          isDailyRecurrence
+            ? "La fecha final de recurrencia debe ser mayor o igual a la fecha de inicio de la tarea."
+            : "La fecha final de recurrencia debe ser mayor o igual a la fecha de inicio del rango.",
+        );
+        return;
+      }
+
+      if (isWeekdaySelectorVisible && taskRecurrenceWeekDays.length === 0) {
+        toast.error("Selecciona al menos un día de la semana para la recurrencia.");
         return;
       }
     }
@@ -825,13 +1171,16 @@ export function ProjectBoard() {
           taskPriorityId: 2,
           assigneeMembershipId,
           estimatedMinutes,
-          recurrence: hasRecurrence
-            ? {
-                frequency: taskRecurrenceMode,
-                every: recurrenceEveryValue,
-                untilDate: taskRecurrenceUntilDate,
-              }
-            : undefined,
+              recurrence: hasRecurrence
+                ? {
+                    frequency: taskRecurrenceMode,
+                    startDate: isDailyRecurrence
+                      ? undefined
+                      : (taskRecurrenceStartDate || resolvedTaskPlannedStartDate),
+                    untilDate: taskRecurrenceUntilDate,
+                    weekDays: isWeekdaySelectorVisible ? taskRecurrenceWeekDays : undefined,
+                  }
+                : undefined,
         });
         const createdCount = createResponse?.data?.createdCount ?? 1;
         setSuccess(
@@ -877,7 +1226,7 @@ export function ProjectBoard() {
   const executeTaskTransition = async (
     taskId: number,
     toStatus: TaskWorkflowStatus,
-    completionPayload?: { actualMinutes: number; completionEvidence: string | null },
+    completionPayload?: { actualMinutes: number; completionEvidence: string | null; completionEvidenceLink: string | null },
   ) => {
     const taskToMove = tasks.find((task) => task.id === taskId);
     if (!taskToMove) {
@@ -923,6 +1272,7 @@ export function ProjectBoard() {
         notes: toStatus === "done" ? "Finalización confirmada desde modal de cierre." : null,
         actualMinutes: toStatus === "done" ? (completionPayload?.actualMinutes ?? null) : undefined,
         completionEvidence: toStatus === "done" ? (completionPayload?.completionEvidence ?? null) : undefined,
+        completionEvidenceLink: toStatus === "done" ? (completionPayload?.completionEvidenceLink ?? null) : undefined,
       });
       const updatedTask = response?.data?.task;
 
@@ -1000,6 +1350,7 @@ export function ProjectBoard() {
   const handleConfirmTaskCompletion = async (payload: {
     actualMinutes: number;
     completionEvidence: string | null;
+    completionEvidenceLink: string | null;
   }) => {
     if (!pendingCompletionTask) return;
     setIsCompletingTask(true);
@@ -1165,22 +1516,60 @@ export function ProjectBoard() {
             <>
               {taskViewMode === "grid" && (
                 <div className="overflow-x-auto">
-                  <table className="app-table">
+                  <table
+                    className="app-table table-fixed"
+                    style={{ minWidth: `${projectGridTableMinWidth}px` }}
+                  >
                     <thead className="app-table-head">
                       <tr>
-                        <th className="app-th">Tarea</th>
-                        <th className="app-th">Estado</th>
-                        <th className="app-th">Prioridad</th>
-                        <th className="app-th">Asignado</th>
-                        <th className="app-th">Fechas</th>
-                        <th className="app-th">Estimado</th>
-                        <th className="app-th">Real</th>
-                        <th className="app-th">Cumplimiento</th>
-                        {isAdmin && <th className="app-th">Acciones</th>}
+                        <th className="app-th relative" style={getGridColumnStyle("title")}>
+                          <GridSortableHeader label="Tarea" column="title" />
+                          {renderGridResizeHandle("title")}
+                        </th>
+                        <th className="app-th relative" style={getGridColumnStyle("status")}>
+                          <GridSortableHeader label="Estado" column="status" />
+                          {renderGridResizeHandle("status")}
+                        </th>
+                        <th className="app-th relative" style={getGridColumnStyle("priority")}>
+                          <GridSortableHeader label="Prioridad" column="priority" />
+                          {renderGridResizeHandle("priority")}
+                        </th>
+                        <th className="app-th relative" style={getGridColumnStyle("assignee")}>
+                          <GridSortableHeader label="Asignado" column="assignee" />
+                          {renderGridResizeHandle("assignee")}
+                        </th>
+                        <th className="app-th relative" style={getGridColumnStyle("dates")}>
+                          <GridSortableHeader label="Fechas" column="dates" />
+                          {renderGridResizeHandle("dates")}
+                        </th>
+                        <th className="app-th relative" style={getGridColumnStyle("estimatedMinutes")}>
+                          <GridSortableHeader label="Estimado" column="estimatedMinutes" />
+                          {renderGridResizeHandle("estimatedMinutes")}
+                        </th>
+                        <th className="app-th relative" style={getGridColumnStyle("actualMinutes")}>
+                          <GridSortableHeader label="Real" column="actualMinutes" />
+                          {renderGridResizeHandle("actualMinutes")}
+                        </th>
+                        <th className="app-th relative" style={getGridColumnStyle("compliance")}>
+                          <GridSortableHeader label="Cumplimiento" column="compliance" />
+                          {renderGridResizeHandle("compliance")}
+                        </th>
+                        {isAdmin && (
+                          <th
+                            className="app-th"
+                            style={{
+                              width: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
+                              minWidth: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
+                              maxWidth: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
+                            }}
+                          >
+                            Acciones
+                          </th>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
-                      {tasks.map((task) => (
+                      {sortedGridTasks.map((task) => (
                         <tr
                           key={task.id}
                           className={`app-row cursor-pointer ${
@@ -1193,7 +1582,7 @@ export function ProjectBoard() {
                             }
                           }}
                         >
-                          <td className="app-td">
+                          <td className="app-td align-top" style={getGridColumnStyle("title")}>
                             <p className="font-medium">{task.title}</p>
                             <p className="text-muted-foreground">{task.description ?? "Sin descripcion"}</p>
                             {task.completionEvidence ? (
@@ -1201,21 +1590,51 @@ export function ProjectBoard() {
                                 Evidencia: {task.completionEvidence}
                               </p>
                             ) : null}
+                            {task.completionEvidenceLink ? (
+                              <p className="mt-1 text-xs text-primary line-clamp-1">
+                                Link:
+                                {" "}
+                                <a
+                                  href={task.completionEvidenceLink}
+                                  target="_blank"
+                                  rel="noreferrer noopener"
+                                  className="underline decoration-primary/70 underline-offset-2 hover:text-primary-hover"
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  Abrir evidencia
+                                </a>
+                              </p>
+                            ) : null}
                           </td>
-                          <td className="app-td">{task.status}</td>
-                          <td className="app-td">{task.priority}</td>
-                          <td className="app-td">
-                            {task.assigneeName ? `${task.assigneeName} (${task.assigneeEmail})` : "Sin asignar"}
+                          <td className="app-td" style={getGridColumnStyle("status")}>{task.status}</td>
+                          <td className="app-td" style={getGridColumnStyle("priority")}>{task.priority}</td>
+                          <td className="app-td" style={getGridColumnStyle("assignee")}>
+                            {task.assigneeName ? (
+                              <div className="flex items-center gap-2">
+                                <Avatar className="size-6 border border-border/80 bg-secondary/60">
+                                  {task.assigneeEmployeeId && employeesById.get(task.assigneeEmployeeId)?.image ? (
+                                    <AvatarImage
+                                      src={employeesById.get(task.assigneeEmployeeId)?.image ?? undefined}
+                                      alt={task.assigneeName}
+                                    />
+                                  ) : null}
+                                  <AvatarFallback className="bg-secondary text-[10px] font-semibold text-foreground">
+                                    {getInitials(task.assigneeName)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="truncate">{task.assigneeName}</span>
+                              </div>
+                            ) : "Sin asignar"}
                           </td>
-                          <td className="app-td">
+                          <td className="app-td" style={getGridColumnStyle("dates")}>
                             <p>Inicio: {task.plannedStartDate}</p>
                             <p>Limite: {task.dueDate}</p>
                           </td>
-                          <td className="app-td">
+                          <td className="app-td" style={getGridColumnStyle("estimatedMinutes")}>
                             {task.estimatedMinutes ? `${task.estimatedMinutes} min` : "-"}
                           </td>
-                          <td className="app-td">{formatMinutes(task.actualMinutes)}</td>
-                          <td className="app-td">
+                          <td className="app-td" style={getGridColumnStyle("actualMinutes")}>{formatMinutes(task.actualMinutes)}</td>
+                          <td className="app-td" style={getGridColumnStyle("compliance")}>
                             <span className={getComplianceBadge(task).className}>
                               {getComplianceBadge(task).label}
                             </span>
@@ -1226,27 +1645,42 @@ export function ProjectBoard() {
                             )}
                           </td>
                           {isAdmin && (
-                            <td className="app-td">
-                              <div className="flex items-center gap-3">
-                                <button
-                                  type="button"
-                                  onClick={() => startTaskEdit(task)}
-                                  className="app-btn-secondary size-8 p-0 text-foreground/80 hover:text-foreground"
-                                  aria-label="Editar tarea"
-                                  title="Editar"
-                                >
-                                  <Pencil className="size-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setPendingDeleteTask(task)}
-                                  className="inline-flex size-8 items-center justify-center rounded-md border border-destructive/45 bg-destructive/12 text-destructive transition-colors hover:bg-destructive/18"
-                                  aria-label="Eliminar tarea"
-                                  title="Eliminar"
-                                >
-                                  <Trash2 className="size-4" />
-                                </button>
-                              </div>
+                            <td
+                              className="app-td"
+                              style={{
+                                width: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
+                                minWidth: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
+                                maxWidth: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
+                              }}
+                            >
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    className="app-btn-secondary size-8 p-0"
+                                    aria-label={`Acciones de ${task.title}`}
+                                    onClick={(event) => event.stopPropagation()}
+                                  >
+                                    <MoreVertical className="size-4" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44">
+                                  <DropdownMenuItem
+                                    onClick={() => startTaskEdit(task)}
+                                  >
+                                    <Pencil className="size-4" />
+                                    Editar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => setPendingDeleteTask(task)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="size-4" />
+                                    Eliminar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </td>
                           )}
                         </tr>
@@ -1479,6 +1913,21 @@ export function ProjectBoard() {
                                     Evidencia: {task.completionEvidence}
                                   </p>
                                 ) : null}
+                                {task.completionEvidenceLink ? (
+                                  <p className="mt-1 line-clamp-1 text-xs text-primary">
+                                    Link:
+                                    {" "}
+                                    <a
+                                      href={task.completionEvidenceLink}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className="underline decoration-primary/70 underline-offset-2 hover:text-primary-hover"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      Abrir evidencia
+                                    </a>
+                                  </p>
+                                ) : null}
                                 <p className={`mt-1 text-xs ${getComplianceBadge(task).className}`}>
                                   {getComplianceBadge(task).label}
                                 </p>
@@ -1584,7 +2033,7 @@ export function ProjectBoard() {
               <textarea
                 value={taskDescription}
                 onChange={(event) => setTaskDescription(event.target.value)}
-                className="app-control min-h-24"
+                className="app-control min-h-24 pt-2"
                 rows={3}
                 placeholder="Describe brevemente la tarea"
               />
@@ -1608,6 +2057,9 @@ export function ProjectBoard() {
                 onChange={(event) => {
                   setTaskAreaId(event.target.value);
                   setTaskAssigneeEmployeeId("");
+                  setTaskAssigneeSearchTerm("");
+                  setIsTaskAssigneeSelectOpen(false);
+                  setTaskAssigneeActiveIndex(-1);
                 }}
                 className="app-control"
               >
@@ -1624,7 +2076,13 @@ export function ProjectBoard() {
               <input
                 type="date"
                 value={taskPlannedStartDate}
-                onChange={(event) => setTaskPlannedStartDate(event.target.value)}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  setTaskPlannedStartDate(nextValue);
+                  if (taskRecurrenceMode !== "none" && !taskRecurrenceStartDate) {
+                    setTaskRecurrenceStartDate(nextValue);
+                  }
+                }}
                 className="app-control"
               />
             </div>
@@ -1638,114 +2096,263 @@ export function ProjectBoard() {
               />
             </div>
             {!editingTaskId && (
-              <div className="md:col-span-2 rounded-xl border border-border bg-background/70 p-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Repetición (opcional)</label>
-                    <select
-                      value={taskRecurrenceMode}
-                      onChange={(event) => setTaskRecurrenceMode(event.target.value as TaskRecurrenceMode)}
-                      className="app-control"
-                    >
-                      <option value="none">No repetir</option>
-                      <option value="daily">Cada día</option>
-                      <option value="weekly">Cada semana</option>
-                      <option value="monthly">Cada mes</option>
-                      <option value="range_interval">Rango cada cierto tiempo</option>
-                    </select>
-                  </div>
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Repetición (opcional)</label>
+                  <select
+                    value={taskRecurrenceMode}
+                    onChange={(event) => {
+                      const nextMode = event.target.value as TaskRecurrenceMode;
+                      setTaskRecurrenceMode(nextMode);
 
-                  {taskRecurrenceMode !== "none" && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">
-                          Cada cuántos {taskRecurrenceMode === "weekly"
-                            ? "semanas"
-                            : taskRecurrenceMode === "monthly"
-                              ? "meses"
-                              : "días"}
-                        </label>
-                        <input
-                          type="number"
-                          min={1}
-                          step={1}
-                          value={taskRecurrenceEvery}
-                          onChange={(event) => setTaskRecurrenceEvery(event.target.value)}
-                          className="app-control"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium mb-1">Repetir hasta</label>
-                        <input
-                          type="date"
-                          value={taskRecurrenceUntilDate}
-                          onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
-                          className="app-control"
-                        />
-                      </div>
-                    </>
-                  )}
+                      if (nextMode === "none") {
+                        setTaskRecurrenceStartDate("");
+                        setTaskRecurrenceUntilDate("");
+                        setTaskRecurrenceWeekDays([]);
+                        return;
+                      }
+
+                      if (nextMode === "daily") {
+                        setTaskRecurrenceWeekDays([]);
+                      }
+
+                      if (!taskRecurrenceStartDate) {
+                        setTaskRecurrenceStartDate(taskPlannedStartDate);
+                      }
+                    }}
+                    className="app-control"
+                  >
+                    <option value="none">No repetir</option>
+                    <option value="daily">Cada día</option>
+                    <option value="weekly">Cada semana</option>
+                    <option value="range_interval">Personalizado</option>
+                  </select>
                 </div>
-              </div>
+
+                {taskRecurrenceMode !== "none" && isDailyRecurrence && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-foreground">Fecha límite</label>
+                    <button
+                      type="button"
+                      onClick={openRecurrenceUntilPicker}
+                      className="app-btn-secondary h-10 w-full justify-start px-3 text-sm"
+                    >
+                      <CalendarClock className="size-4 text-primary" />
+                      {recurrenceUntilLabel}
+                    </button>
+                    <input
+                      ref={recurrenceUntilInputRef}
+                      type="date"
+                      value={taskRecurrenceUntilDate}
+                      onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    />
+                  </div>
+                )}
+
+                {taskRecurrenceMode !== "none" && !isDailyRecurrence && (
+                  <div className={cn(
+                    "md:col-span-2 grid grid-cols-1 gap-3",
+                    isWeekdaySelectorVisible && "md:grid-cols-2",
+                  )}
+                  >
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Rango de fechas</label>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Desde</label>
+                          <input
+                            type="date"
+                            value={taskRecurrenceStartDate}
+                            onChange={(event) => setTaskRecurrenceStartDate(event.target.value)}
+                            className="app-control"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-muted-foreground mb-1">Hasta</label>
+                          <input
+                            type="date"
+                            value={taskRecurrenceUntilDate}
+                            onChange={(event) => setTaskRecurrenceUntilDate(event.target.value)}
+                            className="app-control"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {isWeekdaySelectorVisible && (
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Días de la semana</label>
+                        <div className="flex flex-wrap gap-2">
+                          {TASK_RECURRENCE_WEEKDAY_OPTIONS.map((weekDayOption) => {
+                            const isSelected = taskRecurrenceWeekDays.includes(weekDayOption.value);
+                            return (
+                              <button
+                                key={weekDayOption.value}
+                                type="button"
+                                onClick={() => toggleTaskRecurrenceWeekDay(weekDayOption.value)}
+                                className={cn(
+                                  "inline-flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-semibold transition-colors",
+                                  isSelected
+                                    ? "border-primary/70 bg-primary/18 text-primary"
+                                    : "border-border bg-background/50 text-muted-foreground hover:text-foreground",
+                                )}
+                                aria-pressed={isSelected}
+                                aria-label={`Repetir los ${weekDayOption.label}`}
+                              >
+                                {weekDayOption.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
             )}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Empleado</label>
               <Popover open={isTaskAssigneeSelectOpen} onOpenChange={setIsTaskAssigneeSelectOpen}>
-                <PopoverTrigger asChild>
-                  <button
-                    type="button"
-                    aria-expanded={isTaskAssigneeSelectOpen}
-                    className="app-control inline-flex h-10 w-full items-center justify-between gap-2 bg-card/95"
-                    disabled={taskAssigneeSearchOptions.length === 0}
-                  >
-                    <span className="inline-flex min-w-0 items-center gap-2">
-                      <Search className={cn("size-4 shrink-0", isTaskAssigneeSelectOpen ? "text-primary" : "text-muted-foreground")} />
-                      <span className={cn("truncate", selectedTaskAssigneeOption ? "text-foreground" : "text-muted-foreground")}>
-                        {selectedTaskAssigneeOption?.label ?? "Buscar empleado..."}
-                      </span>
-                    </span>
-                    <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
-                  </button>
-                </PopoverTrigger>
+                <PopoverAnchor asChild>
+                  <div className="relative">
+                    <Search className={cn("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2", isTaskAssigneeSelectOpen ? "text-primary" : "text-muted-foreground")} />
+                    <input
+                      ref={taskAssigneeInputRef}
+                      type="text"
+                      value={taskAssigneeInputValue}
+                      onFocus={() => {
+                        if (taskAssigneeSearchOptions.length > 0) {
+                          setIsTaskAssigneeSelectOpen(true);
+                          setTaskAssigneeActiveIndex(0);
+                        }
+                      }}
+                      onClick={() => {
+                        if (taskAssigneeSearchOptions.length > 0) {
+                          setIsTaskAssigneeSelectOpen(true);
+                          setTaskAssigneeActiveIndex(0);
+                        }
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                          if (visibleTaskAssigneeOptions.length === 0) {
+                            return;
+                          }
+
+                          event.preventDefault();
+                          if (!isTaskAssigneeSelectOpen) {
+                            setIsTaskAssigneeSelectOpen(true);
+                            setTaskAssigneeActiveIndex(event.key === "ArrowDown" ? 0 : visibleTaskAssigneeOptions.length - 1);
+                            return;
+                          }
+
+                          const direction = event.key === "ArrowDown" ? 1 : -1;
+                          setTaskAssigneeActiveIndex((previous) => {
+                            if (previous < 0) {
+                              return direction > 0 ? 0 : visibleTaskAssigneeOptions.length - 1;
+                            }
+
+                            const next = previous + direction;
+                            if (next < 0) {
+                              return visibleTaskAssigneeOptions.length - 1;
+                            }
+                            if (next >= visibleTaskAssigneeOptions.length) {
+                              return 0;
+                            }
+                            return next;
+                          });
+                          return;
+                        }
+
+                        if (event.key === "Enter" && isTaskAssigneeSelectOpen) {
+                          if (visibleTaskAssigneeOptions.length === 0) {
+                            return;
+                          }
+
+                          event.preventDefault();
+                          const selectedIndex = taskAssigneeActiveIndex >= 0
+                            ? taskAssigneeActiveIndex
+                            : 0;
+                          const selectedOption = visibleTaskAssigneeOptions[selectedIndex];
+                          if (selectedOption) {
+                            selectTaskAssigneeOption(selectedOption);
+                          }
+                          return;
+                        }
+
+                        if (event.key === "Escape") {
+                          setIsTaskAssigneeSelectOpen(false);
+                          setTaskAssigneeActiveIndex(-1);
+                        }
+                      }}
+                      onChange={(event) => {
+                        setTaskAssigneeSearchTerm(event.target.value);
+                        setTaskAssigneeEmployeeId("");
+                        if (!isTaskAssigneeSelectOpen && taskAssigneeSearchOptions.length > 0) {
+                          setIsTaskAssigneeSelectOpen(true);
+                        }
+                        setTaskAssigneeActiveIndex(0);
+                      }}
+                      disabled={taskAssigneeSearchOptions.length === 0}
+                      className="app-control h-10 w-full bg-card/95 pl-9 pr-10"
+                      placeholder="Buscar empleado..."
+                    />
+                    <button
+                      type="button"
+                      aria-label="Mostrar empleados"
+                      className="absolute right-2 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={taskAssigneeSearchOptions.length === 0}
+                      onClick={() => {
+                        setIsTaskAssigneeSelectOpen((previous) => {
+                          const next = !previous;
+                          setTaskAssigneeActiveIndex(next ? 0 : -1);
+                          return next;
+                        });
+                      }}
+                    >
+                      <ChevronDown className={cn("size-4 transition-transform", isTaskAssigneeSelectOpen && "rotate-180")} />
+                    </button>
+                  </div>
+                </PopoverAnchor>
                 <PopoverContent
                   side="bottom"
                   align="start"
                   avoidCollisions={false}
                   sideOffset={6}
+                  onOpenAutoFocus={(event) => event.preventDefault()}
                   className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/90 bg-card/98 p-0"
                 >
-                  <Command className="bg-card">
-                    <CommandInput
-                      value={taskAssigneeSearchTerm}
-                      onValueChange={setTaskAssigneeSearchTerm}
-                      placeholder="Buscar empleado..."
-                    />
-                    <CommandList>
-                      <CommandEmpty>Sin empleados disponibles.</CommandEmpty>
-                      <CommandGroup>
-                        {visibleTaskAssigneeOptions.map((option) => (
-                          <CommandItem
-                            key={option.value}
-                            value={option.label}
-                            onSelect={() => {
-                              setTaskAssigneeEmployeeId(option.value);
-                              setTaskAssigneeSearchTerm("");
-                              setIsTaskAssigneeSelectOpen(false);
-                            }}
-                            className="gap-2"
-                          >
-                            <Check
-                              className={cn(
-                                "size-4 text-primary transition-opacity",
-                                taskAssigneeEmployeeId === option.value ? "opacity-100" : "opacity-0",
-                              )}
-                            />
-                            <span className="truncate">{option.label}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
+                  <div className="max-h-64 overflow-y-auto p-1">
+                    {visibleTaskAssigneeOptions.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-muted-foreground">Sin empleados disponibles.</p>
+                    ) : (
+                      visibleTaskAssigneeOptions.map((option, index) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          ref={(element) => {
+                            taskAssigneeOptionRefs.current[index] = element;
+                          }}
+                          onMouseEnter={() => setTaskAssigneeActiveIndex(index)}
+                          onClick={() => selectTaskAssigneeOption(option)}
+                          className={cn(
+                            "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/70",
+                            taskAssigneeActiveIndex === index && "bg-secondary/70",
+                          )}
+                        >
+                          <Check
+                            className={cn(
+                              "size-4 text-primary transition-opacity",
+                              taskAssigneeEmployeeId === option.value ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          <span className="truncate">{option.label}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
                 </PopoverContent>
               </Popover>
               {taskAreaId && taskAssigneeEmployeeOptions.length === 0 && (
@@ -1779,7 +2386,7 @@ export function ProjectBoard() {
       </Dialog>
 
       <Dialog
-        open={isEmployeeTaskDetailModalOpen}
+        open={isEmployeeTaskDetailModalOpen && !isCompletionModalOpen}
         onOpenChange={(open) => {
           setIsEmployeeTaskDetailModalOpen(open);
           if (!open) {

@@ -18,6 +18,7 @@ export interface TaskSummary {
   estimatedMinutes: number | null;
   reportedActualMinutes: number | null;
   completionEvidence: string | null;
+  completionEvidenceLink: string | null;
   actualMinutes: number;
   deviationMinutes: number | null;
   isEstimateDelayed: boolean | null;
@@ -47,7 +48,9 @@ export type TaskRecurrenceFrequency = "daily" | "weekly" | "monthly" | "range_in
 export interface TaskCreateRecurrence {
   frequency: TaskRecurrenceFrequency;
   every?: number;
+  startDate?: string;
   untilDate: string;
+  weekDays?: number[];
 }
 
 export interface CreateTaskResponse {
@@ -79,6 +82,7 @@ export interface TransitionTaskStatusPayload {
   toStatus: TaskWorkflowStatus;
   actualMinutes?: number | null;
   completionEvidence?: string | null;
+  completionEvidenceLink?: string | null;
   notes?: string | null;
 }
 
@@ -198,8 +202,10 @@ export const createTask = (payload: CreateTaskPayload) =>
     recurrence: payload.recurrence
       ? {
           frequency: payload.recurrence.frequency,
-          every: payload.recurrence.every ?? 1,
+          every: payload.recurrence.every,
+          startDate: payload.recurrence.startDate,
           untilDate: payload.recurrence.untilDate,
+          weekDays: payload.recurrence.weekDays,
         }
       : undefined,
   }, {
@@ -221,14 +227,16 @@ export const createStandaloneTask = (payload: CreateStandaloneTaskPayload) =>
     recurrence: payload.recurrence
       ? {
           frequency: payload.recurrence.frequency,
-          every: payload.recurrence.every ?? 1,
+          every: payload.recurrence.every,
+          startDate: payload.recurrence.startDate,
           untilDate: payload.recurrence.untilDate,
+          weekDays: payload.recurrence.weekDays,
         }
       : undefined,
   }, {
     toast: {
-      successMessage: "Tarea suelta creada correctamente.",
-      errorMessage: "No fue posible crear la tarea suelta.",
+      successMessage: "Tarea independiente creada correctamente.",
+      errorMessage: "No fue posible crear la tarea independiente.",
     },
   });
 
@@ -265,6 +273,7 @@ export const transitionTaskStatus = (
   toStatus: payload.toStatus,
   actualMinutes: withNullableInt(payload.actualMinutes),
   completionEvidence: withNullableString(payload.completionEvidence),
+  completionEvidenceLink: withNullableString(payload.completionEvidenceLink),
   notes: payload.notes ?? null,
 }, {
   toast: {

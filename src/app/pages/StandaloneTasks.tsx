@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, ClipboardList, Clock3, ListFilter, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ClipboardList, Clock3, KanbanSquare, LayoutGrid, ListFilter, Plus, Search, Trash2, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
@@ -35,6 +35,7 @@ import {
   listEmployees,
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
+import { useResizableColumns } from "../../shared/hooks/useResizableColumns";
 
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString("es-ES", {
@@ -95,6 +96,45 @@ const getInitials = (value: string | null) => {
 
 type PriorityFilter = "all" | "high" | "medium" | "low";
 type TaskStatusLabel = "Asignada" | "En proceso" | "Terminada";
+type StandaloneTaskViewMode = "list" | "kanban";
+type StandaloneSortColumn =
+  | "title"
+  | "project"
+  | "assignee"
+  | "status"
+  | "priority"
+  | "startDate"
+  | "dueDate"
+  | "estimatedMinutes"
+  | "actualMinutes";
+type SortDirection = "asc" | "desc";
+
+const STANDALONE_LIST_INITIAL_WIDTHS: Record<StandaloneSortColumn, number> = {
+  title: 320,
+  project: 180,
+  assignee: 190,
+  status: 130,
+  priority: 130,
+  startDate: 140,
+  dueDate: 140,
+  estimatedMinutes: 120,
+  actualMinutes: 120,
+};
+
+const KANBAN_COLUMNS: { key: TaskWorkflowStatus; title: string }[] = [
+  { key: "assigned", title: "Asignada" },
+  { key: "in_progress", title: "En proceso" },
+  { key: "done", title: "Terminada" },
+];
+
+const STATUS_NAME_TO_KEY: Record<string, TaskWorkflowStatus> = {
+  Asignada: "assigned",
+  "En proceso": "in_progress",
+  Terminada: "done",
+};
+
+const getStatusKeyFromTask = (task: TaskSummary): TaskWorkflowStatus | null =>
+  STATUS_NAME_TO_KEY[task.status] ?? null;
 
 const toWorkflowStatus = (status: string): TaskWorkflowStatus => {
   const normalized = status.trim().toLowerCase();
@@ -110,21 +150,12 @@ const toStatusLabel = (status: TaskWorkflowStatus): TaskStatusLabel => {
 };
 
 const WORKFLOW_TRANSITIONS: Record<TaskWorkflowStatus, TaskWorkflowStatus[]> = {
-  assigned: ["in_progress"],
+  assigned: ["in_progress", "done"],
   in_progress: ["done"],
   done: [],
 };
 
-const getTransitionValidationMessage = (
-  fromStatus: TaskWorkflowStatus,
-  toStatus: TaskWorkflowStatus,
-) => {
-  if (fromStatus === "assigned" && toStatus === "done") {
-    return "No puedes marcar una tarea como Terminada directamente desde Asignada. Primero pásala a En proceso.";
-  }
-
-  return "La transición de estado no está permitida.";
-};
+const getTransitionValidationMessage = () => "La transición de estado no está permitida.";
 
 export function StandaloneTasks() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -152,6 +183,7 @@ export function StandaloneTasks() {
   ];
 
   const [tasks, setTasks] = useState<TaskSummary[]>([]);
+  const [taskViewMode, setTaskViewMode] = useState<StandaloneTaskViewMode>("list");
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>("all");
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>("all");
   const [isLoading, setIsLoading] = useState(true);
@@ -166,7 +198,28 @@ export function StandaloneTasks() {
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortColumn, setSortColumn] = useState<StandaloneSortColumn>("dueDate");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [selectedTask, setSelectedTask] = useState<TaskSummary | null>(null);
+  const {
+    columnWidths: listColumnWidths,
+    startResize: startListColumnResize,
+  } = useResizableColumns<StandaloneSortColumn>({
+    initialWidths: STANDALONE_LIST_INITIAL_WIDTHS,
+    defaultMinWidth: 96,
+    minWidthsByColumn: {
+      title: 220,
+      project: 140,
+      assignee: 140,
+      status: 110,
+      priority: 110,
+      startDate: 120,
+      dueDate: 120,
+      estimatedMinutes: 110,
+      actualMinutes: 110,
+    },
+    storageKey: "tasks:standalone:list-column-widths",
+  });
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -284,6 +337,7 @@ export function StandaloneTasks() {
   const handleConfirmTaskCompletion = async (payload: {
     actualMinutes: number;
     completionEvidence: string | null;
+    completionEvidenceLink: string | null;
   }) => {
     if (!pendingCompletionTask) return;
 
@@ -293,6 +347,7 @@ export function StandaloneTasks() {
         toStatus: "done",
         actualMinutes: payload.actualMinutes,
         completionEvidence: payload.completionEvidence,
+        completionEvidenceLink: payload.completionEvidenceLink,
         notes: "Finalización confirmada desde modal de cierre.",
       });
 
@@ -389,7 +444,7 @@ export function StandaloneTasks() {
 
       const createdCount = response?.data?.createdCount ?? 1;
       if (createdCount > 1) {
-        toast.info(`Se crearon ${createdCount} tareas sueltas.`);
+        toast.info(`Se crearon ${createdCount} tareas independientes.`);
       }
       resetForm();
       setIsCreateModalOpen(false);
@@ -415,7 +470,7 @@ export function StandaloneTasks() {
           }
         }
       } else {
-        toast.error("No fue posible crear la tarea suelta.");
+        toast.error("No fue posible crear la tarea independiente.");
       }
     } finally {
       setIsSubmitting(false);
@@ -487,7 +542,7 @@ export function StandaloneTasks() {
       if (statusChanged) {
         const allowedTargets = WORKFLOW_TRANSITIONS[currentStatus];
         if (!allowedTargets.includes(detailStatus)) {
-          toast.error(getTransitionValidationMessage(currentStatus, detailStatus));
+          toast.error(getTransitionValidationMessage());
           return;
         }
 
@@ -515,9 +570,9 @@ export function StandaloneTasks() {
     }
   };
 
-  const sortedTasks = useMemo(() => {
+  const filteredTasks = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
-    const filtered = tasks.filter((task) => {
+    return tasks.filter((task) => {
       const priorityName = task.priority.trim().toLowerCase();
       const passesPriority = priorityFilter === "all"
         || (priorityFilter === "high" && priorityName === "alta")
@@ -532,9 +587,100 @@ export function StandaloneTasks() {
       const inAssignee = (task.assigneeName ?? "").toLowerCase().includes(normalizedSearch);
       return inTitle || inDescription || inProject || inAssignee;
     });
-
-    return [...filtered].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
   }, [isAdmin, priorityFilter, searchTerm, tasks]);
+
+  const sortedTasks = useMemo(() => {
+    const compareText = (left: string, right: string) => left.localeCompare(right, "es", { sensitivity: "base" });
+    const compareNumber = (left: number, right: number) => left - right;
+    const compareDate = (left: string, right: string) => new Date(left).getTime() - new Date(right).getTime();
+
+    const priorityRank = (value: string) => {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === "baja") return 1;
+      if (normalized === "media") return 2;
+      if (normalized === "alta") return 3;
+      return 99;
+    };
+
+    const statusRank = (value: string) => {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === "asignada") return 1;
+      if (normalized === "en proceso") return 2;
+      if (normalized === "terminada") return 3;
+      return 99;
+    };
+
+    return [...filteredTasks].sort((a, b) => {
+      let result = 0;
+      switch (sortColumn) {
+        case "title":
+          result = compareText(a.title, b.title);
+          break;
+        case "project":
+          result = compareText(a.projectName, b.projectName);
+          break;
+        case "assignee":
+          result = compareText(a.assigneeName ?? "", b.assigneeName ?? "");
+          break;
+        case "status":
+          result = compareNumber(statusRank(a.status), statusRank(b.status));
+          break;
+        case "priority":
+          result = compareNumber(priorityRank(a.priority), priorityRank(b.priority));
+          break;
+        case "startDate":
+          result = compareDate(a.plannedStartDate, b.plannedStartDate);
+          break;
+        case "dueDate":
+          result = compareDate(a.dueDate, b.dueDate);
+          break;
+        case "estimatedMinutes":
+          result = compareNumber(a.estimatedMinutes ?? 0, b.estimatedMinutes ?? 0);
+          break;
+        case "actualMinutes":
+          result = compareNumber(a.actualMinutes ?? 0, b.actualMinutes ?? 0);
+          break;
+        default:
+          result = compareDate(a.dueDate, b.dueDate);
+          break;
+      }
+
+      if (result === 0) {
+        return compareNumber(a.id, b.id);
+      }
+
+      return sortDirection === "asc" ? result : -result;
+    });
+  }, [filteredTasks, sortColumn, sortDirection]);
+
+  const getInitialSortDirection = (column: StandaloneSortColumn): SortDirection => {
+    if (column === "startDate" || column === "dueDate" || column === "estimatedMinutes" || column === "actualMinutes") {
+      return "desc";
+    }
+    return "asc";
+  };
+
+  const toggleSort = (column: StandaloneSortColumn) => {
+    if (sortColumn !== column) {
+      setSortColumn(column);
+      setSortDirection(getInitialSortDirection(column));
+      return;
+    }
+
+    setSortDirection((previous) => (previous === "asc" ? "desc" : "asc"));
+  };
+
+  const visibleListColumns = useMemo<StandaloneSortColumn[]>(
+    () => (isAdmin
+      ? ["title", "project", "assignee", "status", "priority", "startDate", "dueDate", "estimatedMinutes", "actualMinutes"]
+      : ["title", "project", "status", "priority", "startDate", "dueDate", "estimatedMinutes", "actualMinutes"]),
+    [isAdmin],
+  );
+
+  const standaloneListMinWidth = useMemo(
+    () => visibleListColumns.reduce((accumulator, column) => accumulator + listColumnWidths[column], 0),
+    [listColumnWidths, visibleListColumns],
+  );
 
   const pageSize = 9;
   const totalPages = Math.max(1, Math.ceil(sortedTasks.length / pageSize));
@@ -545,13 +691,30 @@ export function StandaloneTasks() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [priorityFilter, searchTerm, statusFilter]);
+  }, [priorityFilter, searchTerm, sortColumn, sortDirection, statusFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+
+  const kanbanTasks = useMemo(() => {
+    const grouped: Record<TaskWorkflowStatus, TaskSummary[]> = {
+      assigned: [],
+      in_progress: [],
+      done: [],
+    };
+
+    sortedTasks.forEach((task) => {
+      const statusKey = getStatusKeyFromTask(task);
+      if (statusKey) {
+        grouped[statusKey].push(task);
+      }
+    });
+
+    return grouped;
+  }, [sortedTasks]);
 
   useEffect(() => {
     const rawTaskId = searchParams.get("taskId");
@@ -586,6 +749,51 @@ export function StandaloneTasks() {
     setSearchParams(nextParams, { replace: true });
   }, [searchParams, setSearchParams]);
 
+  const SortableHeader = ({
+    label,
+    column,
+  }: {
+    label: string;
+    column: StandaloneSortColumn;
+  }) => {
+    const isActive = sortColumn === column;
+    const icon = isActive && sortDirection === "asc"
+      ? <ChevronUp className="size-3.5" />
+      : <ChevronDown className="size-3.5" />;
+
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSort(column)}
+        className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {label}
+        <span className={isActive ? "text-foreground" : "text-muted-foreground/70"}>
+          {icon}
+        </span>
+      </button>
+    );
+  };
+
+  const getColumnHeaderStyle = (column: StandaloneSortColumn) => ({
+    width: `${listColumnWidths[column]}px`,
+    minWidth: `${listColumnWidths[column]}px`,
+    maxWidth: `${listColumnWidths[column]}px`,
+  });
+
+  const renderColumnResizeHandle = (column: StandaloneSortColumn) => (
+    <span
+      role="separator"
+      aria-orientation="vertical"
+      aria-label={`Redimensionar columna ${column}`}
+      className="absolute right-0 top-0 h-full w-3 cursor-col-resize touch-none select-none"
+      onMouseDown={(event) => startListColumnResize(column, event)}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <span className="pointer-events-none absolute right-0 top-1/2 h-5 -translate-y-1/2 border-r border-border/90" />
+    </span>
+  );
+
   return (
     <div className="app-shell h-full min-h-0 overflow-hidden">
       <PageHero
@@ -596,12 +804,39 @@ export function StandaloneTasks() {
         icon={<ClipboardList className="size-5" />}
       />
 
-      <div className="app-content min-h-0 overflow-hidden">
+      <div className={cn(
+        "app-content min-h-0",
+        isAdmin && taskViewMode === "kanban" ? "overflow-y-auto" : "overflow-hidden",
+      )}
+      >
         <div className="shrink-0 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div>
             <h3 className="text-2xl font-bold tracking-tight text-foreground">Listado de tareas</h3>
           </div>
           <div className="flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 xl:w-auto xl:overflow-visible">
+            <div className="inline-flex rounded-xl border border-border bg-background p-1">
+              <button
+                type="button"
+                onClick={() => setTaskViewMode("list")}
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                  taskViewMode === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <LayoutGrid className="size-3.5" />
+                Lista
+              </button>
+              <button
+                type="button"
+                onClick={() => setTaskViewMode("kanban")}
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition-colors ${
+                  taskViewMode === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <KanbanSquare className="size-3.5" />
+                Kanban
+              </button>
+            </div>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -666,8 +901,8 @@ export function StandaloneTasks() {
                 resetForm();
                 setIsCreateModalOpen(true);
               }}
-              title="Crear tarea suelta"
-              aria-label="Crear tarea suelta"
+              title="Crear tarea independiente"
+              aria-label="Crear tarea independiente"
             >
               <Plus className="size-4" />
             </button>
@@ -680,21 +915,24 @@ export function StandaloneTasks() {
           <div className="app-panel app-panel-pad shrink-0 border-dashed py-8 text-sm text-muted-foreground">
             {isAdmin ? "No hay tareas para este filtro." : "No hay tareas asignadas para este filtro."}
           </div>
-        ) : (
+        ) : taskViewMode === "list" ? (
           <div className="app-panel overflow-hidden flex flex-col">
             <div className="overflow-auto">
-              <table className="w-full min-w-[980px] text-left">
+              <table
+                className="w-full table-fixed text-left"
+                style={{ minWidth: `${standaloneListMinWidth}px` }}
+              >
               <thead className="sticky top-0 z-10 border-b border-border/85 bg-secondary/80">
                 <tr>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Tarea</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Proyecto</th>
-                  {isAdmin && <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Responsable</th>}
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Estado</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Prioridad</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Inicio</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Fin</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Estimado</th>
-                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-muted-foreground">Real</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("title")}><SortableHeader label="Tarea" column="title" />{renderColumnResizeHandle("title")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("project")}><SortableHeader label="Proyecto" column="project" />{renderColumnResizeHandle("project")}</th>
+                  {isAdmin && <th className="relative px-4 py-3" style={getColumnHeaderStyle("assignee")}><SortableHeader label="Responsable" column="assignee" />{renderColumnResizeHandle("assignee")}</th>}
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("status")}><SortableHeader label="Estado" column="status" />{renderColumnResizeHandle("status")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("priority")}><SortableHeader label="Prioridad" column="priority" />{renderColumnResizeHandle("priority")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("startDate")}><SortableHeader label="Inicio" column="startDate" />{renderColumnResizeHandle("startDate")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("dueDate")}><SortableHeader label="Fin" column="dueDate" />{renderColumnResizeHandle("dueDate")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("estimatedMinutes")}><SortableHeader label="Estimado" column="estimatedMinutes" />{renderColumnResizeHandle("estimatedMinutes")}</th>
+                  <th className="relative px-4 py-3" style={getColumnHeaderStyle("actualMinutes")}><SortableHeader label="Real" column="actualMinutes" />{renderColumnResizeHandle("actualMinutes")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
@@ -714,6 +952,21 @@ export function StandaloneTasks() {
                           Evidencia: {task.completionEvidence}
                         </p>
                       ) : null}
+                      {task.completionEvidenceLink ? (
+                        <p className="mt-1 text-xs text-primary line-clamp-1">
+                          Link:
+                          {" "}
+                          <a
+                            href={task.completionEvidenceLink}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="underline decoration-primary/70 underline-offset-2 hover:text-primary-hover"
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            Abrir evidencia
+                          </a>
+                        </p>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">
                       <span className={cn(
@@ -723,7 +976,7 @@ export function StandaloneTasks() {
                           : "border border-border bg-secondary/50 text-muted-foreground",
                       )}
                       >
-                        {task.projectId > 0 ? task.projectName : "Tarea suelta"}
+                        {task.projectId > 0 ? task.projectName : "Tarea independiente"}
                       </span>
                     </td>
                     {isAdmin && (
@@ -795,6 +1048,83 @@ export function StandaloneTasks() {
               </div>
             </div>
           </div>
+        ) : (
+          <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            {KANBAN_COLUMNS.map((column) => (
+              <div
+                key={column.key}
+                className="overflow-hidden rounded-xl border border-border bg-card"
+              >
+                <div className="flex items-center justify-between border-b border-border bg-secondary/45 px-3 py-2">
+                  <p className="text-sm font-semibold text-foreground">{column.title}</p>
+                  <span className="text-xs text-muted-foreground">{kanbanTasks[column.key].length}</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full table-fixed text-sm">
+                    <thead className="bg-secondary/35">
+                      <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.09em] [&>th]:text-muted-foreground">
+                        <th className="w-[64%]">Tarea</th>
+                        <th className="w-[18%]">Límite</th>
+                        <th className="w-[18%]">Real</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border/80">
+                      {kanbanTasks[column.key].length === 0 ? (
+                        <tr>
+                          <td colSpan={3} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                            Sin tareas
+                          </td>
+                        </tr>
+                      ) : (
+                        kanbanTasks[column.key].map((task) => (
+                          <tr key={task.id}>
+                            <td className="px-3 py-2 align-top">
+                              <article
+                                onClick={() => openTaskDetail(task)}
+                                className={`cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-colors hover:border-primary/50 ${
+                                  selectedTask?.id === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
+                                }`}
+                              >
+                                <p className="text-sm font-medium text-foreground">{task.title}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">
+                                  {isAdmin
+                                    ? (task.assigneeName ? `${task.assigneeName} · ${task.priority}` : `Sin asignar · ${task.priority}`)
+                                    : task.priority}
+                                </p>
+                                {task.completionEvidence ? (
+                                  <p className="mt-1 line-clamp-1 text-xs text-primary">
+                                    Evidencia: {task.completionEvidence}
+                                  </p>
+                                ) : null}
+                                {task.completionEvidenceLink ? (
+                                  <p className="mt-1 line-clamp-1 text-xs text-primary">
+                                    Link:
+                                    {" "}
+                                    <a
+                                      href={task.completionEvidenceLink}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className="underline decoration-primary/70 underline-offset-2 hover:text-primary-hover"
+                                      onClick={(event) => event.stopPropagation()}
+                                    >
+                                      Abrir evidencia
+                                    </a>
+                                  </p>
+                                ) : null}
+                              </article>
+                            </td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatDate(task.dueDate)}</td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatMinutes(task.actualMinutes)}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </section>
         )}
       </div>
 
@@ -809,7 +1139,7 @@ export function StandaloneTasks() {
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Crear tarea suelta</DialogTitle>
+            <DialogTitle>Crear tarea independiente</DialogTitle>
             <DialogDescription>
               Esta tarea no estará asociada a ningún proyecto operativo.
             </DialogDescription>
@@ -832,7 +1162,7 @@ export function StandaloneTasks() {
               <textarea
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                className="app-control min-h-[90px]"
+                className="app-control min-h-[90px] pt-1"
                 placeholder="Detalles de la tarea"
               />
             </div>
@@ -882,9 +1212,9 @@ export function StandaloneTasks() {
                 onChange={(event) => setPriorityId(event.target.value)}
                 className="app-control"
               >
-                <option value="1">Alta</option>
+                <option value="1">Baja</option>
                 <option value="2">Media</option>
-                <option value="3">Baja</option>
+                <option value="3">Alta</option>
               </select>
             </div>
 
@@ -924,7 +1254,7 @@ export function StandaloneTasks() {
       </Dialog>
 
       <Dialog
-        open={isDetailModalOpen}
+        open={isDetailModalOpen && !isCompletionModalOpen}
         onOpenChange={(open) => {
           setIsDetailModalOpen(open);
           if (!open && !isDetailSaving) {
@@ -935,9 +1265,6 @@ export function StandaloneTasks() {
         <DialogContent className="sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>Detalle de tarea</DialogTitle>
-            <DialogDescription>
-              Visualiza y edita la información principal de la tarea seleccionada.
-            </DialogDescription>
           </DialogHeader>
 
           {selectedTask ? (
@@ -1006,9 +1333,9 @@ export function StandaloneTasks() {
                   className="app-control"
                   disabled={!canEditTaskAttributes}
                 >
-                  <option value="1">Alta</option>
+                  <option value="1">Baja</option>
                   <option value="2">Media</option>
-                  <option value="3">Baja</option>
+                  <option value="3">Alta</option>
                 </select>
               </div>
 
@@ -1025,17 +1352,11 @@ export function StandaloneTasks() {
                 />
               </div>
 
-              {!canEditTaskAttributes ? (
-                <div className="md:col-span-2 rounded-xl border border-border/70 bg-secondary/45 px-3 py-2 text-xs text-muted-foreground">
-                  Esta tarea fue creada por otro usuario. Solo puedes actualizar su estado.
-                </div>
-              ) : null}
-
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-1.5">Proyecto</label>
                 <input
                   type="text"
-                  value={selectedTask.projectId > 0 ? selectedTask.projectName : "Tarea suelta"}
+                  value={selectedTask.projectId > 0 ? selectedTask.projectName : "Tarea independiente"}
                   className="app-control bg-muted"
                   disabled
                 />
@@ -1057,6 +1378,20 @@ export function StandaloneTasks() {
                   <div className="rounded-xl border border-border/80 bg-secondary/55 px-3 py-2 text-sm text-foreground whitespace-pre-wrap">
                     {selectedTask.completionEvidence}
                   </div>
+                </div>
+              ) : null}
+
+              {selectedTask.completionEvidenceLink ? (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-foreground mb-1.5">Link de evidencia</label>
+                  <a
+                    href={selectedTask.completionEvidenceLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex max-w-full rounded-xl border border-border/80 bg-secondary/55 px-3 py-2 text-sm text-primary hover:underline break-all"
+                  >
+                    {selectedTask.completionEvidenceLink}
+                  </a>
                 </div>
               ) : null}
 

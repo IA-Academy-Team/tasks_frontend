@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { Area, AreaChart, CartesianGrid, Line, Pie, PieChart, XAxis, YAxis } from "recharts";
 import {
@@ -43,6 +43,7 @@ import {
   type EmployeeDashboardData,
   type TaskComplianceReportData,
 } from "../../modules/dashboard/api/dashboard.api";
+import { getNotificationsSocket } from "../../modules/notifications/realtime/notifications.socket";
 
 const formatMinutes = (minutes: number) => {
   if (minutes <= 0) return "0 min";
@@ -73,6 +74,35 @@ const isDoneStatus = (status: string) => status.trim().toLowerCase() === "termin
 type EmployeeUrgencyTone = "critical" | "warning" | "normal";
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
+const isWeekendDay = (value: Date) => value.getDay() === 0 || value.getDay() === 6;
+
+const getNextBusinessDays = (start: Date, count: number): Date[] => {
+  const days: Date[] = [];
+  const cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+
+  while (days.length < count) {
+    if (!isWeekendDay(cursor)) {
+      days.push(new Date(cursor));
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return days;
+};
+
+const getLastBusinessDaysFromAnchor = (anchor: Date, count: number): Date[] => {
+  const days: Date[] = [];
+  const cursor = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate());
+
+  while (days.length < count) {
+    if (!isWeekendDay(cursor)) {
+      days.push(new Date(cursor));
+    }
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return days.reverse();
+};
 
 const getUrgencyTone = (dueDate: string): EmployeeUrgencyTone => {
   const now = new Date();
@@ -305,6 +335,7 @@ export function Dashboard() {
   const [complianceFilter, setComplianceFilter] = useState<ComplianceFilter>("all");
   const [pendingAlertsPage, setPendingAlertsPage] = useState(1);
   const [overdueAlertsPage, setOverdueAlertsPage] = useState(1);
+  const realtimeRefreshTimeoutRef = useRef<number | null>(null);
 
   const projectFilterOptions = useMemo<SearchableOption[]>(
     () => [
@@ -341,11 +372,8 @@ export function Dashboard() {
 
     const now = new Date();
     const currentDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weeklyEndDay = new Date(currentDay);
-    weeklyEndDay.setDate(currentDay.getDate() + 6);
-    const weeklyDistribution = Array.from({ length: 7 }, (_, offset) => {
-      const day = new Date(currentDay);
-      day.setDate(currentDay.getDate() + offset);
+    const businessWindow = getNextBusinessDays(currentDay, 5);
+    const weeklyDistribution = businessWindow.map((day) => {
       const dayKey = toDateKey(day);
       const value = orderedUpcoming.filter((task) => task.dueDate.slice(0, 10) === dayKey).length;
       return {
@@ -355,9 +383,14 @@ export function Dashboard() {
       };
     });
     const weeklyTotal = weeklyDistribution.reduce((sum, item) => sum + item.value, 0);
+    const weeklyStartDay = businessWindow[0] ?? currentDay;
+    const weeklyEndDay = businessWindow[businessWindow.length - 1] ?? currentDay;
+    const businessWindowKeys = new Set(businessWindow.map((day) => toDateKey(day)));
     const overdueOrOutOfRangeCount = orderedUpcoming.filter((task) => {
       const due = parseDateForUi(task.dueDate);
-      return due < currentDay || due > weeklyEndDay;
+      const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate());
+      const dueKey = toDateKey(dueDay);
+      return dueDay < weeklyStartDay || dueDay > weeklyEndDay || !businessWindowKeys.has(dueKey);
     }).length;
     const maxWeeklyValue = Math.max(...weeklyDistribution.map((item) => item.value), 1);
 
@@ -503,17 +536,9 @@ export function Dashboard() {
       dailyBuckets.set(entry.dateKey, bucket);
     }
 
-    const lastSevenWorkdays: Date[] = [];
-    const cursor = new Date(effectiveAnchor.getFullYear(), effectiveAnchor.getMonth(), effectiveAnchor.getDate());
+    const lastFiveWorkdays = getLastBusinessDaysFromAnchor(effectiveAnchor, 5);
 
-    while (lastSevenWorkdays.length < 7) {
-      if (cursor.getDay() !== 0) {
-        lastSevenWorkdays.push(new Date(cursor));
-      }
-      cursor.setDate(cursor.getDate() - 1);
-    }
-
-    return lastSevenWorkdays.reverse().map((day) => {
+    return lastFiveWorkdays.map((day) => {
       const dateKey = toDateKey(day);
       const bucket = dailyBuckets.get(dateKey) ?? { total: 0, onTime: 0 };
       const compliance = bucket.total > 0 ? Math.round((bucket.onTime / bucket.total) * 100) : 0;
@@ -595,44 +620,97 @@ export function Dashboard() {
     void loadFilters();
   }, [isAdmin]);
 
+  const loadDashboard = useCallback(async (showLoading = true) => {
+    if (!user) return;
+
+    if (showLoading) {
+      setIsLoading(true);
+    }
+    setError("");
+
+    try {
+      if (isEmployee) {
+        const response = await getEmployeeDashboard();
+        setEmployeeDashboard(response?.data ?? null);
+        setAdminDashboard(null);
+        setTaskComplianceReport(null);
+      } else if (isAdmin) {
+        const [adminResponse, reportResponse] = await Promise.all([
+          getAdminDashboard(adminQuery),
+          getTaskComplianceReport(reportQuery),
+        ]);
+        setAdminDashboard(adminResponse?.data ?? null);
+        setTaskComplianceReport(reportResponse?.data ?? null);
+        setEmployeeDashboard(null);
+      } else {
+        setEmployeeDashboard(null);
+        setAdminDashboard(null);
+        setTaskComplianceReport(null);
+      }
+    } catch (incomingError) {
+      if (incomingError instanceof ApiError) {
+        setError(incomingError.message);
+      } else {
+        setError("No fue posible cargar el dashboard.");
+      }
+    } finally {
+      if (showLoading) {
+        setIsLoading(false);
+      }
+    }
+  }, [adminQuery, isAdmin, isEmployee, reportQuery, user]);
+
+  useEffect(() => {
+    void loadDashboard(true);
+  }, [loadDashboard]);
+
   useEffect(() => {
     if (!user) return;
 
-    const loadDashboard = async () => {
-      setIsLoading(true);
-      setError("");
-      try {
-        if (isEmployee) {
-          const response = await getEmployeeDashboard();
-          setEmployeeDashboard(response?.data ?? null);
-          setAdminDashboard(null);
-          setTaskComplianceReport(null);
-        } else if (isAdmin) {
-          const [adminResponse, reportResponse] = await Promise.all([
-            getAdminDashboard(adminQuery),
-            getTaskComplianceReport(reportQuery),
-          ]);
-          setAdminDashboard(adminResponse?.data ?? null);
-          setTaskComplianceReport(reportResponse?.data ?? null);
-          setEmployeeDashboard(null);
-        } else {
-          setEmployeeDashboard(null);
-          setAdminDashboard(null);
-          setTaskComplianceReport(null);
-        }
-      } catch (incomingError) {
-        if (incomingError instanceof ApiError) {
-          setError(incomingError.message);
-        } else {
-          setError("No fue posible cargar el dashboard.");
-        }
-      } finally {
-        setIsLoading(false);
+    const socket = getNotificationsSocket();
+
+    const scheduleRealtimeRefresh = () => {
+      if (realtimeRefreshTimeoutRef.current !== null) {
+        window.clearTimeout(realtimeRefreshTimeoutRef.current);
+      }
+
+      realtimeRefreshTimeoutRef.current = window.setTimeout(() => {
+        void loadDashboard(false);
+      }, 180);
+    };
+
+    const handleTaskCreated = () => {
+      scheduleRealtimeRefresh();
+    };
+    const handleTaskUpdated = () => {
+      scheduleRealtimeRefresh();
+    };
+    const handleTaskDeleted = () => {
+      scheduleRealtimeRefresh();
+    };
+    const handleAnalyticsUpdated = () => {
+      if (isAdmin) {
+        scheduleRealtimeRefresh();
       }
     };
 
-    void loadDashboard();
-  }, [adminQuery, isAdmin, isEmployee, reportQuery, user]);
+    socket.on("task:created", handleTaskCreated);
+    socket.on("task:updated", handleTaskUpdated);
+    socket.on("task:deleted", handleTaskDeleted);
+    socket.on("analytics:updated", handleAnalyticsUpdated);
+    socket.connect();
+
+    return () => {
+      socket.off("task:created", handleTaskCreated);
+      socket.off("task:updated", handleTaskUpdated);
+      socket.off("task:deleted", handleTaskDeleted);
+      socket.off("analytics:updated", handleAnalyticsUpdated);
+      if (realtimeRefreshTimeoutRef.current !== null) {
+        window.clearTimeout(realtimeRefreshTimeoutRef.current);
+        realtimeRefreshTimeoutRef.current = null;
+      }
+    };
+  }, [isAdmin, loadDashboard, user]);
 
   const resetFilters = () => {
     setDateFrom("");
@@ -866,7 +944,7 @@ export function Dashboard() {
               <div className="mb-6 flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-xl font-bold text-foreground">Resumen de actividad</h3>
-                  <p className="text-sm text-muted-foreground">Tareas a realizar en los próximos 7 días.</p>
+                  <p className="text-sm text-muted-foreground">Tareas a realizar en los próximos 5 días hábiles.</p>
                 </div>
               </div>
 
@@ -891,8 +969,8 @@ export function Dashboard() {
                   <div className="flex h-full w-full items-center justify-center rounded-xl border border-dashed border-border/70 bg-secondary/25 px-4 text-center">
                     <p className="text-sm text-muted-foreground">
                       {employeeInsights.overdueOrOutOfRangeCount > 0
-                        ? `Sin tareas con fecha límite en los próximos 7 días. Hay ${employeeInsights.overdueOrOutOfRangeCount} tarea(s) activa(s) vencidas o fuera de rango semanal.`
-                        : "Sin actividad semanal registrada para este usuario en los próximos 7 días."}
+                        ? `Sin tareas con fecha límite en los próximos 5 días hábiles. Hay ${employeeInsights.overdueOrOutOfRangeCount} tarea(s) activa(s) vencidas o fuera de rango.`
+                        : "Sin actividad registrada para este usuario en los próximos 5 días hábiles."}
                     </p>
                   </div>
                 )}

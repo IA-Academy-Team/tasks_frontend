@@ -56,7 +56,7 @@ export function ForgotPassword() {
             <p className="mt-1 text-sm text-muted-foreground">
               {sent
                 ? 'Si existe una cuenta con ese correo, recibirás instrucciones.'
-                : 'Ingresa tu correo y te enviaremos un enlace.'}
+                : ''}
             </p>
           </div>
 
