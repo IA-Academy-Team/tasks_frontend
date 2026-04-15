@@ -127,16 +127,20 @@ const withNullableDate = (value?: string | null): string | null | undefined => {
 const buildProjectsQuery = (params: {
   status: ProjectStatusFilter;
   areaId?: number;
+  employeeId?: number;
 }) => {
   const query = new URLSearchParams();
   query.set("status", params.status);
   if (params.areaId !== undefined) {
     query.set("areaId", String(params.areaId));
   }
+  if (params.employeeId !== undefined) {
+    query.set("employeeId", String(params.employeeId));
+  }
   return query.toString();
 };
 
-export const listProjects = (params: { status: ProjectStatusFilter; areaId?: number }) =>
+export const listProjects = (params: { status: ProjectStatusFilter; areaId?: number; employeeId?: number }) =>
   api.get<ProjectsResponse>(`${API_PREFIX}/projects?${buildProjectsQuery(params)}`);
 
 export const getProjectById = (projectId: number) =>

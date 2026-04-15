@@ -21,10 +21,29 @@ export interface NotificationsReadAllRealtimeEvent {
   issuedAt: string;
 }
 
+export interface TaskRealtimeEvent {
+  task?: {
+    id: number;
+    projectId: number;
+  };
+  taskId?: number;
+  issuedAt: string;
+}
+
+export interface AnalyticsUpdatedRealtimeEvent {
+  entity: "task" | "project" | "employee" | "area";
+  action: string;
+  issuedAt: string;
+}
+
 interface NotificationsServerToClientEvents {
   "notifications:new": (payload: NotificationCreatedRealtimeEvent) => void;
   "notifications:read": (payload: NotificationReadRealtimeEvent) => void;
   "notifications:read-all": (payload: NotificationsReadAllRealtimeEvent) => void;
+  "task:created": (payload: TaskRealtimeEvent) => void;
+  "task:updated": (payload: TaskRealtimeEvent) => void;
+  "task:deleted": (payload: TaskRealtimeEvent) => void;
+  "analytics:updated": (payload: AnalyticsUpdatedRealtimeEvent) => void;
 }
 
 type NotificationsSocket = Socket<NotificationsServerToClientEvents>;
