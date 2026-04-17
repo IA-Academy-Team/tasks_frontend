@@ -23,7 +23,7 @@ export function ResetPassword() {
     const confirmation = confirmPassword.trim();
 
     if (!token) {
-      toast.error("El enlace de recuperacion no es valido o esta incompleto.");
+      toast.error("El enlace de recuperacion no es valido, está incompleto o ha caducado.");
       return;
     }
 
