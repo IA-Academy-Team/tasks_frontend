@@ -42,9 +42,15 @@ const isHttpUrl = (value: string) => /^https?:\/\//i.test(value);
 const isBase64ImageDataUrl = (value: string) =>
   /^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=\r\n]+$/i.test(value);
 const isSupportedImageValue = (value: string) => isHttpUrl(value) || isBase64ImageDataUrl(value);
-type EmployeeSortColumn = "employee" | "areas";
+type EmployeeSortColumn = "employee" | "role" | "areas";
 type SortDirection = "asc" | "desc";
 const EMPLOYEE_LIST_ACTIONS_COLUMN_WIDTH = 132;
+
+const getRoleLabel = (role: EmployeeSummary["role"]) => {
+  if (role === "leader") return "Lider";
+  if (role === "admin") return "Admin";
+  return "Empleado";
+};
 
 export function Employees() {
   const PAGE_SIZE = 8;
@@ -59,6 +65,7 @@ export function Employees() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [createRole, setCreateRole] = useState<"employee" | "leader">("employee");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [image, setImage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,6 +78,7 @@ export function Employees() {
     setName("");
     setEmail("");
     setPassword("");
+    setCreateRole("employee");
     setPhoneNumber("");
     setImage("");
   };
@@ -199,6 +207,7 @@ export function Employees() {
           name: trimmedName,
           email: trimmedEmail,
           password: trimmedPassword,
+          role: createRole,
           phoneNumber: trimmedPhoneNumber || null,
           image: trimmedImage || null,
         });
@@ -270,6 +279,8 @@ export function Employees() {
       let result = 0;
       if (sortColumn === "employee") {
         result = compareText(a.name, b.name);
+      } else if (sortColumn === "role") {
+        result = compareText(getRoleLabel(a.role), getRoleLabel(b.role));
       } else {
         const leftAreas = getEmployeeAreas(a).join(" | ");
         const rightAreas = getEmployeeAreas(b).join(" | ");
@@ -368,7 +379,7 @@ export function Employees() {
               <div className="overflow-x-auto">
                 <table
                   className="w-full table-fixed text-sm"
-                  style={{ minWidth: "760px" }}
+                  style={{ minWidth: "900px" }}
                 >
                   <thead className="bg-secondary/72">
                     <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.12em] [&>th]:text-muted-foreground">
@@ -381,6 +392,18 @@ export function Employees() {
                           Empleado
                           <span className={sortColumn === "employee" ? "text-foreground" : "text-muted-foreground/70"}>
                             {renderSortIcon("employee")}
+                          </span>
+                        </button>
+                      </th>
+                      <th className="text-left">
+                        <button
+                          type="button"
+                          onClick={() => toggleSort("role")}
+                          className="inline-flex items-center gap-1 transition-colors hover:text-foreground"
+                        >
+                          Rol
+                          <span className={sortColumn === "role" ? "text-foreground" : "text-muted-foreground/70"}>
+                            {renderSortIcon("role")}
                           </span>
                         </button>
                       </th>
@@ -404,7 +427,7 @@ export function Employees() {
                   <tbody className="divide-y divide-border/80 bg-card">
                     {paginatedEmployees.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-4 py-12 text-center text-sm text-muted-foreground">
+                        <td colSpan={4} className="px-4 py-12 text-center text-sm text-muted-foreground">
                           {searchTerm.trim().length > 0
                             ? "No se encontraron empleados con esa busqueda."
                             : "No hay empleados para mostrar."}
@@ -430,6 +453,11 @@ export function Employees() {
                                   <p className="truncate font-semibold text-foreground">{employee.name}</p>
                                 </div>
                               </div>
+                            </td>
+                            <td className="px-4 py-3.5">
+                              <span className="inline-flex items-center rounded-md border border-border/80 bg-secondary/60 px-2 py-1 text-xs font-medium text-foreground">
+                                {getRoleLabel(employee.role)}
+                              </span>
                             </td>
                             <td className="px-4 py-3.5">
                               {areaNames.length > 0 ? (
@@ -579,6 +607,20 @@ export function Employees() {
                   className="app-control"
                   placeholder="Minimo 8 caracteres"
                 />
+              </div>
+            )}
+
+            {!editingEmployeeId && (
+              <div>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Rol</label>
+                <select
+                  value={createRole}
+                  onChange={(event) => setCreateRole(event.target.value as "employee" | "leader")}
+                  className="app-control"
+                >
+                  <option value="employee">Empleado</option>
+                  <option value="leader">Lider</option>
+                </select>
               </div>
             )}
 

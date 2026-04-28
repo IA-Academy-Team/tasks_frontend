@@ -7,7 +7,7 @@ export interface EmployeeSummary {
   userId: number;
   name: string;
   email: string;
-  role: "admin" | "employee";
+  role: "admin" | "employee" | "leader";
   roleId: number;
   emailVerified: boolean;
   phoneNumber: string | null;
@@ -84,6 +84,7 @@ export interface CreateEmployeePayload {
   name: string;
   email: string;
   password: string;
+  role?: "employee" | "leader";
   phoneNumber?: string | null;
   image?: string | null;
   emailVerified?: boolean;
