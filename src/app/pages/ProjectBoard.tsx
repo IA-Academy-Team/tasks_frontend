@@ -11,8 +11,6 @@ import {
   FilePlus2,
   KanbanSquare,
   LayoutGrid,
-  MoreVertical,
-  Pencil,
   Plus,
   RefreshCcw,
   Search,
@@ -22,7 +20,6 @@ import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recha
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
-import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import { TaskCompletionDialog } from "../components/tasks/TaskCompletionDialog";
 import {
   Dialog,
@@ -34,8 +31,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
 import { Popover, PopoverAnchor, PopoverContent } from "../components/ui/popover";
@@ -215,8 +210,6 @@ const PROJECT_GRID_INITIAL_WIDTHS: Record<ProjectGridSortColumn, number> = {
   actualMinutes: 110,
   compliance: 170,
 };
-const PROJECT_GRID_ACTIONS_WIDTH = 120;
-
 const statusChartConfig = {
   Asignada: { label: "Asignada", color: "var(--chart-1)" },
   "En proceso": { label: "En proceso", color: "var(--chart-4)" },
@@ -254,6 +247,7 @@ export function ProjectBoard() {
   const [, setSuccess] = useState("");
 
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
   const [taskPlannedStartDate, setTaskPlannedStartDate] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
@@ -284,7 +278,6 @@ export function ProjectBoard() {
   const [isTaskReassignModalOpen, setIsTaskReassignModalOpen] = useState(false);
   const [sourceEmployeeId, setSourceEmployeeId] = useState("");
   const [targetEmployeeId, setTargetEmployeeId] = useState("");
-  const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
   const recurrenceUntilInputRef = useRef<HTMLInputElement | null>(null);
   const taskAssigneeInputRef = useRef<HTMLInputElement | null>(null);
   const taskAssigneeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -311,6 +304,7 @@ export function ProjectBoard() {
 
   const resetTaskForm = () => {
     setEditingTaskId(null);
+    setTaskTitle("");
     setTaskDescription("");
     setTaskPlannedStartDate("");
     setTaskDueDate("");
@@ -767,7 +761,7 @@ export function ProjectBoard() {
   };
 
   const projectGridTableMinWidth = useMemo(() => {
-    const base = gridColumnWidths.title
+    return gridColumnWidths.title
       + gridColumnWidths.status
       + gridColumnWidths.priority
       + gridColumnWidths.assignee
@@ -775,9 +769,7 @@ export function ProjectBoard() {
       + gridColumnWidths.estimatedMinutes
       + gridColumnWidths.actualMinutes
       + gridColumnWidths.compliance;
-
-    return isAdmin ? base + PROJECT_GRID_ACTIONS_WIDTH : base;
-  }, [gridColumnWidths, isAdmin]);
+  }, [gridColumnWidths]);
 
   const kanbanTasks = useMemo(() => {
     const grouped: Record<TaskWorkflowStatus, TaskSummary[]> = {
@@ -1030,6 +1022,7 @@ export function ProjectBoard() {
     setSelectedTaskId(task.id);
     void loadTaskHistory(task.id);
     setEditingTaskId(task.id);
+    setTaskTitle(task.title);
     setTaskDescription(task.description ?? "");
     setTaskPlannedStartDate(task.plannedStartDate);
     setTaskDueDate(task.dueDate);
@@ -1065,6 +1058,12 @@ export function ProjectBoard() {
     if (!project) return;
 
     const description = taskDescription.trim();
+    const title = taskTitle.trim();
+    if (!title) {
+      toast.error("El título de la tarea es obligatorio.");
+      return;
+    }
+
     if (!description) {
       toast.error("La descripcion de la tarea es obligatoria.");
       return;
@@ -1152,7 +1151,7 @@ export function ProjectBoard() {
 
       if (editingTaskId) {
         await updateTask(editingTaskId, {
-          title: description.slice(0, 80),
+          title,
           description,
           plannedStartDate: resolvedTaskPlannedStartDate,
           dueDate: resolvedTaskDueDate,
@@ -1164,7 +1163,7 @@ export function ProjectBoard() {
       } else {
         const createResponse = await createTask({
           projectId: project.id,
-          title: description.slice(0, 80),
+          title,
           description,
           plannedStartDate: resolvedTaskPlannedStartDate,
           dueDate: resolvedTaskDueDate,
@@ -1204,13 +1203,23 @@ export function ProjectBoard() {
     }
   };
 
-  const handleDeleteTask = async (task: TaskSummary) => {
+  const handleDeleteTaskFromDetail = async () => {
+    if (!isAdmin || !editingTaskId) return;
+
+    const taskToDelete = tasks.find((task) => task.id === editingTaskId);
+    if (!taskToDelete) {
+      toast.error("No fue posible identificar la tarea a eliminar.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
     setSuccess("");
     try {
-      await deleteTask(task.id);
+      await deleteTask(taskToDelete.id);
       setSuccess("Tarea eliminada logicamente.");
+      setIsTaskModalOpen(false);
+      resetTaskForm();
       await loadTasks();
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -1554,18 +1563,6 @@ export function ProjectBoard() {
                           <GridSortableHeader label="Cumplimiento" column="compliance" />
                           {renderGridResizeHandle("compliance")}
                         </th>
-                        {isAdmin && (
-                          <th
-                            className="app-th"
-                            style={{
-                              width: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
-                              minWidth: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
-                              maxWidth: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
-                            }}
-                          >
-                            Acciones
-                          </th>
-                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -1576,15 +1573,20 @@ export function ProjectBoard() {
                             selectedTaskId === task.id ? "bg-primary/5" : ""
                           }`}
                           onClick={() => {
-                            handleSelectTask(task.id);
-                            if (!isAdmin) {
-                              openEmployeeTaskDetailModal(task);
+                            if (isAdmin) {
+                              startTaskEdit(task);
+                              return;
                             }
+
+                            handleSelectTask(task.id);
+                            openEmployeeTaskDetailModal(task);
                           }}
                         >
                           <td className="app-td align-top" style={getGridColumnStyle("title")}>
-                            <p className="font-medium">{task.title}</p>
-                            <p className="text-muted-foreground">{task.description ?? "Sin descripcion"}</p>
+                            <p className="line-clamp-1 break-all font-medium">{task.title}</p>
+                            <p className="line-clamp-1 break-all text-muted-foreground">
+                              {task.description ?? "Sin descripcion"}
+                            </p>
                             {task.completionEvidence ? (
                               <p className="mt-1 text-xs text-primary line-clamp-1">
                                 Evidencia: {task.completionEvidence}
@@ -1644,45 +1646,6 @@ export function ProjectBoard() {
                               </p>
                             )}
                           </td>
-                          {isAdmin && (
-                            <td
-                              className="app-td"
-                              style={{
-                                width: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
-                                minWidth: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
-                                maxWidth: `${PROJECT_GRID_ACTIONS_WIDTH}px`,
-                              }}
-                            >
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <button
-                                    type="button"
-                                    className="app-btn-secondary size-8 p-0"
-                                    aria-label={`Acciones de ${task.title}`}
-                                    onClick={(event) => event.stopPropagation()}
-                                  >
-                                    <MoreVertical className="size-4" />
-                                  </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-44">
-                                  <DropdownMenuItem
-                                    onClick={() => startTaskEdit(task)}
-                                  >
-                                    <Pencil className="size-4" />
-                                    Editar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => setPendingDeleteTask(task)}
-                                    className="text-destructive focus:text-destructive"
-                                  >
-                                    <Trash2 className="size-4" />
-                                    Eliminar
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </td>
-                          )}
                         </tr>
                       ))}
                     </tbody>
@@ -2029,6 +1992,16 @@ export function ProjectBoard() {
 
           <form onSubmit={handleTaskSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Título</label>
+              <input
+                type="text"
+                value={taskTitle}
+                onChange={(event) => setTaskTitle(event.target.value)}
+                className="app-control"
+                placeholder="Escribe el título de la tarea"
+              />
+            </div>
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Descripcion</label>
               <textarea
                 value={taskDescription}
@@ -2129,8 +2102,152 @@ export function ProjectBoard() {
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-sm font-medium mb-1">Empleado</label>
+                  <Popover open={isTaskAssigneeSelectOpen} onOpenChange={setIsTaskAssigneeSelectOpen}>
+                    <PopoverAnchor asChild>
+                      <div className="relative">
+                        <Search className={cn("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2", isTaskAssigneeSelectOpen ? "text-primary" : "text-muted-foreground")} />
+                        <input
+                          ref={taskAssigneeInputRef}
+                          type="text"
+                          value={taskAssigneeInputValue}
+                          onFocus={() => {
+                            if (taskAssigneeSearchOptions.length > 0) {
+                              setIsTaskAssigneeSelectOpen(true);
+                              setTaskAssigneeActiveIndex(0);
+                            }
+                          }}
+                          onClick={() => {
+                            if (taskAssigneeSearchOptions.length > 0) {
+                              setIsTaskAssigneeSelectOpen(true);
+                              setTaskAssigneeActiveIndex(0);
+                            }
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                              if (visibleTaskAssigneeOptions.length === 0) {
+                                return;
+                              }
+
+                              event.preventDefault();
+                              if (!isTaskAssigneeSelectOpen) {
+                                setIsTaskAssigneeSelectOpen(true);
+                                setTaskAssigneeActiveIndex(event.key === "ArrowDown" ? 0 : visibleTaskAssigneeOptions.length - 1);
+                                return;
+                              }
+
+                              const direction = event.key === "ArrowDown" ? 1 : -1;
+                              setTaskAssigneeActiveIndex((previous) => {
+                                if (previous < 0) {
+                                  return direction > 0 ? 0 : visibleTaskAssigneeOptions.length - 1;
+                                }
+
+                                const next = previous + direction;
+                                if (next < 0) {
+                                  return visibleTaskAssigneeOptions.length - 1;
+                                }
+                                if (next >= visibleTaskAssigneeOptions.length) {
+                                  return 0;
+                                }
+                                return next;
+                              });
+                              return;
+                            }
+
+                            if (event.key === "Enter" && isTaskAssigneeSelectOpen) {
+                              if (visibleTaskAssigneeOptions.length === 0) {
+                                return;
+                              }
+
+                              event.preventDefault();
+                              const selectedIndex = taskAssigneeActiveIndex >= 0
+                                ? taskAssigneeActiveIndex
+                                : 0;
+                              const selectedOption = visibleTaskAssigneeOptions[selectedIndex];
+                              if (selectedOption) {
+                                selectTaskAssigneeOption(selectedOption);
+                              }
+                              return;
+                            }
+
+                            if (event.key === "Escape") {
+                              setIsTaskAssigneeSelectOpen(false);
+                              setTaskAssigneeActiveIndex(-1);
+                            }
+                          }}
+                          onChange={(event) => {
+                            setTaskAssigneeSearchTerm(event.target.value);
+                            setTaskAssigneeEmployeeId("");
+                            if (!isTaskAssigneeSelectOpen && taskAssigneeSearchOptions.length > 0) {
+                              setIsTaskAssigneeSelectOpen(true);
+                            }
+                            setTaskAssigneeActiveIndex(0);
+                          }}
+                          disabled={taskAssigneeSearchOptions.length === 0}
+                          className="app-control h-10 w-full bg-card/95 pl-9 pr-10"
+                          placeholder="Buscar empleado..."
+                        />
+                        <button
+                          type="button"
+                          aria-label="Mostrar empleados"
+                          className="absolute right-2 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={taskAssigneeSearchOptions.length === 0}
+                          onClick={() => {
+                            setIsTaskAssigneeSelectOpen((previous) => {
+                              const next = !previous;
+                              setTaskAssigneeActiveIndex(next ? 0 : -1);
+                              return next;
+                            });
+                          }}
+                        >
+                          <ChevronDown className={cn("size-4 transition-transform", isTaskAssigneeSelectOpen && "rotate-180")} />
+                        </button>
+                      </div>
+                    </PopoverAnchor>
+                    <PopoverContent
+                      side="bottom"
+                      align="start"
+                      avoidCollisions={false}
+                      sideOffset={6}
+                      onOpenAutoFocus={(event) => event.preventDefault()}
+                      className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/90 bg-card/98 p-0"
+                    >
+                      <div className="max-h-64 overflow-y-auto p-1">
+                        {visibleTaskAssigneeOptions.length === 0 ? (
+                          <p className="px-3 py-2 text-sm text-muted-foreground">Sin empleados disponibles.</p>
+                        ) : (
+                          visibleTaskAssigneeOptions.map((option, index) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              ref={(element) => {
+                                taskAssigneeOptionRefs.current[index] = element;
+                              }}
+                              onMouseEnter={() => setTaskAssigneeActiveIndex(index)}
+                              onClick={() => selectTaskAssigneeOption(option)}
+                              className={cn(
+                                "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/70",
+                                taskAssigneeActiveIndex === index && "bg-secondary/70",
+                              )}
+                            >
+                              <Check
+                                className={cn(
+                                  "size-4 text-primary transition-opacity",
+                                  taskAssigneeEmployeeId === option.value ? "opacity-100" : "opacity-0",
+                                )}
+                              />
+                              <span className="truncate">{option.label}</span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
                 {taskRecurrenceMode !== "none" && isDailyRecurrence && (
-                  <div className="space-y-2">
+                  <div className="space-y-2 md:col-span-2">
                     <label className="block text-sm font-medium text-foreground">Fecha límite</label>
                     <button
                       type="button"
@@ -2213,173 +2330,192 @@ export function ProjectBoard() {
                 )}
               </>
             )}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Empleado</label>
-              <Popover open={isTaskAssigneeSelectOpen} onOpenChange={setIsTaskAssigneeSelectOpen}>
-                <PopoverAnchor asChild>
-                  <div className="relative">
-                    <Search className={cn("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2", isTaskAssigneeSelectOpen ? "text-primary" : "text-muted-foreground")} />
-                    <input
-                      ref={taskAssigneeInputRef}
-                      type="text"
-                      value={taskAssigneeInputValue}
-                      onFocus={() => {
-                        if (taskAssigneeSearchOptions.length > 0) {
-                          setIsTaskAssigneeSelectOpen(true);
-                          setTaskAssigneeActiveIndex(0);
-                        }
-                      }}
-                      onClick={() => {
-                        if (taskAssigneeSearchOptions.length > 0) {
-                          setIsTaskAssigneeSelectOpen(true);
-                          setTaskAssigneeActiveIndex(0);
-                        }
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-                          if (visibleTaskAssigneeOptions.length === 0) {
-                            return;
-                          }
 
-                          event.preventDefault();
-                          if (!isTaskAssigneeSelectOpen) {
+            {editingTaskId && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Empleado</label>
+                <Popover open={isTaskAssigneeSelectOpen} onOpenChange={setIsTaskAssigneeSelectOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative">
+                      <Search className={cn("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2", isTaskAssigneeSelectOpen ? "text-primary" : "text-muted-foreground")} />
+                      <input
+                        ref={taskAssigneeInputRef}
+                        type="text"
+                        value={taskAssigneeInputValue}
+                        onFocus={() => {
+                          if (taskAssigneeSearchOptions.length > 0) {
                             setIsTaskAssigneeSelectOpen(true);
-                            setTaskAssigneeActiveIndex(event.key === "ArrowDown" ? 0 : visibleTaskAssigneeOptions.length - 1);
+                            setTaskAssigneeActiveIndex(0);
+                          }
+                        }}
+                        onClick={() => {
+                          if (taskAssigneeSearchOptions.length > 0) {
+                            setIsTaskAssigneeSelectOpen(true);
+                            setTaskAssigneeActiveIndex(0);
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                            if (visibleTaskAssigneeOptions.length === 0) {
+                              return;
+                            }
+
+                            event.preventDefault();
+                            if (!isTaskAssigneeSelectOpen) {
+                              setIsTaskAssigneeSelectOpen(true);
+                              setTaskAssigneeActiveIndex(event.key === "ArrowDown" ? 0 : visibleTaskAssigneeOptions.length - 1);
+                              return;
+                            }
+
+                            const direction = event.key === "ArrowDown" ? 1 : -1;
+                            setTaskAssigneeActiveIndex((previous) => {
+                              if (previous < 0) {
+                                return direction > 0 ? 0 : visibleTaskAssigneeOptions.length - 1;
+                              }
+
+                              const next = previous + direction;
+                              if (next < 0) {
+                                return visibleTaskAssigneeOptions.length - 1;
+                              }
+                              if (next >= visibleTaskAssigneeOptions.length) {
+                                return 0;
+                              }
+                              return next;
+                            });
                             return;
                           }
 
-                          const direction = event.key === "ArrowDown" ? 1 : -1;
-                          setTaskAssigneeActiveIndex((previous) => {
-                            if (previous < 0) {
-                              return direction > 0 ? 0 : visibleTaskAssigneeOptions.length - 1;
+                          if (event.key === "Enter" && isTaskAssigneeSelectOpen) {
+                            if (visibleTaskAssigneeOptions.length === 0) {
+                              return;
                             }
 
-                            const next = previous + direction;
-                            if (next < 0) {
-                              return visibleTaskAssigneeOptions.length - 1;
+                            event.preventDefault();
+                            const selectedIndex = taskAssigneeActiveIndex >= 0
+                              ? taskAssigneeActiveIndex
+                              : 0;
+                            const selectedOption = visibleTaskAssigneeOptions[selectedIndex];
+                            if (selectedOption) {
+                              selectTaskAssigneeOption(selectedOption);
                             }
-                            if (next >= visibleTaskAssigneeOptions.length) {
-                              return 0;
-                            }
+                            return;
+                          }
+
+                          if (event.key === "Escape") {
+                            setIsTaskAssigneeSelectOpen(false);
+                            setTaskAssigneeActiveIndex(-1);
+                          }
+                        }}
+                        onChange={(event) => {
+                          setTaskAssigneeSearchTerm(event.target.value);
+                          setTaskAssigneeEmployeeId("");
+                          if (!isTaskAssigneeSelectOpen && taskAssigneeSearchOptions.length > 0) {
+                            setIsTaskAssigneeSelectOpen(true);
+                          }
+                          setTaskAssigneeActiveIndex(0);
+                        }}
+                        disabled={taskAssigneeSearchOptions.length === 0}
+                        className="app-control h-10 w-full bg-card/95 pl-9 pr-10"
+                        placeholder="Buscar empleado..."
+                      />
+                      <button
+                        type="button"
+                        aria-label="Mostrar empleados"
+                        className="absolute right-2 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={taskAssigneeSearchOptions.length === 0}
+                        onClick={() => {
+                          setIsTaskAssigneeSelectOpen((previous) => {
+                            const next = !previous;
+                            setTaskAssigneeActiveIndex(next ? 0 : -1);
                             return next;
                           });
-                          return;
-                        }
-
-                        if (event.key === "Enter" && isTaskAssigneeSelectOpen) {
-                          if (visibleTaskAssigneeOptions.length === 0) {
-                            return;
-                          }
-
-                          event.preventDefault();
-                          const selectedIndex = taskAssigneeActiveIndex >= 0
-                            ? taskAssigneeActiveIndex
-                            : 0;
-                          const selectedOption = visibleTaskAssigneeOptions[selectedIndex];
-                          if (selectedOption) {
-                            selectTaskAssigneeOption(selectedOption);
-                          }
-                          return;
-                        }
-
-                        if (event.key === "Escape") {
-                          setIsTaskAssigneeSelectOpen(false);
-                          setTaskAssigneeActiveIndex(-1);
-                        }
-                      }}
-                      onChange={(event) => {
-                        setTaskAssigneeSearchTerm(event.target.value);
-                        setTaskAssigneeEmployeeId("");
-                        if (!isTaskAssigneeSelectOpen && taskAssigneeSearchOptions.length > 0) {
-                          setIsTaskAssigneeSelectOpen(true);
-                        }
-                        setTaskAssigneeActiveIndex(0);
-                      }}
-                      disabled={taskAssigneeSearchOptions.length === 0}
-                      className="app-control h-10 w-full bg-card/95 pl-9 pr-10"
-                      placeholder="Buscar empleado..."
-                    />
-                    <button
-                      type="button"
-                      aria-label="Mostrar empleados"
-                      className="absolute right-2 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={taskAssigneeSearchOptions.length === 0}
-                      onClick={() => {
-                        setIsTaskAssigneeSelectOpen((previous) => {
-                          const next = !previous;
-                          setTaskAssigneeActiveIndex(next ? 0 : -1);
-                          return next;
-                        });
-                      }}
-                    >
-                      <ChevronDown className={cn("size-4 transition-transform", isTaskAssigneeSelectOpen && "rotate-180")} />
-                    </button>
-                  </div>
-                </PopoverAnchor>
-                <PopoverContent
-                  side="bottom"
-                  align="start"
-                  avoidCollisions={false}
-                  sideOffset={6}
-                  onOpenAutoFocus={(event) => event.preventDefault()}
-                  className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/90 bg-card/98 p-0"
-                >
-                  <div className="max-h-64 overflow-y-auto p-1">
-                    {visibleTaskAssigneeOptions.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-muted-foreground">Sin empleados disponibles.</p>
-                    ) : (
-                      visibleTaskAssigneeOptions.map((option, index) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          ref={(element) => {
-                            taskAssigneeOptionRefs.current[index] = element;
-                          }}
-                          onMouseEnter={() => setTaskAssigneeActiveIndex(index)}
-                          onClick={() => selectTaskAssigneeOption(option)}
-                          className={cn(
-                            "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/70",
-                            taskAssigneeActiveIndex === index && "bg-secondary/70",
-                          )}
-                        >
-                          <Check
+                        }}
+                      >
+                        <ChevronDown className={cn("size-4 transition-transform", isTaskAssigneeSelectOpen && "rotate-180")} />
+                      </button>
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    side="bottom"
+                    align="start"
+                    avoidCollisions={false}
+                    sideOffset={6}
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/90 bg-card/98 p-0"
+                  >
+                    <div className="max-h-64 overflow-y-auto p-1">
+                      {visibleTaskAssigneeOptions.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">Sin empleados disponibles.</p>
+                      ) : (
+                        visibleTaskAssigneeOptions.map((option, index) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            ref={(element) => {
+                              taskAssigneeOptionRefs.current[index] = element;
+                            }}
+                            onMouseEnter={() => setTaskAssigneeActiveIndex(index)}
+                            onClick={() => selectTaskAssigneeOption(option)}
                             className={cn(
-                              "size-4 text-primary transition-opacity",
-                              taskAssigneeEmployeeId === option.value ? "opacity-100" : "opacity-0",
+                              "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/70",
+                              taskAssigneeActiveIndex === index && "bg-secondary/70",
                             )}
-                          />
-                          <span className="truncate">{option.label}</span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </PopoverContent>
-              </Popover>
-              {taskAreaId && taskAssigneeEmployeeOptions.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  No hay empleados activos asignados a esa area.
-                </p>
-              )}
-            </div>
-            <div className="md:col-span-2 flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsTaskModalOpen(false);
-                  resetTaskForm();
-                }}
-                className="app-btn-secondary"
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="app-btn-primary"
-              >
-                {isSubmitting ? "Guardando..." : editingTaskId ? "Actualizar" : "Crear tarea"}
-              </button>
+                          >
+                            <Check
+                              className={cn(
+                                "size-4 text-primary transition-opacity",
+                                taskAssigneeEmployeeId === option.value ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                            <span className="truncate">{option.label}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            )}
+
+            {taskAreaId && taskAssigneeEmployeeOptions.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-2 md:col-span-2">
+                No hay empleados activos asignados a esa area.
+              </p>
+            )}
+            <div className="md:col-span-2 flex w-full items-center justify-between gap-3">
+              {isAdmin && editingTaskId ? (
+                <button
+                  type="button"
+                  className="app-btn-secondary text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => {
+                    void handleDeleteTaskFromDetail();
+                  }}
+                  disabled={isSubmitting}
+                >
+                  <Trash2 className="size-4" />
+                  {isSubmitting ? "Eliminando..." : "Eliminar tarea"}
+                </button>
+              ) : <span />}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTaskModalOpen(false);
+                    resetTaskForm();
+                  }}
+                  className="app-btn-secondary"
+                  disabled={isSubmitting}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="app-btn-primary"
+                >
+                  {isSubmitting ? "Guardando..." : editingTaskId ? "Actualizar" : "Crear tarea"}
+                </button>
+              </div>
             </div>
           </form>
         </DialogContent>
@@ -2488,32 +2624,6 @@ export function ProjectBoard() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <ConfirmActionDialog
-        open={pendingDeleteTask !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingDeleteTask(null);
-          }
-        }}
-        title="Eliminar tarea"
-        description={
-          pendingDeleteTask
-            ? `Se eliminará lógicamente "${pendingDeleteTask.title}".`
-            : ""
-        }
-        confirmLabel="Eliminar"
-        variant="destructive"
-        isProcessing={isSubmitting}
-        onConfirm={() => {
-          if (!pendingDeleteTask) {
-            return;
-          }
-          const taskToDelete = pendingDeleteTask;
-          setPendingDeleteTask(null);
-          void handleDeleteTask(taskToDelete);
-        }}
-      />
 
       <TaskCompletionDialog
         open={isCompletionModalOpen}

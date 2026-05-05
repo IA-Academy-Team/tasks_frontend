@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ClipboardList, Clock3, KanbanSquare, LayoutGrid, ListFilter, Plus, Search, Trash2, UserRound } from "lucide-react";
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ClipboardList, Clock3, KanbanSquare, LayoutGrid, ListFilter, Plus, Search, Trash2, UserRound } from "lucide-react";
 import { toast } from "react-toastify";
 import { ApiError } from "../../shared/api/api";
 import { useAuth } from "../context/AuthContext";
@@ -9,7 +9,6 @@ import { TaskCompletionDialog } from "../components/tasks/TaskCompletionDialog";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
@@ -20,6 +19,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown-menu";
+import { Popover, PopoverAnchor, PopoverContent } from "../components/ui/popover";
 import { cn } from "../components/ui/utils";
 import {
   createStandaloneTask,
@@ -37,12 +37,32 @@ import {
 } from "../../modules/employees/api/employees.api";
 import { useResizableColumns } from "../../shared/hooks/useResizableColumns";
 
-const formatDate = (value: string) =>
-  new Date(value).toLocaleDateString("es-ES", {
+const parseTaskDateForDisplay = (value: string) => {
+  const normalized = value.trim().slice(0, 10);
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, yearRaw, monthRaw, dayRaw] = match;
+    const year = Number(yearRaw);
+    const month = Number(monthRaw);
+    const day = Number(dayRaw);
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
+  }
+
+  return new Date(value);
+};
+
+const formatDate = (value: string) => {
+  const parsedDate = parseTaskDateForDisplay(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value;
+  }
+
+  return parsedDate.toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
+};
 
 const formatMinutes = (minutes: number | null) => {
   if (minutes === null || minutes <= 0) return "-";
@@ -228,6 +248,9 @@ export function StandaloneTasks() {
   const [estimatedHours, setEstimatedHours] = useState("");
   const [priorityId, setPriorityId] = useState("2");
   const [assigneeEmployeeId, setAssigneeEmployeeId] = useState("");
+  const [isAssigneeSelectOpen, setIsAssigneeSelectOpen] = useState(false);
+  const [assigneeSearchTerm, setAssigneeSearchTerm] = useState("");
+  const [assigneeActiveIndex, setAssigneeActiveIndex] = useState<number>(-1);
   const [detailTitle, setDetailTitle] = useState("");
   const [detailDescription, setDetailDescription] = useState("");
   const [detailStartDate, setDetailStartDate] = useState("");
@@ -235,6 +258,8 @@ export function StandaloneTasks() {
   const [detailPriorityId, setDetailPriorityId] = useState("2");
   const [detailEstimatedHours, setDetailEstimatedHours] = useState("");
   const [detailStatus, setDetailStatus] = useState<TaskWorkflowStatus>("assigned");
+  const assigneeInputRef = useRef<HTMLInputElement | null>(null);
+  const assigneeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const canEditTaskAttributes = useMemo(() => {
     if (!selectedTask) return false;
@@ -289,7 +314,67 @@ export function StandaloneTasks() {
     setEstimatedHours("");
     setPriorityId("2");
     setAssigneeEmployeeId("");
+    setAssigneeSearchTerm("");
+    setIsAssigneeSelectOpen(false);
+    setAssigneeActiveIndex(-1);
   };
+
+  const assigneeSearchOptions = useMemo(
+    () => employees.map((employee) => ({
+      value: String(employee.id),
+      label: employee.name,
+    })),
+    [employees],
+  );
+
+  const visibleAssigneeOptions = useMemo(() => {
+    const normalizedTerm = assigneeSearchTerm.trim().toLowerCase();
+    if (!normalizedTerm) {
+      return assigneeSearchOptions.slice(0, 6);
+    }
+    return assigneeSearchOptions.filter((option) => option.label.toLowerCase().includes(normalizedTerm));
+  }, [assigneeSearchOptions, assigneeSearchTerm]);
+
+  const selectedAssigneeOption = useMemo(
+    () => assigneeSearchOptions.find((option) => option.value === assigneeEmployeeId),
+    [assigneeEmployeeId, assigneeSearchOptions],
+  );
+
+  const assigneeInputValue = assigneeSearchTerm || selectedAssigneeOption?.label || "";
+
+  const selectAssigneeOption = useCallback((option: { value: string; label: string }) => {
+    setAssigneeEmployeeId(option.value);
+    setAssigneeSearchTerm(option.label);
+    setIsAssigneeSelectOpen(false);
+    setAssigneeActiveIndex(-1);
+  }, []);
+
+  useEffect(() => {
+    if (!isAssigneeSelectOpen) {
+      setAssigneeActiveIndex(-1);
+      return;
+    }
+    if (visibleAssigneeOptions.length === 0) {
+      setAssigneeActiveIndex(-1);
+      return;
+    }
+    setAssigneeActiveIndex((previous) => (
+      previous >= 0 && previous < visibleAssigneeOptions.length ? previous : 0
+    ));
+  }, [isAssigneeSelectOpen, visibleAssigneeOptions]);
+
+  useEffect(() => {
+    if (!isAssigneeSelectOpen || assigneeActiveIndex < 0) return;
+    assigneeOptionRefs.current[assigneeActiveIndex]?.scrollIntoView({ block: "nearest" });
+  }, [isAssigneeSelectOpen, assigneeActiveIndex]);
+
+  useEffect(() => {
+    if (!isAssigneeSelectOpen) return;
+    const rafId = window.requestAnimationFrame(() => {
+      assigneeInputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, [isAssigneeSelectOpen]);
 
   const openTaskDetail = useCallback((task: TaskSummary) => {
     setSelectedTask(task);
@@ -943,7 +1028,7 @@ export function StandaloneTasks() {
                     onClick={() => openTaskDetail(task)}
                   >
                     <td className="px-4 py-3 align-top">
-                      <p className="font-medium text-foreground">{task.title}</p>
+                      <p className="line-clamp-1 break-all font-medium text-foreground">{task.title}</p>
                       {task.description ? (
                         <p className="text-xs text-muted-foreground line-clamp-1">{task.description}</p>
                       ) : null}
@@ -1140,9 +1225,6 @@ export function StandaloneTasks() {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Crear tarea independiente</DialogTitle>
-            <DialogDescription>
-              Esta tarea no estará asociada a ningún proyecto operativo.
-            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateTask} className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1190,18 +1272,134 @@ export function StandaloneTasks() {
             {isAdmin && (
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-1.5">Asignar a</label>
-                <select
-                  value={assigneeEmployeeId}
-                  onChange={(event) => setAssigneeEmployeeId(event.target.value)}
-                  className="app-control"
-                >
-                  <option value="">Selecciona un empleado</option>
-                  {employees.map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.name}
-                    </option>
-                  ))}
-                </select>
+                <Popover open={isAssigneeSelectOpen} onOpenChange={setIsAssigneeSelectOpen}>
+                  <PopoverAnchor asChild>
+                    <div className="relative">
+                      <Search className={cn("pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2", isAssigneeSelectOpen ? "text-primary" : "text-muted-foreground")} />
+                      <input
+                        ref={assigneeInputRef}
+                        type="text"
+                        value={assigneeInputValue}
+                        onFocus={() => {
+                          if (assigneeSearchOptions.length > 0) {
+                            setIsAssigneeSelectOpen(true);
+                            setAssigneeActiveIndex(0);
+                          }
+                        }}
+                        onClick={() => {
+                          if (assigneeSearchOptions.length > 0) {
+                            setIsAssigneeSelectOpen(true);
+                            setAssigneeActiveIndex(0);
+                          }
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                            if (visibleAssigneeOptions.length === 0) return;
+                            event.preventDefault();
+
+                            if (!isAssigneeSelectOpen) {
+                              setIsAssigneeSelectOpen(true);
+                              setAssigneeActiveIndex(event.key === "ArrowDown" ? 0 : visibleAssigneeOptions.length - 1);
+                              return;
+                            }
+
+                            const direction = event.key === "ArrowDown" ? 1 : -1;
+                            setAssigneeActiveIndex((previous) => {
+                              if (previous < 0) {
+                                return direction > 0 ? 0 : visibleAssigneeOptions.length - 1;
+                              }
+                              const next = previous + direction;
+                              if (next < 0) return visibleAssigneeOptions.length - 1;
+                              if (next >= visibleAssigneeOptions.length) return 0;
+                              return next;
+                            });
+                            return;
+                          }
+
+                          if (event.key === "Enter" && isAssigneeSelectOpen) {
+                            if (visibleAssigneeOptions.length === 0) return;
+                            event.preventDefault();
+                            const selectedIndex = assigneeActiveIndex >= 0 ? assigneeActiveIndex : 0;
+                            const selectedOption = visibleAssigneeOptions[selectedIndex];
+                            if (selectedOption) {
+                              selectAssigneeOption(selectedOption);
+                            }
+                            return;
+                          }
+
+                          if (event.key === "Escape") {
+                            setIsAssigneeSelectOpen(false);
+                            setAssigneeActiveIndex(-1);
+                          }
+                        }}
+                        onChange={(event) => {
+                          setAssigneeSearchTerm(event.target.value);
+                          setAssigneeEmployeeId("");
+                          if (!isAssigneeSelectOpen && assigneeSearchOptions.length > 0) {
+                            setIsAssigneeSelectOpen(true);
+                          }
+                          setAssigneeActiveIndex(0);
+                        }}
+                        disabled={assigneeSearchOptions.length === 0}
+                        className="app-control h-10 w-full bg-card/95 pl-9 pr-10"
+                        placeholder="Buscar empleado..."
+                      />
+                      <button
+                        type="button"
+                        aria-label="Mostrar empleados"
+                        className="absolute right-2 top-1/2 inline-flex size-6 -translate-y-1/2 items-center justify-center text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={assigneeSearchOptions.length === 0}
+                        onClick={() => {
+                          setIsAssigneeSelectOpen((previous) => {
+                            const next = !previous;
+                            setAssigneeActiveIndex(next ? 0 : -1);
+                            return next;
+                          });
+                        }}
+                      >
+                        <ChevronDown className={cn("size-4 transition-transform", isAssigneeSelectOpen && "rotate-180")} />
+                      </button>
+                    </div>
+                  </PopoverAnchor>
+                  <PopoverContent
+                    side="bottom"
+                    align="start"
+                    avoidCollisions={false}
+                    sideOffset={6}
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    className="z-[120] w-[var(--radix-popover-trigger-width)] border-border/90 bg-card/98 p-0"
+                  >
+                    <div className="max-h-64 overflow-y-auto p-1">
+                      {visibleAssigneeOptions.length === 0 ? (
+                        <p className="px-3 py-2 text-sm text-muted-foreground">Sin empleados disponibles.</p>
+                      ) : (
+                        visibleAssigneeOptions.map((option, index) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            ref={(element) => {
+                              assigneeOptionRefs.current[index] = element;
+                            }}
+                            onMouseEnter={() => setAssigneeActiveIndex(index)}
+                            onClick={() => selectAssigneeOption(option)}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary/70",
+                              assigneeActiveIndex === index && "bg-secondary/70",
+                            )}
+                          >
+                            <Check
+                              className={cn(
+                                "size-4 text-primary transition-opacity",
+                                assigneeEmployeeId === option.value ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                            <span className="truncate">{option.label}</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
 
