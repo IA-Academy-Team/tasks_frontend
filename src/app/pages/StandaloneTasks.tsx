@@ -9,7 +9,6 @@ import { TaskCompletionDialog } from "../components/tasks/TaskCompletionDialog";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "../components/ui/dialog";
@@ -1009,7 +1008,7 @@ export function StandaloneTasks() {
                     onClick={() => openTaskDetail(task)}
                   >
                     <td className="px-4 py-3 align-top">
-                      <p className="font-medium text-foreground">{task.title}</p>
+                      <p className="line-clamp-1 break-all font-medium text-foreground">{task.title}</p>
                       {task.description ? (
                         <p className="text-xs text-muted-foreground line-clamp-1">{task.description}</p>
                       ) : null}
@@ -1206,9 +1205,6 @@ export function StandaloneTasks() {
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Crear tarea independiente</DialogTitle>
-            <DialogDescription>
-              Esta tarea no estará asociada a ningún proyecto operativo.
-            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleCreateTask} className="grid grid-cols-1 md:grid-cols-2 gap-4">

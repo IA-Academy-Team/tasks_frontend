@@ -1574,7 +1574,7 @@ export function ProjectBoard() {
                           }}
                         >
                           <td className="app-td align-top" style={getGridColumnStyle("title")}>
-                            <p className="font-medium">{task.title}</p>
+                            <p className="line-clamp-1 break-all font-medium">{task.title}</p>
                             <p className="line-clamp-1 break-all text-muted-foreground">
                               {task.description ?? "Sin descripcion"}
                             </p>
