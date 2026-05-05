@@ -14,12 +14,12 @@ import {
   Plus,
   RefreshCcw,
   Search,
+  Trash2,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { toast } from "react-toastify";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
-import { ConfirmActionDialog } from "../components/ConfirmActionDialog";
 import { TaskCompletionDialog } from "../components/tasks/TaskCompletionDialog";
 import {
   Dialog,
@@ -278,7 +278,6 @@ export function ProjectBoard() {
   const [isTaskReassignModalOpen, setIsTaskReassignModalOpen] = useState(false);
   const [sourceEmployeeId, setSourceEmployeeId] = useState("");
   const [targetEmployeeId, setTargetEmployeeId] = useState("");
-  const [pendingDeleteTask, setPendingDeleteTask] = useState<TaskSummary | null>(null);
   const recurrenceUntilInputRef = useRef<HTMLInputElement | null>(null);
   const taskAssigneeInputRef = useRef<HTMLInputElement | null>(null);
   const taskAssigneeOptionRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -1204,13 +1203,23 @@ export function ProjectBoard() {
     }
   };
 
-  const handleDeleteTask = async (task: TaskSummary) => {
+  const handleDeleteTaskFromDetail = async () => {
+    if (!isAdmin || !editingTaskId) return;
+
+    const taskToDelete = tasks.find((task) => task.id === editingTaskId);
+    if (!taskToDelete) {
+      toast.error("No fue posible identificar la tarea a eliminar.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError("");
     setSuccess("");
     try {
-      await deleteTask(task.id);
+      await deleteTask(taskToDelete.id);
       setSuccess("Tarea eliminada logicamente.");
+      setIsTaskModalOpen(false);
+      resetTaskForm();
       await loadTasks();
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
@@ -2473,42 +2482,40 @@ export function ProjectBoard() {
                 No hay empleados activos asignados a esa area.
               </p>
             )}
-            <div className="md:col-span-2 flex items-center justify-end gap-2">
-              {isAdmin && editingTaskId && (
+            <div className="md:col-span-2 flex w-full items-center justify-between gap-3">
+              {isAdmin && editingTaskId ? (
+                <button
+                  type="button"
+                  className="app-btn-secondary text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => {
+                    void handleDeleteTaskFromDetail();
+                  }}
+                  disabled={isSubmitting}
+                >
+                  <Trash2 className="size-4" />
+                  {isSubmitting ? "Eliminando..." : "Eliminar tarea"}
+                </button>
+              ) : <span />}
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => {
-                    const taskToDelete = tasks.find((task) => task.id === editingTaskId);
-                    if (!taskToDelete) {
-                      toast.error("No fue posible identificar la tarea a eliminar.");
-                      return;
-                    }
-                    setPendingDeleteTask(taskToDelete);
+                    setIsTaskModalOpen(false);
+                    resetTaskForm();
                   }}
-                  className="app-btn-secondary border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/15"
+                  className="app-btn-secondary"
                   disabled={isSubmitting}
                 >
-                  Eliminar tarea
+                  Cancelar
                 </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsTaskModalOpen(false);
-                  resetTaskForm();
-                }}
-                className="app-btn-secondary"
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="app-btn-primary"
-              >
-                {isSubmitting ? "Guardando..." : editingTaskId ? "Actualizar" : "Crear tarea"}
-              </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="app-btn-primary"
+                >
+                  {isSubmitting ? "Guardando..." : editingTaskId ? "Actualizar" : "Crear tarea"}
+                </button>
+              </div>
             </div>
           </form>
         </DialogContent>
@@ -2617,37 +2624,6 @@ export function ProjectBoard() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <ConfirmActionDialog
-        open={pendingDeleteTask !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setPendingDeleteTask(null);
-          }
-        }}
-        title="Eliminar tarea"
-        description={
-          pendingDeleteTask
-            ? `Se eliminará lógicamente "${pendingDeleteTask.title}".`
-            : ""
-        }
-        confirmLabel="Eliminar"
-        variant="destructive"
-        isProcessing={isSubmitting}
-        onConfirm={() => {
-          if (!pendingDeleteTask) {
-            return;
-          }
-          const taskToDelete = pendingDeleteTask;
-          const shouldCloseTaskModal = editingTaskId === taskToDelete.id;
-          setPendingDeleteTask(null);
-          if (shouldCloseTaskModal) {
-            setIsTaskModalOpen(false);
-            resetTaskForm();
-          }
-          void handleDeleteTask(taskToDelete);
-        }}
-      />
 
       <TaskCompletionDialog
         open={isCompletionModalOpen}

@@ -37,12 +37,32 @@ import {
 } from "../../modules/employees/api/employees.api";
 import { useResizableColumns } from "../../shared/hooks/useResizableColumns";
 
-const formatDate = (value: string) =>
-  new Date(value).toLocaleDateString("es-ES", {
+const parseTaskDateForDisplay = (value: string) => {
+  const normalized = value.trim().slice(0, 10);
+  const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, yearRaw, monthRaw, dayRaw] = match;
+    const year = Number(yearRaw);
+    const month = Number(monthRaw);
+    const day = Number(dayRaw);
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
+  }
+
+  return new Date(value);
+};
+
+const formatDate = (value: string) => {
+  const parsedDate = parseTaskDateForDisplay(value);
+  if (Number.isNaN(parsedDate.getTime())) {
+    return value;
+  }
+
+  return parsedDate.toLocaleDateString("es-ES", {
     day: "2-digit",
     month: "short",
     year: "numeric",
   });
+};
 
 const formatMinutes = (minutes: number | null) => {
   if (minutes === null || minutes <= 0) return "-";
