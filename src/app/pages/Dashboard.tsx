@@ -44,15 +44,7 @@ import {
   type TaskComplianceReportData,
 } from "../../modules/dashboard/api/dashboard.api";
 import { getNotificationsSocket } from "../../modules/notifications/realtime/notifications.socket";
-
-const formatMinutes = (minutes: number) => {
-  if (minutes <= 0) return "0 min";
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  if (hours === 0) return `${remainingMinutes} min`;
-  if (remainingMinutes === 0) return `${hours}h`;
-  return `${hours}h ${remainingMinutes}m`;
-};
+import { formatHoursFromMinutes } from "../../shared/utils/time";
 
 const parseDateForUi = (value: string) => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -444,7 +436,7 @@ export function Dashboard() {
       .sort((a, b) => b.completionRate - a.completionRate || b.doneTasks - a.doneTasks);
 
     const pendingTasks = complianceRows
-      .filter((row) => !isDoneStatus(row.status) && !row.isDateOverdue && row.isEstimateDelayed !== true)
+      .filter((row) => !isDoneStatus(row.status) && !row.isDateOverdue)
       .map((row) => ({
         taskId: row.taskId,
         title: row.title,
@@ -456,14 +448,14 @@ export function Dashboard() {
       .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
 
     const overdueTasks = complianceRows
-      .filter((row) => !isDoneStatus(row.status) && (row.isDateOverdue || row.isEstimateDelayed === true))
+      .filter((row) => !isDoneStatus(row.status) && row.isDateOverdue)
       .map((row) => ({
         taskId: row.taskId,
         title: row.title,
         projectName: row.projectName,
         assigneeName: row.assigneeName,
         dueDate: row.dueDate,
-        reason: row.isDateOverdue ? "Vencida por fecha" : "Retrasada por estimado",
+        reason: "Vencida por fecha",
       }))
       .sort((a, b) => parseDateForUi(a.dueDate).getTime() - parseDateForUi(b.dueDate).getTime());
 
@@ -473,7 +465,6 @@ export function Dashboard() {
         value: complianceRows.filter((row) => (
           row.status.trim().toLowerCase() === "asignada"
           && !row.isDateOverdue
-          && row.isEstimateDelayed !== true
         )).length,
         fill: "var(--pie-status-assigned)",
       },
@@ -482,7 +473,6 @@ export function Dashboard() {
         value: complianceRows.filter((row) => (
           row.status.trim().toLowerCase() === "en proceso"
           && !row.isDateOverdue
-          && row.isEstimateDelayed !== true
         )).length,
         fill: "var(--pie-status-in-progress)",
       },
@@ -835,7 +825,7 @@ export function Dashboard() {
                   <span className="rounded-md bg-secondary px-2 py-1 text-[10px] font-bold text-muted-foreground">Mes</span>
                 </div>
                 <p className="text-sm font-medium text-muted-foreground">Horas registradas</p>
-                <p className="mt-1 text-3xl font-black text-foreground">{formatMinutes(employeeDashboard.summary.activeTasksAccumulatedMinutes)}</p>
+                <p className="mt-1 text-3xl font-black text-foreground">{formatHoursFromMinutes(employeeDashboard.summary.activeTasksAccumulatedMinutes)}</p>
               </article>
             </section>
 
@@ -926,7 +916,7 @@ export function Dashboard() {
                       <div>
                         <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tiempo activo</p>
                         <p className="text-3xl font-black text-primary">
-                          {formatMinutes(employeeInsights.inProgressTask.actualMinutes)}
+                          {formatHoursFromMinutes(employeeInsights.inProgressTask.actualMinutes)}
                         </p>
                       </div>
                     </div>
@@ -1026,7 +1016,6 @@ export function Dashboard() {
                 >
                   <option value="all">Cumplimiento: todos</option>
                   <option value="on_time">En tiempo</option>
-                  <option value="estimate_delayed">Atraso estimado</option>
                   <option value="date_overdue">Atraso por fecha</option>
                 </select>
                 <button

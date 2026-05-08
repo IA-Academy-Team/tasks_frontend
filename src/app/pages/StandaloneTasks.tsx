@@ -36,6 +36,7 @@ import {
   type EmployeeSummary,
 } from "../../modules/employees/api/employees.api";
 import { useResizableColumns } from "../../shared/hooks/useResizableColumns";
+import { formatHoursFromMinutes, formatHoursInputFromMinutes } from "../../shared/utils/time";
 
 const parseTaskDateForDisplay = (value: string) => {
   const normalized = value.trim().slice(0, 10);
@@ -64,15 +65,6 @@ const formatDate = (value: string) => {
   });
 };
 
-const formatMinutes = (minutes: number | null) => {
-  if (minutes === null || minutes <= 0) return "-";
-  const hours = Math.floor(minutes / 60);
-  const remaining = minutes % 60;
-  if (hours === 0) return `${remaining} min`;
-  if (remaining === 0) return `${hours}h`;
-  return `${hours}h ${remaining}m`;
-};
-
 const toInputDate = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -80,8 +72,8 @@ const toInputDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-const inferDateRangeFromHours = (hours: number) => {
-  const start = new Date();
+const inferDateRangeFromHours = (hours: number, startDateValue?: string) => {
+  const start = startDateValue ? new Date(`${startDateValue}T12:00:00`) : new Date();
   const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
   return {
     plannedStartDate: toInputDate(start),
@@ -383,7 +375,7 @@ export function StandaloneTasks() {
     setDetailStartDate(task.plannedStartDate.slice(0, 10));
     setDetailDueDate(task.dueDate.slice(0, 10));
     setDetailPriorityId(String(task.taskPriorityId));
-    setDetailEstimatedHours(task.estimatedMinutes ? String(task.estimatedMinutes / 60) : "");
+    setDetailEstimatedHours(formatHoursInputFromMinutes(task.estimatedMinutes));
     setDetailStatus(toWorkflowStatus(task.status));
     setIsDetailModalOpen(true);
   }, []);
@@ -505,7 +497,7 @@ export function StandaloneTasks() {
         return;
       }
 
-      const inferred = inferDateRangeFromHours(numericHours);
+      const inferred = inferDateRangeFromHours(numericHours, resolvedPlannedStartDate || undefined);
       resolvedPlannedStartDate = resolvedPlannedStartDate || inferred.plannedStartDate;
       resolvedDueDate = resolvedDueDate || inferred.dueDate;
     }
@@ -571,15 +563,6 @@ export function StandaloneTasks() {
       toast.error("El título es obligatorio.");
       return;
     }
-    if (!detailStartDate || !detailDueDate) {
-      toast.error("Debes completar fecha de inicio y fin.");
-      return;
-    }
-    if (new Date(detailDueDate).getTime() < new Date(detailStartDate).getTime()) {
-      toast.error("La fecha fin no puede ser menor a la fecha inicio.");
-      return;
-    }
-
     let estimatedMinutes: number | null | undefined = undefined;
     if (detailEstimatedHours.trim()) {
       const numericHours = Number(detailEstimatedHours);
@@ -590,13 +573,33 @@ export function StandaloneTasks() {
       estimatedMinutes = Math.round(numericHours * 60);
     }
 
+    let resolvedDetailStartDate = detailStartDate;
+    let resolvedDetailDueDate = detailDueDate;
+
+    if (!resolvedDetailStartDate || !resolvedDetailDueDate) {
+      const numericHours = Number(detailEstimatedHours);
+      if (!Number.isFinite(numericHours) || numericHours <= 0) {
+        toast.error("Si no defines fechas, la estimación de horas es obligatoria.");
+        return;
+      }
+
+      const inferred = inferDateRangeFromHours(numericHours, resolvedDetailStartDate || undefined);
+      resolvedDetailStartDate = resolvedDetailStartDate || inferred.plannedStartDate;
+      resolvedDetailDueDate = resolvedDetailDueDate || inferred.dueDate;
+    }
+
+    if (new Date(resolvedDetailDueDate).getTime() < new Date(resolvedDetailStartDate).getTime()) {
+      toast.error("La fecha fin no puede ser menor a la fecha inicio.");
+      return;
+    }
+
     const currentStatus = toWorkflowStatus(selectedTask.status);
     const statusChanged = detailStatus !== currentStatus;
     const fieldsChanged = (
       trimmedTitle !== selectedTask.title
       || detailDescription.trim() !== (selectedTask.description ?? "")
-      || detailStartDate !== selectedTask.plannedStartDate.slice(0, 10)
-      || detailDueDate !== selectedTask.dueDate.slice(0, 10)
+      || resolvedDetailStartDate !== selectedTask.plannedStartDate.slice(0, 10)
+      || resolvedDetailDueDate !== selectedTask.dueDate.slice(0, 10)
       || Number(detailPriorityId) !== selectedTask.taskPriorityId
       || ((estimatedMinutes ?? null) !== (selectedTask.estimatedMinutes ?? null))
     );
@@ -617,8 +620,8 @@ export function StandaloneTasks() {
         await updateTask(selectedTask.id, {
           title: trimmedTitle,
           description: detailDescription.trim() || null,
-          plannedStartDate: detailStartDate,
-          dueDate: detailDueDate,
+          plannedStartDate: resolvedDetailStartDate,
+          dueDate: resolvedDetailDueDate,
           taskPriorityId: Number(detailPriorityId),
           estimatedMinutes: estimatedMinutes ?? null,
         });
@@ -891,7 +894,7 @@ export function StandaloneTasks() {
 
       <div className={cn(
         "app-content min-h-0",
-        isAdmin && taskViewMode === "kanban" ? "overflow-y-auto" : "overflow-hidden",
+        taskViewMode === "kanban" ? "overflow-y-auto" : "overflow-hidden",
       )}
       >
         <div className="shrink-0 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -1094,8 +1097,8 @@ export function StandaloneTasks() {
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">{formatDate(task.plannedStartDate)}</td>
                     <td className="px-4 py-3 text-sm text-foreground">{formatDate(task.dueDate)}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{formatMinutes(task.estimatedMinutes)}</td>
-                    <td className="px-4 py-3 text-sm text-foreground">{formatMinutes(task.actualMinutes)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{formatHoursFromMinutes(task.estimatedMinutes)}</td>
+                    <td className="px-4 py-3 text-sm text-foreground">{formatHoursFromMinutes(task.actualMinutes)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1145,8 +1148,8 @@ export function StandaloneTasks() {
                   <span className="text-xs text-muted-foreground">{kanbanTasks[column.key].length}</span>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="min-w-full table-fixed text-sm">
+                <div className="overflow-hidden">
+                  <table className="w-full table-fixed text-sm">
                     <thead className="bg-secondary/35">
                       <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.09em] [&>th]:text-muted-foreground">
                         <th className="w-[64%]">Tarea</th>
@@ -1164,15 +1167,15 @@ export function StandaloneTasks() {
                       ) : (
                         kanbanTasks[column.key].map((task) => (
                           <tr key={task.id}>
-                            <td className="px-3 py-2 align-top">
+                            <td className="w-[64%] max-w-0 overflow-hidden px-3 py-2 align-top">
                               <article
                                 onClick={() => openTaskDetail(task)}
-                                className={`cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-colors hover:border-primary/50 ${
+                                className={`w-full min-w-0 max-w-full overflow-hidden cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-colors hover:border-primary/50 ${
                                   selectedTask?.id === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
                                 }`}
                               >
-                                <p className="text-sm font-medium text-foreground">{task.title}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">
+                                <p className="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-foreground">{task.title}</p>
+                                <p className="mt-1 block w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">
                                   {isAdmin
                                     ? (task.assigneeName ? `${task.assigneeName} · ${task.priority}` : `Sin asignar · ${task.priority}`)
                                     : task.priority}
@@ -1200,7 +1203,7 @@ export function StandaloneTasks() {
                               </article>
                             </td>
                             <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatDate(task.dueDate)}</td>
-                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatMinutes(task.actualMinutes)}</td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatHoursFromMinutes(task.actualMinutes)}</td>
                           </tr>
                         ))
                       )}
@@ -1250,7 +1253,7 @@ export function StandaloneTasks() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio (opcional)</label>
               <input
                 type="date"
                 value={plannedStartDate}
@@ -1260,7 +1263,7 @@ export function StandaloneTasks() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Fin (opcional)</label>
               <input
                 type="date"
                 value={dueDate}
@@ -1489,7 +1492,7 @@ export function StandaloneTasks() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio (opcional)</label>
                 <input
                   type="date"
                   value={detailStartDate}
@@ -1500,7 +1503,7 @@ export function StandaloneTasks() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Fin (opcional)</label>
                 <input
                   type="date"
                   value={detailDueDate}

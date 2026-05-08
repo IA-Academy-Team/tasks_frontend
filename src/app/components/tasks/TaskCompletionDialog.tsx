@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import { formatHoursInputFromMinutes, hoursToMinutes } from "../../../shared/utils/time";
 
 type CompletionPayload = {
   actualMinutes: number;
@@ -31,30 +32,30 @@ export function TaskCompletionDialog({
   onOpenChange,
   onConfirm,
 }: TaskCompletionDialogProps) {
-  const [actualMinutesInput, setActualMinutesInput] = useState("");
+  const [actualHoursInput, setActualHoursInput] = useState("");
   const [completionEvidence, setCompletionEvidence] = useState("");
   const [completionEvidenceLink, setCompletionEvidenceLink] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open) return;
-    setActualMinutesInput(initialActualMinutes && initialActualMinutes > 0 ? String(initialActualMinutes) : "");
+    setActualHoursInput(formatHoursInputFromMinutes(initialActualMinutes));
     setCompletionEvidence("");
     setCompletionEvidenceLink("");
     setError("");
   }, [open, initialActualMinutes]);
 
   const parsedActualMinutes = useMemo(() => {
-    const numericValue = Number(actualMinutesInput);
+    const numericValue = Number(actualHoursInput);
     if (!Number.isFinite(numericValue) || numericValue <= 0) {
       return null;
     }
-    return Math.round(numericValue);
-  }, [actualMinutesInput]);
+    return hoursToMinutes(numericValue);
+  }, [actualHoursInput]);
 
   const handleConfirm = async () => {
     if (parsedActualMinutes === null) {
-      setError("Debes registrar el tiempo real en minutos para terminar la tarea.");
+      setError("Debes registrar el tiempo real en horas para terminar la tarea.");
       return;
     }
 
@@ -94,27 +95,25 @@ export function TaskCompletionDialog({
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-foreground">Tiempo real invertido (minutos)</label>
+            <label className="mb-1.5 block text-sm font-semibold text-foreground">Tiempo real invertido (horas)</label>
             <div className="relative">
               <Clock3 className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="number"
-                min={1}
-                step={1}
-                value={actualMinutesInput}
-                inputMode="numeric"
-                pattern="[0-9]*"
+                min={0.01}
+                step="0.25"
+                value={actualHoursInput}
+                inputMode="decimal"
                 onKeyDown={(event) => {
-                  if (["e", "E", "+", "-", "."].includes(event.key)) {
+                  if (["e", "E", "+", "-"].includes(event.key)) {
                     event.preventDefault();
                   }
                 }}
                 onChange={(event) => {
-                  const digitsOnly = event.target.value.replace(/\D/g, "");
-                  setActualMinutesInput(digitsOnly);
+                  setActualHoursInput(event.target.value);
                 }}
                 className="app-control pl-9"
-                placeholder="Ej: 95"
+                placeholder="Ej: 1.5"
               />
             </div>
           </div>
