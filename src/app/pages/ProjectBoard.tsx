@@ -63,6 +63,7 @@ import {
   type TaskSummary,
 } from "../../modules/tasks/api/tasks.api";
 import { useResizableColumns } from "../../shared/hooks/useResizableColumns";
+import { formatHoursFromMinutes, formatHoursInputFromMinutes } from "../../shared/utils/time";
 
 const KANBAN_COLUMNS: { key: TaskWorkflowStatus; title: string }[] = [
   { key: "assigned", title: "Asignada" },
@@ -118,16 +119,6 @@ const STATUS_NAME_TO_KEY: Record<string, TaskWorkflowStatus> = {
 const getStatusKeyFromTask = (task: TaskSummary): TaskWorkflowStatus | null =>
   STATUS_NAME_TO_KEY[task.status] ?? null;
 
-const formatMinutes = (minutes: number): string => {
-  if (minutes <= 0) return "0 min";
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (hours === 0) return `${remainingMinutes} min`;
-  if (remainingMinutes === 0) return `${hours}h`;
-  return `${hours}h ${remainingMinutes}m`;
-};
-
 const formatRelativeTime = (value: string) => {
   const timestamp = new Date(value).getTime();
   if (Number.isNaN(timestamp)) {
@@ -166,8 +157,8 @@ const toInputDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-const inferDateRangeFromHours = (hours: number) => {
-  const start = new Date();
+const inferDateRangeFromHours = (hours: number, startDateValue?: string) => {
+  const start = startDateValue ? new Date(`${startDateValue}T12:00:00`) : new Date();
   const end = new Date(start.getTime() + hours * 60 * 60 * 1000);
   return {
     plannedStartDate: toInputDate(start),
@@ -178,10 +169,6 @@ const inferDateRangeFromHours = (hours: number) => {
 const getComplianceBadge = (task: TaskSummary): { label: string; className: string } => {
   if (task.isDateOverdue) {
     return { label: "Atraso por fecha", className: "text-destructive" };
-  }
-
-  if (task.isEstimateDelayed === true) {
-    return { label: "Atraso estimado", className: "text-warning" };
   }
 
   return { label: "En tiempo", className: "text-success" };
@@ -650,7 +637,6 @@ export function ProjectBoard() {
 
     const complianceRank = (task: TaskSummary) => {
       if (task.isDateOverdue) return 3;
-      if (task.isEstimateDelayed === true) return 2;
       return 1;
     };
 
@@ -1026,7 +1012,7 @@ export function ProjectBoard() {
     setTaskDescription(task.description ?? "");
     setTaskPlannedStartDate(task.plannedStartDate);
     setTaskDueDate(task.dueDate);
-    setTaskEstimatedHours(task.estimatedMinutes ? String(Number((task.estimatedMinutes / 60).toFixed(1))) : "");
+    setTaskEstimatedHours(formatHoursInputFromMinutes(task.estimatedMinutes));
     setTaskAreaId(
       currentMembership?.currentAreaId
         ? String(currentMembership.currentAreaId)
@@ -1092,7 +1078,7 @@ export function ProjectBoard() {
         return;
       }
 
-      const inferred = inferDateRangeFromHours(estimatedHours);
+      const inferred = inferDateRangeFromHours(estimatedHours, resolvedTaskPlannedStartDate || undefined);
       resolvedTaskPlannedStartDate = resolvedTaskPlannedStartDate || inferred.plannedStartDate;
       resolvedTaskDueDate = resolvedTaskDueDate || inferred.dueDate;
     }
@@ -1633,16 +1619,16 @@ export function ProjectBoard() {
                             <p>Limite: {task.dueDate}</p>
                           </td>
                           <td className="app-td" style={getGridColumnStyle("estimatedMinutes")}>
-                            {task.estimatedMinutes ? `${task.estimatedMinutes} min` : "-"}
+                            {formatHoursFromMinutes(task.estimatedMinutes)}
                           </td>
-                          <td className="app-td" style={getGridColumnStyle("actualMinutes")}>{formatMinutes(task.actualMinutes)}</td>
+                          <td className="app-td" style={getGridColumnStyle("actualMinutes")}>{formatHoursFromMinutes(task.actualMinutes)}</td>
                           <td className="app-td" style={getGridColumnStyle("compliance")}>
                             <span className={getComplianceBadge(task).className}>
                               {getComplianceBadge(task).label}
                             </span>
                             {task.deviationMinutes !== null && (
                               <p className="text-xs text-muted-foreground">
-                                Desvio: {task.deviationMinutes > 0 ? "+" : ""}{task.deviationMinutes} min
+                                Desvio: {formatHoursFromMinutes(task.deviationMinutes, { signed: true })}
                               </p>
                             )}
                           </td>
@@ -1827,8 +1813,8 @@ export function ProjectBoard() {
                   <span className="text-xs text-muted-foreground">{kanbanTasks[column.key].length}</span>
                 </div>
 
-                <div className="overflow-x-auto">
-                  <table className="min-w-full table-fixed text-sm">
+                <div className="overflow-hidden">
+                  <table className="w-full table-fixed text-sm">
                     <thead className="bg-secondary/35">
                       <tr className="[&>th]:px-3 [&>th]:py-2 [&>th]:text-left [&>th]:text-[11px] [&>th]:font-semibold [&>th]:uppercase [&>th]:tracking-[0.09em] [&>th]:text-muted-foreground">
                         <th className="w-[64%]">Tarea</th>
@@ -1846,7 +1832,7 @@ export function ProjectBoard() {
                       ) : (
                         kanbanTasks[column.key].map((task) => (
                           <tr key={task.id}>
-                            <td className="px-3 py-2 align-top">
+                            <td className="w-[64%] max-w-0 overflow-hidden px-3 py-2 align-top">
                               <article
                                 draggable={movingTaskId === null}
                                 onClick={() => {
@@ -1859,14 +1845,14 @@ export function ProjectBoard() {
                                   event.dataTransfer.setData("application/task-id", String(task.id));
                                   event.dataTransfer.effectAllowed = "move";
                                 }}
-                                className={`cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-opacity ${
+                                className={`w-full min-w-0 max-w-full overflow-hidden cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-opacity ${
                                   selectedTaskId === task.id ? "border-primary ring-1 ring-primary/40" : "border-border"
                                 } ${
                                   movingTaskId === task.id ? "opacity-50" : ""
                                 }`}
                               >
-                                <p className="text-sm font-medium text-foreground">{task.title}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">
+                                <p className="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-sm font-medium text-foreground">{task.title}</p>
+                                <p className="mt-1 block w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">
                                   {task.assigneeName
                                     ? `${task.assigneeName} · ${task.priority}`
                                     : `Sin asignar · ${task.priority}`}
@@ -1897,7 +1883,7 @@ export function ProjectBoard() {
                               </article>
                             </td>
                             <td className="px-3 py-2 align-top text-xs text-muted-foreground">{task.dueDate}</td>
-                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatMinutes(task.actualMinutes)}</td>
+                            <td className="px-3 py-2 align-top text-xs text-muted-foreground">{formatHoursFromMinutes(task.actualMinutes)}</td>
                           </tr>
                         ))
                       )}
@@ -2045,7 +2031,7 @@ export function ProjectBoard() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Fecha de inicio</label>
+              <label className="block text-sm font-medium mb-1">Fecha de inicio (opcional)</label>
               <input
                 type="date"
                 value={taskPlannedStartDate}
@@ -2060,7 +2046,7 @@ export function ProjectBoard() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Fecha de fin</label>
+              <label className="block text-sm font-medium mb-1">Fecha de fin (opcional)</label>
               <input
                 type="date"
                 value={taskDueDate}
@@ -2553,7 +2539,7 @@ export function ProjectBoard() {
                 </div>
                 <div className="rounded-lg border border-border bg-background px-3 py-2">
                   <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Estimado</p>
-                  <p className="text-sm text-foreground">{employeeTaskDetail.estimatedMinutes ? `${employeeTaskDetail.estimatedMinutes} min` : "Sin estimado"}</p>
+                  <p className="text-sm text-foreground">{employeeTaskDetail.estimatedMinutes ? formatHoursFromMinutes(employeeTaskDetail.estimatedMinutes) : "Sin estimado"}</p>
                 </div>
                 <div className="rounded-lg border border-border bg-background px-3 py-2">
                   <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Responsable</p>
