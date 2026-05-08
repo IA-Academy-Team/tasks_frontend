@@ -113,8 +113,8 @@ export interface CreateTaskPayload {
   projectId: number;
   title: string;
   description?: string | null;
-  plannedStartDate: string;
-  dueDate: string;
+  plannedStartDate?: string;
+  dueDate?: string;
   taskPriorityId?: number;
   assigneeMembershipId?: number | null;
   estimatedMinutes?: number | null;
@@ -124,8 +124,8 @@ export interface CreateTaskPayload {
 export interface CreateStandaloneTaskPayload {
   title: string;
   description?: string | null;
-  plannedStartDate: string;
-  dueDate: string;
+  plannedStartDate?: string;
+  dueDate?: string;
   assigneeEmployeeId?: number | null;
   taskPriorityId?: number;
   estimatedMinutes?: number | null;
