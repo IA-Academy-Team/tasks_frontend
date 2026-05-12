@@ -140,7 +140,7 @@ export function Areas() {
     setIsLoadingEmployees(true);
     try {
       const response = await listEmployees();
-      return response?.data ?? [];
+      return (response?.data ?? []).filter((employee) => employee.isActive);
     } catch {
       return [] as EmployeeSummary[];
     } finally {

@@ -18,9 +18,9 @@ import {
   Search,
   Trash2,
   Users,
+  X,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import { listAreas, type AreaSummary } from "../../modules/areas/api/areas.api";
 import { listEmployees, type EmployeeSummary } from "../../modules/employees/api/employees.api";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../../shared/api/api";
@@ -34,6 +34,7 @@ import {
 } from "../components/ui/dialog";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
@@ -44,9 +45,13 @@ import {
 import {
   createProject,
   deleteProject,
+  assignProjectMembership,
   listProjects,
+  listProjectMemberships,
+  unassignProjectMembership,
   updateProject,
   updateProjectStatus,
+  type ProjectMembership,
   type ProjectStatusFilter,
   type ProjectSummary,
   type ProjectStatusUpdate,
@@ -163,13 +168,11 @@ export function Projects() {
 
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const canManageProjects = user?.role === "admin" || user?.role === "leader";
 
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
-  const [areas, setAreas] = useState<AreaSummary[]>([]);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("all");
-  const [areaFilter, setAreaFilter] = useState("all");
   const [employeeFilter, setEmployeeFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -185,7 +188,8 @@ export function Projects() {
     status: ProjectStatusUpdate;
   } | null>(null);
 
-  const [areaId, setAreaId] = useState("");
+  const [editingProjectMemberships, setEditingProjectMemberships] = useState<ProjectMembership[]>([]);
+  const [selectedProjectEmployeeIds, setSelectedProjectEmployeeIds] = useState<number[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -193,7 +197,8 @@ export function Projects() {
 
   const resetForm = () => {
     setEditingProjectId(null);
-    setAreaId("");
+    setEditingProjectMemberships([]);
+    setSelectedProjectEmployeeIds([]);
     setName("");
     setDescription("");
     setStartDate("");
@@ -205,7 +210,6 @@ export function Projects() {
     try {
       const response = await listProjects({
         status: statusFilter,
-        areaId: areaFilter === "all" ? undefined : Number(areaFilter),
         employeeId: employeeFilter === "all" ? undefined : Number(employeeFilter),
       });
       setProjects(response?.data ?? []);
@@ -218,43 +222,25 @@ export function Projects() {
     } finally {
       setIsLoading(false);
     }
-  }, [areaFilter, employeeFilter, statusFilter]);
-
-  const loadAreas = useCallback(async () => {
-    if (!isAdmin) {
-      setAreas([]);
-      return;
-    }
-
-    try {
-      const response = await listAreas("all");
-      setAreas(response?.data ?? []);
-    } catch {
-      setAreas([]);
-    }
-  }, [isAdmin]);
+  }, [employeeFilter, statusFilter]);
 
   const loadEmployees = useCallback(async () => {
-    if (!isAdmin) {
+    if (!canManageProjects) {
       setEmployees([]);
       return;
     }
 
     try {
       const response = await listEmployees();
-      setEmployees((response?.data ?? []).filter((employee) => employee.role === "employee"));
+      setEmployees((response?.data ?? []).filter((employee) => employee.isActive && employee.role !== "admin"));
     } catch {
       setEmployees([]);
     }
-  }, [isAdmin]);
+  }, [canManageProjects]);
 
   useEffect(() => {
     void loadProjects();
   }, [loadProjects]);
-
-  useEffect(() => {
-    void loadAreas();
-  }, [loadAreas]);
 
   useEffect(() => {
     void loadEmployees();
@@ -262,7 +248,7 @@ export function Projects() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, areaFilter, employeeFilter, searchTerm]);
+  }, [statusFilter, employeeFilter, searchTerm]);
 
   const filteredProjects = useMemo(() => {
     const normalizedTerm = searchTerm.trim().toLowerCase();
@@ -272,7 +258,6 @@ export function Projects() {
 
     return projects.filter((project) => (
       project.name.toLowerCase().includes(normalizedTerm)
-      || project.areaName.toLowerCase().includes(normalizedTerm)
       || (project.description ?? "").toLowerCase().includes(normalizedTerm)
       || project.status.toLowerCase().includes(normalizedTerm)
     ));
@@ -294,45 +279,78 @@ export function Projects() {
     [filteredProjects],
   );
 
-  const startEdit = (project: ProjectSummary) => {
+  const startEdit = async (project: ProjectSummary) => {
     setEditingProjectId(project.id);
-    setAreaId(project.areaId ? String(project.areaId) : "");
     setName(project.name);
     setDescription(project.description ?? "");
     setStartDate(project.startDate ?? "");
     setEndDate(project.endDate ?? "");
     setIsProjectModalOpen(true);
+    try {
+      const response = await listProjectMemberships(project.id, "active");
+      const memberships = response?.data ?? [];
+      setEditingProjectMemberships(memberships);
+      setSelectedProjectEmployeeIds(memberships.map((membership) => membership.employeeId));
+    } catch {
+      setEditingProjectMemberships([]);
+      setSelectedProjectEmployeeIds([]);
+    }
   };
+
+  const toggleProjectEmployee = (employeeId: number) => {
+    setSelectedProjectEmployeeIds((current) => (
+      current.includes(employeeId)
+        ? current.filter((id) => id !== employeeId)
+        : [...current, employeeId]
+    ));
+  };
+
+  const selectedProjectEmployees = useMemo(() => (
+    selectedProjectEmployeeIds
+      .map((employeeId) => employees.find((employee) => employee.id === employeeId))
+      .filter((employee): employee is EmployeeSummary => Boolean(employee))
+  ), [employees, selectedProjectEmployeeIds]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
     const trimmedName = name.trim();
-    const numericAreaId = areaId.trim() ? Number(areaId) : null;
 
     if (!trimmedName) {
       toast.error("El nombre del proyecto es obligatorio.");
       return;
     }
 
-    if (numericAreaId !== null && (!Number.isInteger(numericAreaId) || numericAreaId <= 0)) {
-      toast.error("El area seleccionada no es valida.");
-      return;
-    }
-
     setIsSubmitting(true);
     try {
+      const activeEmployeeIds = new Set(employees.filter((employee) => employee.isActive).map((employee) => employee.id));
+      const uniqueSelectedProjectEmployeeIds = [...new Set(selectedProjectEmployeeIds)]
+        .filter((employeeId) => activeEmployeeIds.has(employeeId));
+
       if (editingProjectId) {
         await updateProject(editingProjectId, {
-          areaId: numericAreaId,
           name: trimmedName,
           description: description.trim() || null,
           startDate: startDate || null,
           endDate: endDate || null,
         });
+
+        const latestMembershipsResponse = await listProjectMemberships(editingProjectId, "active");
+        const latestMemberships = latestMembershipsResponse?.data ?? [];
+        const currentEmployeeIds = new Set(latestMemberships.map((membership) => membership.employeeId));
+        const nextEmployeeIds = new Set(uniqueSelectedProjectEmployeeIds);
+
+        await Promise.all([
+          ...uniqueSelectedProjectEmployeeIds
+            .filter((employeeId) => !currentEmployeeIds.has(employeeId))
+            .map((employeeId) => assignProjectMembership(editingProjectId, { employeeId })),
+          ...latestMemberships
+            .filter((membership) => !nextEmployeeIds.has(membership.employeeId))
+            .map((membership) => unassignProjectMembership(editingProjectId, membership.id)),
+        ]);
       } else {
         await createProject({
-          areaId: numericAreaId,
+          employeeIds: uniqueSelectedProjectEmployeeIds,
           name: trimmedName,
           description: description.trim() || null,
           startDate: startDate || null,
@@ -346,7 +364,7 @@ export function Projects() {
     } catch (incomingError) {
       if (incomingError instanceof ApiError) {
         if (incomingError.code === "PROJECT_NAME_ALREADY_EXISTS_IN_AREA") {
-          toast.error("Ya existe un proyecto con ese nombre en el area seleccionada.");
+          toast.error("Ya existe un proyecto con ese nombre.");
           return;
         }
 
@@ -392,7 +410,7 @@ export function Projects() {
     <div className="app-shell">
       <PageHero
         title="Proyectos"
-        subtitle="Gestion de proyectos por area"
+        subtitle="Gestion de proyectos y participantes"
         icon={<FolderKanban className="size-5" />}
       />
 
@@ -404,29 +422,8 @@ export function Projects() {
             </div>
 
             <div className="flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 xl:w-auto xl:overflow-visible">
-                {isAdmin && (
-                  <div className="relative w-[220px] shrink-0">
-                    <Building2
-                      className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    <select
-                      value={areaFilter}
-                      onChange={(event) => setAreaFilter(event.target.value)}
-                      className="app-control h-9 appearance-none pl-10 pr-8 [-webkit-appearance:none]"
-                      title="Filtrar por area"
-                    >
-                      <option value="all">Todas las areas</option>
-                      {areas.map((area) => (
-                        <option key={area.id} value={area.id}>
-                          {area.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
-                {isAdmin && (
+                {canManageProjects && (
                   <div className="relative w-[220px] shrink-0">
                     <Users
                       className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
@@ -484,7 +481,7 @@ export function Projects() {
                   />
                 </div>
 
-                {isAdmin && (
+                {canManageProjects && (
                   <button
                     type="button"
                     onClick={() => {
@@ -540,7 +537,7 @@ export function Projects() {
                           )}
                         </div>
 
-                        {isAdmin && (
+                        {canManageProjects && (
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <button
@@ -560,7 +557,7 @@ export function Projects() {
                               <DropdownMenuItem
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  startEdit(project);
+                                  void startEdit(project);
                                 }}
                               >
                                 <Pencil className="size-4" />
@@ -609,7 +606,9 @@ export function Projects() {
                         <p className="truncate text-base font-semibold text-foreground transition-colors group-hover:text-primary">
                           {project.name}
                         </p>
-                        <p className="truncate text-sm text-muted-foreground">{project.areaName}</p>
+                        <p className="truncate text-sm text-muted-foreground">
+                          {project.activeMemberCount} participantes activos
+                        </p>
                       </div>
 
                       <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-sm text-muted-foreground">
@@ -698,21 +697,6 @@ export function Projects() {
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Area</label>
-              <select
-                value={areaId}
-                onChange={(event) => setAreaId(event.target.value)}
-                className="app-control"
-              >
-                <option value="">Sin area (opcional)</option>
-                {areas.filter((area) => area.isActive).map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
               <label className="block text-sm font-semibold text-foreground mb-1.5">Nombre</label>
               <input
                 type="text"
@@ -721,6 +705,61 @@ export function Projects() {
                 className="app-control"
                 placeholder="Nombre del proyecto"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Participantes</label>
+              <div className="space-y-3">
+                {employees.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No hay empleados disponibles.</p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            className="app-btn-secondary"
+                            disabled={isSubmitting}
+                          >
+                            <Users className="size-4" />
+                            Seleccionar participantes
+                            <ChevronDown className="size-4 text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-[380px] max-h-80 overflow-y-auto p-2">
+                          {employees.length === 0 ? (
+                            <p className="px-2 py-2 text-sm text-muted-foreground">Sin resultados.</p>
+                          ) : (
+                            employees.map((employee) => {
+                              const isChecked = selectedProjectEmployeeIds.includes(employee.id);
+
+                              return (
+                                <DropdownMenuCheckboxItem
+                                  key={employee.id}
+                                  checked={isChecked}
+                                  disabled={isSubmitting}
+                                  onCheckedChange={() => toggleProjectEmployee(employee.id)}
+                                  onSelect={(event) => event.preventDefault()}
+                                >
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm text-foreground">{employee.name}</p>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      {employee.role === "leader" ? "Lider" : "Empleado"}
+                                    </p>
+                                  </div>
+                                </DropdownMenuCheckboxItem>
+                              );
+                            })
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <p className="text-xs text-muted-foreground">
+                        Seleccionados: {selectedProjectEmployeeIds.length}
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
             <div className="md:col-span-2">
               <label className="block text-sm font-semibold text-foreground mb-1.5">Descripcion</label>
@@ -792,7 +831,6 @@ export function Projects() {
           {selectedProjectForDetail ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
               <p><span className="font-medium">Nombre:</span> {selectedProjectForDetail.name}</p>
-              <p><span className="font-medium">Area:</span> {selectedProjectForDetail.areaName}</p>
               <p><span className="font-medium">Estado:</span> {selectedProjectForDetail.status}</p>
               <p><span className="font-medium">Descripcion:</span> {selectedProjectForDetail.description ?? "Sin descripcion"}</p>
               <p><span className="font-medium">Inicio:</span> {selectedProjectForDetail.startDate ?? "-"}</p>

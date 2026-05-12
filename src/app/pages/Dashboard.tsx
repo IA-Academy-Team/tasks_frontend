@@ -307,7 +307,7 @@ export function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const isAdmin = user?.role === "admin";
-  const isEmployee = user?.role === "employee";
+  const isEmployee = user?.role === "employee" || user?.role === "leader";
 
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingFilters, setIsLoadingFilters] = useState(false);
