@@ -12,6 +12,7 @@ export type FrontendResource =
 const ROLE_POLICIES: Record<AuthRole, FrontendResource[]> = {
   admin: ["dashboard", "areas", "employees", "projects", "standaloneTasks", "projectBoard", "profile"],
   employee: ["dashboard", "projects", "standaloneTasks", "projectBoard", "profile"],
+  leader: ["dashboard", "projects", "standaloneTasks", "projectBoard", "profile"],
 };
 
 export const getAllowedResources = (role: AuthRole): FrontendResource[] =>

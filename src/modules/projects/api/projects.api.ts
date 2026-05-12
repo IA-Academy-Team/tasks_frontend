@@ -90,6 +90,7 @@ export interface ReassignProjectTasksResponse {
 
 export interface CreateProjectPayload {
   areaId?: number | null;
+  employeeIds?: number[];
   name: string;
   description?: string | null;
   startDate?: string | null;
@@ -149,6 +150,7 @@ export const getProjectById = (projectId: number) =>
 export const createProject = (payload: CreateProjectPayload) =>
   api.post<ProjectResponse>(`${API_PREFIX}/projects`, {
     areaId: payload.areaId ?? null,
+    employeeIds: payload.employeeIds ?? [],
     name: payload.name,
     description: payload.description ?? null,
     startDate: withNullableDate(payload.startDate),
