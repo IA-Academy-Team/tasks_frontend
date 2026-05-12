@@ -404,27 +404,6 @@ export function Projects() {
             </div>
 
             <div className="flex w-full items-center justify-end gap-2 overflow-x-auto overflow-y-visible px-1 py-1 xl:w-auto xl:overflow-visible">
-                {isAdmin && (
-                  <div className="relative w-[220px] shrink-0">
-                    <Building2
-                      className="pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground"
-                      aria-hidden="true"
-                    />
-                    <select
-                      value={areaFilter}
-                      onChange={(event) => setAreaFilter(event.target.value)}
-                      className="app-control h-9 appearance-none pl-10 pr-8 [-webkit-appearance:none]"
-                      title="Filtrar por area"
-                    >
-                      <option value="all">Todas las areas</option>
-                      {areas.map((area) => (
-                        <option key={area.id} value={area.id}>
-                          {area.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
 
                 {isAdmin && (
                   <div className="relative w-[220px] shrink-0">
