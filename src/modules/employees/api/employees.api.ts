@@ -9,6 +9,7 @@ export interface EmployeeSummary {
   email: string;
   role: "admin" | "employee" | "leader";
   roleId: number;
+  isActive: boolean;
   emailVerified: boolean;
   phoneNumber: string | null;
   image: string | null;
@@ -73,13 +74,6 @@ export interface EmployeeProjectMembershipsResponse {
   data: EmployeeProjectMembership[];
 }
 
-export interface DeleteEmployeeResponse {
-  data: {
-    id: number;
-    mode: "deleted";
-  };
-}
-
 export interface CreateEmployeePayload {
   name: string;
   email: string;
@@ -88,6 +82,7 @@ export interface CreateEmployeePayload {
   phoneNumber?: string | null;
   image?: string | null;
   emailVerified?: boolean;
+  isActive?: boolean;
 }
 
 export interface UpdateEmployeePayload {
@@ -96,6 +91,7 @@ export interface UpdateEmployeePayload {
   phoneNumber?: string | null;
   image?: string | null;
   emailVerified?: boolean;
+  isActive?: boolean;
 }
 
 export interface AssignEmployeeAreaPayload {
@@ -166,11 +162,3 @@ export const listEmployeeProjectMemberships = (
 ) => api.get<EmployeeProjectMembershipsResponse>(
   `${API_PREFIX}/employees/${employeeId}/project-memberships?status=${status}`,
 );
-
-export const deleteEmployee = (employeeId: number) =>
-  api.delete<DeleteEmployeeResponse>(`${API_PREFIX}/employees/${employeeId}`, {
-    toast: {
-      successMessage: "Empleado eliminado correctamente.",
-      errorMessage: "No fue posible eliminar el empleado.",
-    },
-  });

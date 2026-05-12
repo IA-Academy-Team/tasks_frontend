@@ -22,6 +22,7 @@ import {
 import { Popover, PopoverAnchor, PopoverContent } from "../components/ui/popover";
 import { cn } from "../components/ui/utils";
 import {
+  createTask,
   createStandaloneTask,
   deleteTask,
   listTasks,
@@ -31,6 +32,13 @@ import {
   type TaskWorkflowStatus,
   updateTask,
 } from "../../modules/tasks/api/tasks.api";
+import {
+  assignProjectMembership,
+  listProjectMemberships,
+  listProjects,
+  type ProjectMembership,
+  type ProjectSummary,
+} from "../../modules/projects/api/projects.api";
 import {
   listEmployees,
   type EmployeeSummary,
@@ -174,6 +182,8 @@ export function StandaloneTasks() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const isEmployee = user?.role === "employee";
+  const isLeader = user?.role === "leader";
+  const canAssignTasks = isAdmin || isLeader;
   const filterOptions: Array<{
     value: TaskStatusFilter;
     label: string;
@@ -208,6 +218,9 @@ export function StandaloneTasks() {
   const [isCompletingTask, setIsCompletingTask] = useState(false);
   const [pendingCompletionTask, setPendingCompletionTask] = useState<TaskSummary | null>(null);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
+  const [projects, setProjects] = useState<ProjectSummary[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [selectedProjectMemberships, setSelectedProjectMemberships] = useState<ProjectMembership[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [sortColumn, setSortColumn] = useState<StandaloneSortColumn>("dueDate");
@@ -261,7 +274,7 @@ export function StandaloneTasks() {
 
   const loadTasks = useCallback(async () => {
     try {
-      const response = (isAdmin || isEmployee)
+      const response = (isAdmin || isEmployee || isLeader)
         ? await listTasks({ status: statusFilter, includeStandalone: true })
         : await listTasks({ status: statusFilter, includeStandalone: false });
       setTasks(response?.data ?? []);
@@ -274,29 +287,61 @@ export function StandaloneTasks() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAdmin, isEmployee, statusFilter]);
+  }, [isAdmin, isEmployee, isLeader, statusFilter]);
 
   useEffect(() => {
     void loadTasks();
   }, [loadTasks]);
 
   useEffect(() => {
-    if (!isAdmin) {
+    if (!canAssignTasks) {
       setEmployees([]);
       return;
     }
 
     const loadAssignableEmployees = async () => {
       try {
-        const response = await listEmployees();
-        setEmployees((response?.data ?? []).filter((employee) => employee.role === "employee"));
+      const response = await listEmployees();
+      setEmployees((response?.data ?? []).filter((employee) => employee.isActive && employee.role !== "admin"));
       } catch {
         setEmployees([]);
       }
     };
 
     void loadAssignableEmployees();
-  }, [isAdmin]);
+  }, [canAssignTasks]);
+
+  useEffect(() => {
+    const loadAssignableProjects = async () => {
+      try {
+        const response = await listProjects({ status: "active" });
+        setProjects(response?.data ?? []);
+      } catch {
+        setProjects([]);
+      }
+    };
+
+    void loadAssignableProjects();
+  }, []);
+
+  useEffect(() => {
+    const numericProjectId = Number(selectedProjectId);
+    if (!Number.isInteger(numericProjectId) || numericProjectId <= 0) {
+      setSelectedProjectMemberships([]);
+      return;
+    }
+
+    const loadMemberships = async () => {
+      try {
+        const response = await listProjectMemberships(numericProjectId, "active");
+        setSelectedProjectMemberships(response?.data ?? []);
+      } catch {
+        setSelectedProjectMemberships([]);
+      }
+    };
+
+    void loadMemberships();
+  }, [selectedProjectId]);
 
   const resetForm = () => {
     setTitle("");
@@ -305,19 +350,27 @@ export function StandaloneTasks() {
     setDueDate("");
     setEstimatedHours("");
     setPriorityId("2");
+    setSelectedProjectId("");
+    setSelectedProjectMemberships([]);
     setAssigneeEmployeeId("");
     setAssigneeSearchTerm("");
     setIsAssigneeSelectOpen(false);
     setAssigneeActiveIndex(-1);
   };
 
-  const assigneeSearchOptions = useMemo(
-    () => employees.map((employee) => ({
+  const assigneeSearchOptions = useMemo(() => {
+    const selectedProjectEmployeeIds = new Set(
+      selectedProjectMemberships.map((membership) => membership.employeeId),
+    );
+    const sourceEmployees = selectedProjectId
+      ? employees.filter((employee) => selectedProjectEmployeeIds.has(employee.id))
+      : employees;
+
+    return sourceEmployees.map((employee) => ({
       value: String(employee.id),
       label: employee.name,
-    })),
-    [employees],
-  );
+    }));
+  }, [employees, selectedProjectId, selectedProjectMemberships]);
 
   const visibleAssigneeOptions = useMemo(() => {
     const normalizedTerm = assigneeSearchTerm.trim().toLowerCase();
@@ -464,7 +517,7 @@ export function StandaloneTasks() {
       return;
     }
 
-    if (isAdmin) {
+    if (canAssignTasks) {
       const numericAssigneeEmployeeId = Number(assigneeEmployeeId);
       if (!Number.isInteger(numericAssigneeEmployeeId) || numericAssigneeEmployeeId <= 0) {
         toast.error("Debes asignar la tarea a un empleado.");
@@ -509,15 +562,57 @@ export function StandaloneTasks() {
 
     setIsSubmitting(true);
     try {
-      const response = await createStandaloneTask({
-        title: trimmedTitle,
-        description: trimmedDescription || null,
-        plannedStartDate: resolvedPlannedStartDate,
-        dueDate: resolvedDueDate,
-        assigneeEmployeeId: isAdmin ? Number(assigneeEmployeeId) : undefined,
-        taskPriorityId: Number(priorityId),
-        estimatedMinutes,
-      });
+      const numericProjectId = Number(selectedProjectId);
+      const shouldCreateProjectTask = Number.isInteger(numericProjectId) && numericProjectId > 0;
+      let response;
+
+      if (shouldCreateProjectTask) {
+        let assigneeMembershipId: number | null = null;
+
+        if (canAssignTasks) {
+          const numericAssigneeEmployeeId = Number(assigneeEmployeeId);
+          assigneeMembershipId = selectedProjectMemberships.find(
+            (membership) => membership.employeeId === numericAssigneeEmployeeId,
+          )?.id ?? null;
+
+          if (!assigneeMembershipId) {
+            const membershipResponse = await assignProjectMembership(numericProjectId, {
+              employeeId: numericAssigneeEmployeeId,
+            });
+            assigneeMembershipId = membershipResponse?.data?.id ?? null;
+          }
+        } else {
+          assigneeMembershipId = selectedProjectMemberships.find(
+            (membership) => membership.employeeEmail === user?.email,
+          )?.id ?? null;
+        }
+
+        if (!assigneeMembershipId) {
+          toast.error("No fue posible determinar la membresia del proyecto para esta tarea.");
+          return;
+        }
+
+        response = await createTask({
+          projectId: numericProjectId,
+          title: trimmedTitle,
+          description: trimmedDescription || null,
+          plannedStartDate: resolvedPlannedStartDate,
+          dueDate: resolvedDueDate,
+          assigneeMembershipId,
+          taskPriorityId: Number(priorityId),
+          estimatedMinutes,
+        });
+      } else {
+        response = await createStandaloneTask({
+          title: trimmedTitle,
+          description: trimmedDescription || null,
+          plannedStartDate: resolvedPlannedStartDate,
+          dueDate: resolvedDueDate,
+          assigneeEmployeeId: canAssignTasks ? Number(assigneeEmployeeId) : undefined,
+          taskPriorityId: Number(priorityId),
+          estimatedMinutes,
+        });
+      }
 
       const createdCount = response?.data?.createdCount ?? 1;
       if (createdCount > 1) {
@@ -1253,7 +1348,7 @@ export function StandaloneTasks() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio (opcional)</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
               <input
                 type="date"
                 value={plannedStartDate}
@@ -1263,7 +1358,7 @@ export function StandaloneTasks() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-foreground mb-1.5">Fin (opcional)</label>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
               <input
                 type="date"
                 value={dueDate}
@@ -1272,7 +1367,29 @@ export function StandaloneTasks() {
               />
             </div>
 
-            {isAdmin && (
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-1.5">Proyecto</label>
+              <select
+                value={selectedProjectId}
+                onChange={(event) => {
+                  setSelectedProjectId(event.target.value);
+                  setAssigneeEmployeeId("");
+                  setAssigneeSearchTerm("");
+                  setIsAssigneeSelectOpen(false);
+                  setAssigneeActiveIndex(-1);
+                }}
+                className="app-control"
+              >
+                <option value="">Sin proyecto relacionado</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {canAssignTasks && (
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-1.5">Asignar a</label>
                 <Popover open={isAssigneeSelectOpen} onOpenChange={setIsAssigneeSelectOpen}>
@@ -1492,7 +1609,7 @@ export function StandaloneTasks() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio (opcional)</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Inicio</label>
                 <input
                   type="date"
                   value={detailStartDate}
@@ -1503,7 +1620,7 @@ export function StandaloneTasks() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-foreground mb-1.5">Fin (opcional)</label>
+                <label className="block text-sm font-semibold text-foreground mb-1.5">Fin</label>
                 <input
                   type="date"
                   value={detailDueDate}

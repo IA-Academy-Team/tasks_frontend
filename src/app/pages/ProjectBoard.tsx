@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import {
   ArrowLeft,
+  ArrowRightLeft,
   CalendarClock,
   ChartPie,
   Check,
@@ -28,11 +29,6 @@ import {
   DialogTitle,
 } from "../components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
 import { Popover, PopoverAnchor, PopoverContent } from "../components/ui/popover";
 import { cn } from "../components/ui/utils";
 import {
@@ -220,7 +216,7 @@ export function ProjectBoard() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const canManageProject = user?.role === "admin" || user?.role === "leader";
 
   const [project, setProject] = useState<ProjectSummary | null>(null);
   const [memberships, setMemberships] = useState<ProjectMembership[]>([]);
@@ -239,7 +235,6 @@ export function ProjectBoard() {
   const [taskPlannedStartDate, setTaskPlannedStartDate] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskEstimatedHours, setTaskEstimatedHours] = useState("");
-  const [taskAreaId, setTaskAreaId] = useState("");
   const [taskAssigneeEmployeeId, setTaskAssigneeEmployeeId] = useState("");
   const [taskRecurrenceMode, setTaskRecurrenceMode] = useState<TaskRecurrenceMode>("none");
   const [taskRecurrenceStartDate, setTaskRecurrenceStartDate] = useState("");
@@ -296,7 +291,6 @@ export function ProjectBoard() {
     setTaskPlannedStartDate("");
     setTaskDueDate("");
     setTaskEstimatedHours("");
-    setTaskAreaId(project?.areaId ? String(project.areaId) : "");
     setTaskAssigneeEmployeeId("");
     setTaskAssigneeSearchTerm("");
     setIsTaskAssigneeSelectOpen(false);
@@ -359,18 +353,18 @@ export function ProjectBoard() {
   }, [numericProjectId, taskStatusFilter]);
 
   const loadEmployees = useCallback(async () => {
-    if (!isAdmin) {
+    if (!canManageProject) {
       setEmployees([]);
       return;
     }
 
     try {
       const response = await listEmployees();
-      setEmployees(response?.data ?? []);
+      setEmployees((response?.data ?? []).filter((employee) => employee.isActive));
     } catch {
       setEmployees([]);
     }
-  }, [isAdmin]);
+  }, [canManageProject]);
 
   useEffect(() => {
     const initialize = async () => {
@@ -403,7 +397,7 @@ export function ProjectBoard() {
   }, [selectedTaskId, tasks]);
 
   const assignableEmployees = useMemo(() => {
-    return employees.filter((employee) => employee.role === "employee");
+    return employees.filter((employee) => employee.isActive && employee.role === "employee");
   }, [employees]);
 
   const activeMemberships = useMemo(
@@ -430,52 +424,10 @@ export function ProjectBoard() {
     [assignableEmployees],
   );
 
-  const taskAreaOptions = useMemo(() => {
-    const options = new Map<number, string>();
-
-    if (project?.areaId) {
-      options.set(project.areaId, project.areaName);
-    }
-
-    memberships.forEach((membership) => {
-      if (membership.currentAreaId && membership.currentAreaName) {
-        options.set(membership.currentAreaId, membership.currentAreaName);
-      }
-    });
-
-    employees.forEach((employee) => {
-      if (employee.areaIds.length > 0 && employee.areaNames.length > 0) {
-        employee.areaIds.forEach((areaId, index) => {
-          const areaName = employee.areaNames[index];
-          if (areaName) {
-            options.set(areaId, areaName);
-          }
-        });
-        return;
-      }
-
-      if (employee.currentAreaId && employee.currentAreaName) {
-        options.set(employee.currentAreaId, employee.currentAreaName);
-      }
-    });
-
-    return [...options.entries()].map(([id, name]) => ({ id, name }));
-  }, [employees, memberships, project]);
-
   const taskAssigneeEmployeeOptions = useMemo(() => {
-    const selectedAreaId = Number(taskAreaId);
-    const assignableEmployeesList = employees.filter(
-      (employee) => employee.role === "employee",
-    );
-
-    if (!Number.isInteger(selectedAreaId) || selectedAreaId <= 0) {
-      return assignableEmployeesList;
-    }
-
-    return assignableEmployeesList.filter((employee) => (
-      employee.currentAreaId === selectedAreaId || employee.areaIds.includes(selectedAreaId)
-    ));
-  }, [employees, taskAreaId]);
+    const activeEmployeeIds = new Set(activeMemberships.map((membership) => membership.employeeId));
+    return employees.filter((employee) => employee.isActive && activeEmployeeIds.has(employee.id));
+  }, [activeMemberships, employees]);
 
   const taskAssigneeSearchOptions = useMemo(
     () => taskAssigneeEmployeeOptions.map((employee) => ({
@@ -1001,10 +953,6 @@ export function ProjectBoard() {
   };
 
   const startTaskEdit = (task: TaskSummary) => {
-    const currentMembership = activeMemberships.find(
-      (membership) => membership.id === task.assigneeMembershipId,
-    );
-
     setSelectedTaskId(task.id);
     void loadTaskHistory(task.id);
     setEditingTaskId(task.id);
@@ -1013,13 +961,6 @@ export function ProjectBoard() {
     setTaskPlannedStartDate(task.plannedStartDate);
     setTaskDueDate(task.dueDate);
     setTaskEstimatedHours(formatHoursInputFromMinutes(task.estimatedMinutes));
-    setTaskAreaId(
-      currentMembership?.currentAreaId
-        ? String(currentMembership.currentAreaId)
-        : project?.areaId
-          ? String(project.areaId)
-          : "",
-    );
     setTaskAssigneeEmployeeId(task.assigneeEmployeeId ? String(task.assigneeEmployeeId) : "");
     setTaskAssigneeSearchTerm("");
     setIsTaskAssigneeSelectOpen(false);
@@ -1031,9 +972,6 @@ export function ProjectBoard() {
 
   const openCreateTaskModal = () => {
     resetTaskForm();
-    if (project?.areaId) {
-      setTaskAreaId(String(project.areaId));
-    }
     setError("");
     setSuccess("");
     setIsTaskModalOpen(true);
@@ -1190,7 +1128,7 @@ export function ProjectBoard() {
   };
 
   const handleDeleteTaskFromDetail = async () => {
-    if (!isAdmin || !editingTaskId) return;
+    if (!canManageProject || !editingTaskId) return;
 
     const taskToDelete = tasks.find((task) => task.id === editingTaskId);
     if (!taskToDelete) {
@@ -1429,7 +1367,7 @@ export function ProjectBoard() {
             <div>
               <h1 className="text-xl font-bold text-foreground">{project.name}</h1>
               <p className="text-sm text-muted-foreground">
-                Area: {project.areaName} · Estado: {project.status}
+                Estado: {project.status}
               </p>
             </div>
           </div>
@@ -1483,14 +1421,14 @@ export function ProjectBoard() {
                 <option value="in_progress">En proceso</option>
                 <option value="done">Terminadas</option>
               </select>
-              {isAdmin && (
+              {canManageProject && (
                 <>
                   <button
                     type="button"
                     onClick={() => setIsTaskReassignModalOpen(true)}
                     className="app-btn-secondary"
                   >
-                    <RefreshCcw className="size-4" />
+                    <ArrowRightLeft className="size-4" />
                     Tareas
                   </button>
                   <button
@@ -1559,7 +1497,7 @@ export function ProjectBoard() {
                             selectedTaskId === task.id ? "bg-primary/5" : ""
                           }`}
                           onClick={() => {
-                            if (isAdmin) {
+                            if (canManageProject) {
                               startTaskEdit(task);
                               return;
                             }
@@ -1837,7 +1775,7 @@ export function ProjectBoard() {
                                 draggable={movingTaskId === null}
                                 onClick={() => {
                                   handleSelectTask(task.id);
-                                  if (!isAdmin) {
+                                  if (!canManageProject) {
                                     openEmployeeTaskDetailModal(task);
                                   }
                                 }}
@@ -2008,27 +1946,6 @@ export function ProjectBoard() {
                 className="app-control"
                 placeholder="Ejemplo: 0.5"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Grupo/Area</label>
-              <select
-                value={taskAreaId}
-                onChange={(event) => {
-                  setTaskAreaId(event.target.value);
-                  setTaskAssigneeEmployeeId("");
-                  setTaskAssigneeSearchTerm("");
-                  setIsTaskAssigneeSelectOpen(false);
-                  setTaskAssigneeActiveIndex(-1);
-                }}
-                className="app-control"
-              >
-                <option value="">Selecciona grupo/area</option>
-                {taskAreaOptions.map((area) => (
-                  <option key={area.id} value={area.id}>
-                    {area.name}
-                  </option>
-                ))}
-              </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Fecha de inicio (opcional)</label>
@@ -2463,13 +2380,13 @@ export function ProjectBoard() {
               </div>
             )}
 
-            {taskAreaId && taskAssigneeEmployeeOptions.length === 0 && (
+            {taskAssigneeEmployeeOptions.length === 0 && (
               <p className="text-xs text-muted-foreground mt-2 md:col-span-2">
-                No hay empleados activos asignados a esa area.
+                No hay participantes activos en este proyecto.
               </p>
             )}
             <div className="md:col-span-2 flex w-full items-center justify-between gap-3">
-              {isAdmin && editingTaskId ? (
+              {canManageProject && editingTaskId ? (
                 <button
                   type="button"
                   className="app-btn-secondary text-destructive border-destructive/30 hover:bg-destructive/10"
@@ -2599,7 +2516,6 @@ export function ProjectBoard() {
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
             <p><span className="font-medium">Nombre:</span> {project.name}</p>
-            <p><span className="font-medium">Area:</span> {project.areaName}</p>
             <p><span className="font-medium">Estado:</span> {project.status}</p>
             <p><span className="font-medium">Descripcion:</span> {project.description ?? "Sin descripcion"}</p>
             <p><span className="font-medium">Inicio:</span> {project.startDate ?? "-"}</p>

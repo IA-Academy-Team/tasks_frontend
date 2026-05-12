@@ -4,7 +4,7 @@ import {
   AUTH_HANDLER_BASE_PATH,
 } from "../../../shared/api/api";
 
-export type AuthRole = "admin" | "employee";
+export type AuthRole = "admin" | "employee" | "leader";
 
 export interface AuthenticatedUser {
   id: number;
