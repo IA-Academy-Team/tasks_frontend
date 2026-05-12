@@ -78,6 +78,50 @@ const MUTATION_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
 
 const DEFAULT_SUCCESS_MESSAGE = "Accion realizada correctamente.";
 const DEFAULT_NETWORK_ERROR_MESSAGE = "No fue posible conectar con el servidor.";
+const UNAUTHORIZED_ERROR_CODES = new Set(["UNAUTHORIZED", "UNAUTHENTICATED"]);
+
+let authRedirectInProgress = false;
+
+const isAuthHandlerEndpoint = (endpoint: string): boolean =>
+    endpoint.startsWith(`${AUTH_HANDLER_BASE_PATH}/`);
+
+const isAuthSessionEndpoint = (endpoint: string): boolean =>
+    endpoint === `${AUTH_BASE_PATH}/session`;
+
+const redirectToLogin = () => {
+    if (typeof window === "undefined") return;
+    if (authRedirectInProgress) return;
+    if (window.location.pathname === "/login") return;
+
+    authRedirectInProgress = true;
+    window.location.replace("/login");
+};
+
+const shouldSkipSessionRecheck = (endpoint: string): boolean =>
+    isAuthSessionEndpoint(endpoint) || isAuthHandlerEndpoint(endpoint);
+
+const checkSessionUnauthenticated = async (): Promise<boolean> => {
+    if (typeof window === "undefined") return false;
+
+    try {
+        const response = await fetch(`${API_URL}${AUTH_BASE_PATH}/session`, {
+            credentials: "include",
+            headers: {
+                Accept: "application/json",
+            },
+        });
+
+        if (response.status === 401) return true;
+        if (!response.ok) return false;
+
+        const payload = await response.json().catch(() => null);
+        if (!isRecord(payload)) return false;
+
+        return payload.authenticated === false;
+    } catch {
+        return false;
+    }
+};
 
 const getRequestMethod = (options: RequestOptions): string =>
     (options.method ?? "GET").toUpperCase();
@@ -154,6 +198,17 @@ export const apiFetch = async <T = unknown>(endpoint: string, options: RequestOp
         const errorCode =
             toStringOrUndefined(errorData.code) ||
             toStringOrUndefined(errorData.errorCode);
+
+        let shouldRedirectToLogin =
+            response.status === 401 || (errorCode !== undefined && UNAUTHORIZED_ERROR_CODES.has(errorCode));
+
+        if (!shouldRedirectToLogin && response.status === 500 && !shouldSkipSessionRecheck(endpoint)) {
+            shouldRedirectToLogin = await checkSessionUnauthenticated();
+        }
+
+        if (shouldRedirectToLogin) {
+            redirectToLogin();
+        }
 
         emitErrorToast(errorMessage, options, endpoint, response.status, errorCode);
 
