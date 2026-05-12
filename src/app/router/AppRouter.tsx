@@ -45,7 +45,7 @@ export function AppRouter() {
           <Route
             path="app/employee/dashboard"
             element={
-              <RoleGuard allowedRoles={["employee"]}>
+              <RoleGuard allowedRoles={["employee", "leader"]}>
                 <DashboardPage />
               </RoleGuard>
             }

@@ -8,7 +8,8 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Trash2,
+  Power,
+  PowerOff,
   Users2,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -32,7 +33,6 @@ import {
 } from "../components/ui/dropdown-menu";
 import {
   createEmployee,
-  deleteEmployee,
   listEmployees,
   updateEmployee,
   type EmployeeSummary,
@@ -71,7 +71,7 @@ export function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [sortColumn, setSortColumn] = useState<EmployeeSortColumn>("employee");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
-  const [pendingDeleteEmployee, setPendingDeleteEmployee] = useState<EmployeeSummary | null>(null);
+  const [pendingStatusEmployee, setPendingStatusEmployee] = useState<EmployeeSummary | null>(null);
 
   const resetForm = () => {
     setEditingEmployeeId(null);
@@ -233,14 +233,14 @@ export function Employees() {
     }
   };
 
-  const handleDeleteEmployee = async (employee: EmployeeSummary) => {
+  const handleEmployeeStatusUpdate = async (employee: EmployeeSummary) => {
     setIsSubmitting(true);
     try {
-      await deleteEmployee(employee.id);
+      await updateEmployee(employee.id, { isActive: !employee.isActive });
       await loadEmployees();
     } catch (incomingError) {
       if (!(incomingError instanceof ApiError)) {
-        toast.error("No fue posible eliminar el empleado.");
+        toast.error("No fue posible actualizar el estado del empleado.");
       }
     } finally {
       setIsSubmitting(false);
@@ -451,6 +451,14 @@ export function Employees() {
                                 </Avatar>
                                 <div className="min-w-0">
                                   <p className="truncate font-semibold text-foreground">{employee.name}</p>
+                                  <span className={`mt-1 inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ${
+                                    employee.isActive
+                                      ? "border-success/40 bg-success/10 text-success"
+                                      : "border-destructive/40 bg-destructive/10 text-destructive"
+                                  }`}
+                                  >
+                                    {employee.isActive ? "Activo" : "Inactivo"}
+                                  </span>
                                 </div>
                               </div>
                             </td>
@@ -505,11 +513,11 @@ export function Employees() {
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
-                                    onClick={() => setPendingDeleteEmployee(employee)}
-                                    className="text-destructive focus:text-destructive"
+                                    onClick={() => setPendingStatusEmployee(employee)}
+                                    className={employee.isActive ? "text-destructive focus:text-destructive" : "text-success focus:text-success"}
                                   >
-                                    <Trash2 className="size-4" />
-                                    Eliminar
+                                    {employee.isActive ? <PowerOff className="size-4" /> : <Power className="size-4" />}
+                                    {employee.isActive ? "Desactivar" : "Activar"}
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
@@ -527,7 +535,7 @@ export function Employees() {
                   Mostrando {visibleStart} a {visibleEnd} de {sortedEmployees.length} empleados
                 </p>
                 {totalPages > 1 && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 pr-8">
                     <button
                       type="button"
                       className="app-btn-secondary size-9 p-0"
@@ -671,29 +679,30 @@ export function Employees() {
       </Dialog>
 
       <ConfirmActionDialog
-        open={pendingDeleteEmployee !== null}
+        open={pendingStatusEmployee !== null}
         onOpenChange={(open) => {
           if (!open) {
-            setPendingDeleteEmployee(null);
+            setPendingStatusEmployee(null);
           }
         }}
-        title="Eliminar empleado"
+        title={pendingStatusEmployee?.isActive ? "Desactivar empleado" : "Activar empleado"}
         description={
-          pendingDeleteEmployee
-            ? `Se eliminará a ${pendingDeleteEmployee.name}. Esta acción no se puede deshacer.`
+          pendingStatusEmployee
+            ? pendingStatusEmployee.isActive
+              ? `${pendingStatusEmployee.name} no podrá ingresar ni ser asignado a nuevos proyectos o tareas mientras esté inactivo.`
+              : `${pendingStatusEmployee.name} volverá a estar disponible para ingresar y recibir asignaciones.`
             : ""
         }
-        confirmLabel="Eliminar"
-        variant="destructive"
+        confirmLabel={pendingStatusEmployee?.isActive ? "Desactivar" : "Activar"}
+        variant={pendingStatusEmployee?.isActive ? "destructive" : "default"}
         isProcessing={isSubmitting}
-        confirmDelaySeconds={5}
         onConfirm={() => {
-          if (!pendingDeleteEmployee) {
+          if (!pendingStatusEmployee) {
             return;
           }
-          const employeeToDelete = pendingDeleteEmployee;
-          setPendingDeleteEmployee(null);
-          void handleDeleteEmployee(employeeToDelete);
+          const employeeToUpdate = pendingStatusEmployee;
+          setPendingStatusEmployee(null);
+          void handleEmployeeStatusUpdate(employeeToUpdate);
         }}
       />
     </div>

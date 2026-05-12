@@ -135,7 +135,13 @@ export function Profile() {
                 </label>
                 <input
                   type="text"
-                  value={profile?.role === "admin" ? "Administrador" : "Empleado"}
+                  value={
+                    profile?.role === "admin"
+                      ? "Administrador"
+                      : profile?.role === "leader"
+                        ? "Lider"
+                        : "Empleado"
+                  }
                   disabled
                   className="app-control bg-muted text-muted-foreground"
                 />
