@@ -169,6 +169,24 @@ const toStatusLabel = (status: TaskWorkflowStatus): TaskStatusLabel => {
   return "Asignada";
 };
 
+const matchesTaskStatusFilter = (task: TaskSummary, filter: TaskStatusFilter) => {
+  const normalizedStatus = task.status.trim().toLowerCase();
+
+  if (filter === "all") {
+    return normalizedStatus !== "terminada";
+  }
+
+  if (filter === "done") {
+    return normalizedStatus === "terminada";
+  }
+
+  if (filter === "assigned") {
+    return normalizedStatus === "asignada";
+  }
+
+  return normalizedStatus === "en proceso";
+};
+
 const WORKFLOW_TRANSITIONS: Record<TaskWorkflowStatus, TaskWorkflowStatus[]> = {
   assigned: ["in_progress", "done"],
   in_progress: ["done"],
@@ -188,7 +206,7 @@ export function StandaloneTasks() {
     value: TaskStatusFilter;
     label: string;
   }> = [
-    { value: "all", label: "Todas" },
+    { value: "all", label: "Activas" },
     { value: "assigned", label: "Asignadas" },
     { value: "in_progress", label: "En proceso" },
     { value: "done", label: "Terminadas" },
@@ -756,6 +774,9 @@ export function StandaloneTasks() {
   const filteredTasks = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     return tasks.filter((task) => {
+      const matchesStatus = matchesTaskStatusFilter(task, statusFilter);
+      if (!matchesStatus) return false;
+
       const priorityName = task.priority.trim().toLowerCase();
       const passesPriority = priorityFilter === "all"
         || (priorityFilter === "high" && priorityName === "alta")
@@ -1027,7 +1048,7 @@ export function StandaloneTasks() {
                   className="app-btn-secondary h-9 px-3.5"
                 >
                   <ListFilter className="size-4 text-muted-foreground" />
-                  Estado: {filterOptions.find((option) => option.value === statusFilter)?.label ?? "Todas"}
+                  Estado: {filterOptions.find((option) => option.value === statusFilter)?.label ?? "Activas"}
                   <ChevronDown className="size-4 text-muted-foreground" />
                 </button>
               </DropdownMenuTrigger>
